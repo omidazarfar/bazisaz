@@ -187,15 +187,110 @@ look:
 
 ## Next steps (agreed or likely)
 
-1. The owner will test on their phone and report problems. Fix what they find.
-2. **AI helper** (phase 6) once the owner decides on hosting. Ask before
-   starting; it needs a server and an API key.
-3. Ideas not yet asked for, so offer them before doing them:
-   - Use a thing from the bag *on* something, e.g. drag the key onto the door.
-   - Sound design pass.
-   - More parts: shop, dialogue box, health bar with hearts.
-   - Onboarding polish.
-4. "What is not yet possible" is listed at the end of `GUIDE-fa.md`, §۱۳.
+### THE CURRENT PLAN: "complex games" roadmap (agreed by the owner 2026-11-19)
+
+The owner said: "now it is just making simple games … making more complex
+games is the priority". They also chose these earlier ideas:
+- art packs
+- a genre helper
+- templates of objects (prefab instances)
+- more sound
+- level tools
+
+Do the phases **in this order, one at a time**. For each phase:
+1. Implement it in the format, the runtime, `validate.ts`, the editor
+   (`labels.ts` and the panels), the sentences and the guide.
+2. Add a lab test in `scripts/smoke.mjs` and editor checks in
+   `scripts/editor.smoke.mjs`.
+3. Photograph it (`scripts/look/`), build, test.
+4. Commit and push.
+5. Tick it off here.
+
+The specs below are proposals; improve them if you find a better shape, and
+say so in the log.
+
+**Phase A: levels that feel like real games** (level tools, #10)
+- [ ] **Checkpoints and respawning.**
+  - New action `respawn { target }`: puts an object back at its last
+    checkpoint, or its start, with its speed zeroed.
+  - New behavior or role "checkpoint": a flag (sprite `flag`) that stores the
+    position of the player who touches it, per entity. Runtime: `Entity.home`
+    is updated.
+  - A part "checkpoints": danger → lose a heart → respawn, instead of
+    restarting the scene.
+- [ ] **Doors between scenes with an arrival point.**
+  - `goToScene` gets an optional `arriveAt: tag`. In the new scene, objects
+    tagged as players are moved to the first object with that tag.
+  - Makes multi-room worlds (houses, dungeons) possible.
+- [ ] **Saving progress.** An action `saveGame` / trigger at start: remember
+  the scene, plus every variable marked saved. A "Continue" button on the
+  start screen part.
+- [ ] **Autotile for tile maps.** Already partly there: `tiles.ts` knows which
+  sides are open. Make sure corners and edges look right for every style, and
+  that slopes join smoothly.
+- [ ] **Camera zones and limits.** A "camera stops at" behavior: the camera
+  stays inside an object's box. Useful for rooms and arenas.
+
+**Phase B: combat and smarter enemies** (complex games)
+- [ ] **Hurt properly.**
+  - A short invincibility after a hit (`invincible` seconds on health
+    objects; blink while it lasts).
+  - Knockback (push away from what hit it).
+  - A health bar that follows an object: `bar` visual + `attach`, or a
+    built-in option on health objects.
+- [ ] **Enemy brain role presets** (in `presets.ts`), built from the existing
+  patrol, chase, near, eachEvery, spawn and launch blocks:
+  - walker that turns at edges
+  - shooter that fires every N seconds toward the player
+  - jumper
+  - boss with phases, using a value `phase` and value triggers
+- [ ] **Melee attack:** a button or tap that briefly creates a hitbox prefab
+  in front of the player (spawn + lifetime + facing). Needs `spawn` to respect
+  facing; check `Entity.facing`.
+- [ ] **Projectiles aimed at the player.** `launch.toward: 'group'` exists;
+  give it a part.
+
+**Phase C: templates (prefab instances), #8**
+- [ ] `GameObject.template?: string`: the id of a prefab this placed object
+  copies. The editor offers "make this a template" and "place another".
+  Editing the template (its behaviors, look, tags) updates every copy;
+  position and size stay per copy. Resolve in the editor state (`state.ts`)
+  when the template changes, so the runtime needs no change. Show copies
+  with a small badge in the object list.
+
+**Phase D: logic for bigger games**
+- [ ] **Text variables** (names, quest steps) or **lists of numbers**.
+  Start with a value that can hold a short text, shown with `{name}`.
+- [ ] **Object states.** A value `state` plus behaviors that are on only in
+  some states (`Behavior.onlyIn?: number[]`). For example, an enemy has
+  patrol in state 0 and chase in state 1. This one is very powerful and cheap
+  in the runtime: skip behaviors whose `onlyIn` does not contain the value.
+- [ ] **Timers per object** exist (`eachEvery`). Add an "after N seconds,
+  once, for this object" trigger.
+
+**Phase E: content: art packs (#6), sound (#9), genre helper (#7)**
+- [ ] **Character sets** in `art.ts`: idle, run (2 frames), jump and hurt for
+  hero, robot, cat and a knight. Themed packs: dungeon (stone, torches,
+  skeleton, chest), space (ship, asteroid, alien), forest (mushroom, log,
+  fox). Same glossy style: use the `draw(k => …)` kit.
+- [ ] **Sound:** a ▶ preview button next to every sound pick list (editor
+  `Fields.tsx`, kind `sound`). Volume per sound action. Three more built-in
+  music pieces (`music.ts`).
+- [ ] **Genre helper** (not a template game; it adds parts to the user's own
+  scene):
+  - "What are you making?" offers platformer, top-down adventure, shooter,
+    puzzle, physics.
+  - The answer adds the matching player role, controls, camera, hearts,
+    score and a level part, and explains each.
+  - Lives in `Library.tsx` as a first tab or in the welcome.
+
+### Also open
+- The owner will test on their phone and report problems. Fix what they find
+  first, before the roadmap.
+- **AI helper** once the owner decides on hosting. Ask before starting; it
+  needs a server and an API key.
+- "What is not yet possible" is listed at the end of `GUIDE-fa.md`, §۱۳.
+  Update it as phases land.
 
 ## Gotchas and lessons
 
