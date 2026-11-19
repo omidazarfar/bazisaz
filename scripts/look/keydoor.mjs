@@ -1,0 +1,57 @@
+// Plays the key-and-door part: a player walks into the key (it flies into the bag), then to the door.
+import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+// Pictures go to scripts/look/out/. Run `npm run build` first.
+const out = fileURLToPath(new URL('./out/', import.meta.url)).replace(/\\/g, '/');
+mkdirSync(out, { recursive: true });
+const EDITOR = new URL('../../dist-editor/editor.html', import.meta.url).href;
+const PLAYER = new URL('../../dist/index.html', import.meta.url).href;
+import { launch, openPage, sleep } from '../lib.mjs';
+const browser = await launch();
+const { page, errors } = await openPage(browser, EDITOR, { viewport: { width: 1500, height: 950 } });
+const click = (text) => page.evaluate((t) => [...document.querySelectorAll('button')].find((b) => b.textContent.includes(t)).click(), text);
+await page.evaluate(() => new Promise((done) => { const r = indexedDB.deleteDatabase('editor'); r.onsuccess = r.onerror = r.onblocked = done; }));
+await page.reload();
+await page.waitForFunction(() => window.__game && window.__editor, { timeout: 20000 });
+await sleep(400);
+const open = async (tab) => {
+  await page.click('button[data-library="objects"]');
+  await page.waitForSelector('.modal');
+  await page.click(`.modal [data-library-tab="${tab}"]`);
+};
+await open('parts');
+await page.click('.modal button[data-block="key-door"]');
+await page.waitForFunction(() => !document.querySelector('.modal'));
+await open('roles');
+await page.click('.modal button[data-block="jump-player"]');
+await page.waitForFunction(() => !document.querySelector('.modal'));
+await sleep(500);
+await page.screenshot({ path: `${out}kd-edit.png` });
+console.log('problems:', await page.$$eval('.problem, .chip-warn', (els) => els.map((e) => e.textContent)));
+await click('امتحان کن');
+await page.waitForFunction(() => window.__game.getState().mode === 'play' && window.__game.getState().time > 1);
+const find = (tag) => page.evaluate((tag) => { const e = window.__game.entities.find((x) => x.alive && x.def.tags.includes(tag)); return e && { x: e.x, y: e.y, w: e.width, h: e.height }; }, tag);
+const key = await find('کلید');
+const door = await find('در قفل');
+// Walk the player into the door first, without the key.
+const put = (x) => page.evaluate((x) => { const p = window.__game.entities.find((e) => e.def.tags.includes('بازیکن')); p.x = x; p.prevX = x; }, x);
+await put(door.x - 110);
+await sleep(400);
+console.log('at door without key:', JSON.stringify((await page.evaluate(() => window.__game.getState())).bag), 'door still there:', Boolean(await find('در قفل')));
+await page.screenshot({ path: `${out}kd-locked.png` });
+await put(door.x - 400);
+await sleep(300);
+await put(key.x);
+await sleep(250);
+await page.screenshot({ path: `${out}kd-flying.png` });
+const s1 = await page.evaluate(() => window.__game.getState());
+console.log('after key:', JSON.stringify(s1.bag), 'Key', s1.variables.Key, 'flights', s1.flights);
+await sleep(700);
+await page.screenshot({ path: `${out}kd-in-bag.png` });
+await put(door.x - 110);
+await sleep(900);
+const s2 = await page.evaluate(() => window.__game.getState());
+console.log('after door:', JSON.stringify(s2.bag), 'Key', s2.variables.Key, 'door still there:', Boolean(await find('در قفل')));
+await page.screenshot({ path: `${out}kd-open.png` });
+console.log(errors);
+await browser.close();

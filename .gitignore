@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-editor
+test-output
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+*.keystore
+*.jks
+exports
+keys
+server/default-res
+scripts/look/out/

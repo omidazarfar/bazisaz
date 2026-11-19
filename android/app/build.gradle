@@ -1,0 +1,77 @@
+apply plugin: 'com.android.application'
+
+// Each exported game sets these from the command line (see server/index.mjs).
+// Without them the project still builds, as the sample app with test ads.
+def prop = { String name, String fallback -> project.hasProperty(name) ? project.property(name).toString() : fallback }
+def signed = project.hasProperty('keystoreFile')
+
+android {
+    namespace = "app.gameengine.runner"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId prop('appId', 'app.gameengine.runner')
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode prop('versionCode', '1').toInteger()
+        versionName prop('versionName', '1.0')
+        manifestPlaceholders = [
+            // Google's public sample AdMob app id; the ads SDK refuses to start without a well-formed id.
+            admobAppId       : prop('admobAppId', 'ca-app-pub-3940256099942544~3347511713'),
+            screenOrientation: prop('orientation', 'portrait'),
+        ]
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (signed) {
+                storeFile file(project.property('keystoreFile'))
+                storePassword project.property('keystorePassword')
+                keyAlias project.property('keyAlias')
+                keyPassword project.property('keystorePassword')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signed) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

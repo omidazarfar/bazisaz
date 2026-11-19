@@ -1,0 +1,44 @@
+{
+  "name": "engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build && vite build --mode editor",
+    "test": "node scripts/smoke.mjs && node scripts/editor.smoke.mjs && node scripts/server.smoke.mjs",
+    "android:sync": "npm run build:player && cap sync android",
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "build:player": "tsc --noEmit && vite build",
+    "start": "npm run build && cap sync android && node server/index.mjs",
+    "server": "node server/index.mjs",
+    "prebuild": "node scripts/clean-stale.mjs"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "^8.3.0",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@fontsource/bangers": "^5.3.0",
+    "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/lalezar": "^5.3.0",
+    "@fontsource/press-start-2p": "^5.3.0",
+    "pixi-filters": "^6.1.5",
+    "pixi.js": "^8.23.0",
+    "planck": "^1.5.1",
+    "qrcode-generator": "^1.4.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vazirmatn": "^33.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "puppeteer-core": "^25.17.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4"
+  }
+}

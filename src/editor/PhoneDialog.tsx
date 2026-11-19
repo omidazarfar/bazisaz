@@ -1,0 +1,81 @@
+import qrcode from 'qrcode-generator';
+import { useEffect, useState } from 'react';
+import type { GameProject } from '../format/types';
+import { Dialog } from './Pick';
+
+export type PhoneLink = 'checking' | 'offline' | { urls: string[] } | { error: string };
+
+/** Sends the game to the local server, which shows it to phones on the same Wi-Fi. */
+export async function sendToPhone(project: GameProject): Promise<PhoneLink> {
+  if (location.protocol === 'file:') return 'offline';
+  try {
+    const response = await fetch('/api/phone', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project }) });
+    const body = (await response.json()) as { urls?: string[]; error?: string };
+    if (!response.ok) return { error: body.error ?? 'ارسال به گوشی نشد.' };
+    return { urls: body.urls ?? [] };
+  } catch {
+    return 'offline';
+  }
+}
+
+export async function stopPhone(): Promise<void> {
+  await fetch('/api/phone/stop', { method: 'POST' }).catch(() => undefined);
+}
+
+/** A QR code as an SVG picture, for the phone's camera. */
+function Qr({ text }: { text: string }) {
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  return <div className="qr" role="img" aria-label="کد QR نشانی بازی" dangerouslySetInnerHTML={{ __html: qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true }) }} />;
+}
+
+/**
+ * Trying the game on a real phone: the computer shows it to phones on the
+ * same Wi-Fi, and the phone's camera opens it from a QR code. While this is
+ * on, every change in the editor reaches the phone a moment later.
+ */
+export function PhoneDialog({ link, onClose, onStop }: { link: PhoneLink; onClose: () => void; onStop: () => void }) {
+  const [which, setWhich] = useState(0);
+  const urls = typeof link === 'object' && 'urls' in link ? link.urls : [];
+  useEffect(() => setWhich(0), [urls.length]);
+
+  return (
+    <Dialog title="امتحان روی گوشی" about="بازی را روی گوشی خودت بازی کن، بدون ساختن فایل نصب." onClose={onClose}>
+      <div className="phone-dialog">
+        {link === 'checking' && <p>در حال آماده کردن…</p>}
+        {link === 'offline' && (
+          <p className="field-warning">
+            این کار فقط وقتی ممکن است که برنامه را با دستور <bdi dir="ltr">npm start</bdi> اجرا کرده باشی و ویرایشگر را از آدرس{' '}
+            <bdi dir="ltr">http://localhost:5180</bdi> باز کرده باشی.
+          </p>
+        )}
+        {typeof link === 'object' && 'error' in link && <p className="field-error">{link.error}</p>}
+        {typeof link === 'object' && 'urls' in link && urls.length === 0 && (
+          <p className="field-warning">این کامپیوتر به هیچ شبکه‌ای وصل نیست. به همان وای‌فای گوشی وصلش کن و دوباره امتحان کن.</p>
+        )}
+        {urls.length > 0 && (
+          <>
+            <Qr text={urls[which]} />
+            <p className="phone-url"><bdi dir="ltr">{urls[which]}</bdi></p>
+            <ol className="phone-steps">
+              <li>گوشی و این کامپیوتر باید به <strong>یک وای‌فای</strong> وصل باشند.</li>
+              <li>دوربین گوشی را روی این مربع بگیر و لینکی را که نشان می‌دهد باز کن. (یا همین نشانی را در مرورگر گوشی بنویس.)</li>
+              <li>اگر ویندوز پرسید که Node.js به شبکه دسترسی داشته باشد، «Allow access» را بزن.</li>
+              <li>هر تغییری که در ویرایشگر بدهی، یکی دو ثانیه بعد روی گوشی هم می‌آید و بازی از اول شروع می‌شود.</li>
+            </ol>
+            {urls.length > 1 && (
+              <p className="control-hint">
+                گوشی باز نکرد؟ این کامپیوتر چند شبکه دارد.{' '}
+                <button type="button" className="link" onClick={() => setWhich((which + 1) % urls.length)}>نشانی دیگر را امتحان کن</button>
+              </p>
+            )}
+            <div className="adders">
+              <button type="button" className="chip" onClick={onStop}>قطع فرستادن به گوشی</button>
+            </div>
+          </>
+        )}
+      </div>
+    </Dialog>
+  );
+}

@@ -1,0 +1,50 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #101418;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game canvas {
+  display: block;
+}
+
+.load-error {
+  color: #fff;
+  font: 16px/1.8 Vazirmatn, sans-serif;
+  padding: 24px;
+  white-space: pre-wrap;
+}
+
+.watermark {
+  position: fixed;
+  inset-inline-start: 12px;
+  bottom: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font: 13px/1.6 Fredoka, sans-serif;
+  pointer-events: none;
+  animation: watermark-out 0.6s ease 4.2s forwards;
+}
+
+@keyframes watermark-out {
+  to {
+    opacity: 0;
+  }
+}

@@ -1,0 +1,218 @@
+# HANDOFF — shared notes between Claude Code and Codex
+
+The owner switches between two AI agents (Claude Code and OpenAI Codex) on this
+project when one runs out of tokens. This file is how each one knows what the
+other did. **It is the single source of truth for "where are we".**
+
+## The protocol (both agents, every session)
+
+1. **At the start:** read this whole file, then `CLAUDE.md` (owner's rules),
+   then the section "Where the project stands" in `README.md`.
+2. **While working:** follow the rules below; build and test before calling
+   anything done.
+3. **At the end of every session, or when the owner says they are switching:**
+   - Update "Current state" and "Next steps" below.
+   - Add a dated entry at the **top** of "Session log": who you are (Claude or
+     Codex), what was asked, what you changed (files), test results, anything
+     left half-done or unverified.
+   - Keep the entry short and factual. Do not rewrite other agents' entries.
+4. If you find something in here that is wrong, fix it and say so in your log
+   entry.
+
+There is **no git** on this machine (the `git` command is not installed), so
+there is no history to fall back on. Before a large rewrite of a file, copy it
+to `<name>.bak` next to it or into a temp folder, and delete the copy once
+build and tests pass.
+
+---
+
+## The owner and how to talk to them
+
+- The owner is a **founder, not a programmer**. Explain simply, step by step,
+  with examples. Tell them how to see a change (which button, which part).
+- **Reply in Finglish** (Persian written in Latin letters). Persian script
+  renders badly in their terminal. File contents (the guide, the editor's own
+  texts) stay in real Persian script.
+- **Do not use pop-up question dialogs / multi-choice tools.** If you must ask,
+  ask in plain text with numbered options, and give your recommendation.
+- They like to be given a short plan, then have the agent just do it end to end.
+  They test hands-on in the editor and judge mostly by **how it looks and
+  feels**, so check visually (see "Seeing your work" below) before reporting.
+- They will test on a real phone themselves later; nothing has been tried on a
+  phone yet.
+
+## Rules from CLAUDE.md (apply to Codex too)
+
+- Games are in **English**; the editor is in **Persian** (right to left).
+- **No templates or starter games.** Ready-made *roles* and *parts* (pieces a
+  user adds to their own game) are fine and wanted.
+- Ads accounts, user sign-up and hosting are **set aside** for now.
+- Keep **`GUIDE-fa.md`** (the user guide, Persian) in step with every change a
+  user would notice. Keep `README.md` "Where the project stands" up to date.
+- Before saying something is done: **`npm run build`, then `npm test`**. Tests
+  need Chrome (set `CHROME_PATH` if it is not in the usual place).
+
+---
+
+## What the product is
+
+**Bazisaz (بازی‌ساز)**: a no-code 2D game maker.
+
+- A Persian browser **editor** (React 19), where users build games from
+  objects, ready-made behaviors, and rules ("when X happens, do Y").
+- A **runtime** (PixiJS v8) that plays a game made of plain JSON data.
+- A local **server** (`server/index.mjs`) that serves the editor and exports
+  Android APK/AAB through Capacitor. It can also show the game on a phone on
+  the same Wi-Fi.
+
+### Commands (run in `C:\project\engine-week1\engine`)
+
+| Command | What it does |
+|---|---|
+| `npm start` | build + Capacitor sync + start the server. The editor is at **http://localhost:5180**, the phone server is on port 5181 |
+| `npm run build` | type-check, then build the player (`dist/`) and the editor (`dist-editor/editor.html`), each a single file |
+| `npm test` | `scripts/smoke.mjs` (runtime labs 1–17), then `scripts/editor.smoke.mjs` (drives the real editor), then `scripts/server.smoke.mjs`; uses puppeteer-core and Chrome |
+| `npx tsc --noEmit -p .` | type-check only |
+
+Shell is **Windows PowerShell 5.1**: no `&&`. `Set-Content` writes ANSI and
+corrupts Persian, so write files with an editor tool, or with
+`[System.IO.File]::WriteAllText(path, text, (New-Object System.Text.UTF8Encoding $false))`.
+
+### Where things are
+
+| Path | What |
+|---|---|
+| `src/format/types.ts` | The game data format (version 2). Every behavior, trigger, action and visual, with comments. Start here |
+| `src/format/validate.ts` | Checks a project before it runs (missing variables, items, images…) |
+| `src/runtime/Game.ts` | The engine: scenes, rules, behaviors, drawing, input, edit mode for the editor (~4000 lines) |
+| `src/runtime/physics.ts` | Real physics on planck.js (Box2D): slings, joints, fields, conveyors… |
+| `src/runtime/sky.ts`, `tiles.ts`, `particles.ts`, `music.ts`, `bag.ts` | Painted backdrops, tile materials, particles, built-in music, the player's bag |
+| `src/editor/` | The editor (React). `App.tsx` layout; `Inspector.tsx` object panel; `Rules.tsx` rules; `GamePanel.tsx` game settings; `Library.tsx` the "add" window; `labels.ts` **every block's Persian name and fields** (add a block here and the panels draw it); `Fields.tsx` field widgets; `sentences.ts` rules as Persian sentences; `state.ts` project helpers |
+| `src/editor/art.ts` | **All 81 library pictures**, drawn as SVG in a glossy mobile-game style with a small gradient and glow kit. `sprites.ts` turns one into a PNG asset (key `art-<id>`) |
+| `src/editor/recipes.ts` | The 25 ready-made **parts**, such as sling-and-tower, car, bridge, key-and-door, pause menu, levels |
+| `src/editor/presets.ts` | The ready-made **roles**, such as jump-player, ground, prize, danger |
+| `src/editor/editor.css` | The editor's look: a dark "studio at night" theme |
+| `scripts/` | Tests (`smoke.mjs`, `editor.smoke.mjs`, `server.smoke.mjs`, shared `lib.mjs`) |
+| `scripts/look/` | Scripts that photograph things so you can **see** them (below) |
+| `GUIDE-fa.md` | User guide (Persian). `README.md`: technical notes and "Where the project stands" |
+
+### Seeing your work (important for this owner)
+
+After `npm run build`, these write PNGs to `scripts/look/out/`. Open them and
+look:
+
+- `node scripts/look/sheet.mjs`: every library picture, large, on light and dark.
+- `node scripts/look/parts.mjs [id,id]`: each ready-made part in a fresh game, played. For example `parts.mjs sling-tower,car`.
+- `node scripts/look/editorlook.mjs`: the editor in its main states (library, parts, object, rules, game tab, playing).
+- `node scripts/look/keydoor.mjs`: plays the key-and-door part and the bag.
+- `node scripts/look/looks.mjs day,night`: the painted backdrops.
+- `node scripts/look/pool.mjs pool` (or `car`): traces positions on the game clock.
+- `node scripts/look/tower.mjs`: throws the sling stone three times.
+
+---
+
+## What has been done (oldest first)
+
+1. **Base engine and editor** (before Nov 18): scenes, objects, 26 behaviors,
+   rules, variables, tile maps, Android export, Persian guide, tutorial.
+2. **"Next level" roadmap**, agreed on 2026-11-18:
+   1. **Real physics** (planck.js). Expanded after the owner found sling
+      bugs: the stone reloads in the sling, conveyors, one-way platforms,
+      water, wind and magnet fields, wheel and slider joints, breakable joints,
+      cutting, rolling resistance, physics triggers and actions. Done.
+   2. **Debugging tools**: live values, frame by frame, which rule fired, and
+      trying the game on a phone by QR code. Done.
+   3. **Stronger logic**: messages, "otherwise", next scene, level select.
+      Done.
+   4. **Content tools**: pixel painter, sprite-sheet cutter, particles,
+      built-in music. Done.
+   5. **Visual polish**: lights and darkness, looks, vignette, easing, pause
+      menu, button press. Done.
+   6. **AI helper** (describe a game, get a first version). **Not started**;
+      it waits on the owner's hosting decision.
+3. **Game graphics pass** (2026-11-19): 10 painted parallax backdrops, tile
+   materials, shading, shadow and glow, bloom, squash and stretch.
+4. **Premium art** (2026-11-19): every library picture was redrawn in
+   `art.ts`. The parts were rebuilt from pictures instead of plain shapes
+   (slingshot, rock, car body and tyres, planks, pegs, belt, water, basket,
+   menu panel, level buttons). Score, best and timer badges were added. Menu
+   scenes got skies and golden titles. Rope, spring and sling bands are drawn
+   as real materials.
+5. **The bag / inventory** (2026-11-19):
+   - A variable with `item: { asset }` is a thing the player carries.
+   - Visual `bag` (`src/runtime/bag.ts`).
+   - Actions `give` (the picture flies into the bag) and `take`.
+   - Trigger `useItem` (the player taps a thing in the bag).
+   - Editor: section "کوله‌پشتی" in the Game tab, a bag in the library, and
+     the part "key-door". Tested in lab 17 and the editor suite.
+6. **Editor restyle** (2026-11-19): dark indigo theme, glassy panels, chunky
+   glossy main buttons, gold selection, phone on a lit stage, picture icons on
+   the cards of parts and roles.
+
+## Current state (keep this up to date)
+
+- Last updated: **2026-11-19 by Claude**.
+- `npm run build` exits 0. `npm test` gives **442 PASS, 0 FAIL**, all three
+  suites.
+- Nothing has been tested on a real phone. Bloom, shadows and glows may be
+  slow on weak phones.
+- A few editor tests used to be timing-sensitive on a busy computer. The car
+  and noughts-and-crosses tests now wait on the game clock. If a test fails
+  once and passes on a re-run, make it wait on
+  `window.__game.getState().time` instead of wall time.
+
+## Next steps (agreed or likely)
+
+1. The owner will test on their phone and report problems. Fix what they find.
+2. **AI helper** (phase 6) once the owner decides on hosting. Ask before
+   starting; it needs a server and an API key.
+3. Ideas not yet asked for, so offer them before doing them:
+   - Use a thing from the bag *on* something, e.g. drag the key onto the door.
+   - Sound design pass.
+   - More parts: shop, dialogue box, health bar with hearts.
+   - Onboarding polish.
+4. "What is not yet possible" is listed at the end of `GUIDE-fa.md`, §۱۳.
+
+## Gotchas and lessons
+
+- **Never put `backdrop-filter` (or `filter`/`transform`) on the editor
+  panels.** It makes the panel the containing block for `position: fixed`, and
+  the library dialog gets trapped inside the side panel.
+- In tests, **wait on the game's clock** (`untilTime`, `until(... time ...)`),
+  never on `sleep()`. Headless Chrome runs slower than real time.
+- Physics events are kept until rules have run, then cleared in
+  `Physics.endStep()`.
+- Fixed (screen-stuck) objects use screen coordinates, not world coordinates.
+- A new library picture: add it to `ART_SPRITES` in `art.ts`, with a unique
+  `id`. Existing projects keep the PNGs already stored in their assets.
+- A new block (trigger or action):
+  1. Add it to `types.ts`.
+  2. Implement it in `Game.ts` (`fired` for triggers, `perform` for actions).
+  3. Check it in `validate.ts`.
+  4. Add it to `TRIGGERS`/`ACTIONS` and a group in `labels.ts`.
+  5. Write its sentence in `sentences.ts`.
+  6. Update `isVariableUsed` in `state.ts` if it names a variable.
+  7. Update the GUIDE block list and counts (§۵).
+  8. Add a lab test.
+- After any visual change, photograph it (scripts/look) and look before
+  reporting.
+
+---
+
+## Session log (newest first)
+
+### 2026-11-19 — Claude
+- Asked: make all graphics "premium, attractive, gaming"; then the bag
+  (inventory) and the editor's look; then this handoff file.
+- Changed:
+  - `src/editor/art.ts` (new: all pictures), `sprites.ts`, `recipes.ts`,
+    `Library.tsx`, `GamePanel.tsx`, `Inspector.tsx`, `Fields.tsx`,
+    `labels.ts`, `sentences.ts`, `state.ts`, `ObjectList.tsx`, `editor.css`
+    (rewritten)
+  - `src/runtime/bag.ts` (new), `Game.ts` (bag; rope and sling drawing),
+    `src/format/types.ts`, `validate.ts`
+  - Tests: lab 17, the editor suite's bag checks, two timing fixes
+  - `GUIDE-fa.md`, `README.md`
+  - Added `scripts/look/`, `HANDOFF.md`, `AGENTS.md`
+- Tests: 442 PASS, 0 FAIL.
+- Left open: phone testing (owner), AI helper (hosting).
