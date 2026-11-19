@@ -40,6 +40,7 @@ export function subjectsOf(scene: Scene, when: Trigger): Subjects {
   if (when.type === 'snap') return { first: 'همان که اتصالش پاره شد', second: 'همان که به آن وصل بود' };
   if (when.type === 'message') return { first: 'همان «اولی» در قانونی که پیام را فرستاد', second: 'همان «دومی» در قانونی که پیام را فرستاد' };
   if (when.type === 'useItem') return { first: 'کوله‌پشتی' };
+  if (when.type === 'useItemOn') return { first: `همان که وسیله رویش کشیده شد (${describeRef(scene, when.target)})` };
   if (when.type === 'hit') return { first: `همان اولی (${describeRef(scene, when.a)})`, second: `همان که به آن خورد (${describeRef(scene, when.b)})` };
   return {};
 }
@@ -73,6 +74,7 @@ export function triggerSentence(scene: Scene, w: Trigger): string {
     case 'snap': return `وقتی اتصال ${describeRef(scene, w.target)} پاره می‌شود`;
     case 'hit': return `وقتی ${describeRef(scene, w.a)} محکم به ${describeRef(scene, w.b)} می‌خورد (دست‌کم ${fa(w.speed)} پیکسل در ثانیه)`;
     case 'useItem': return `وقتی بازیکن ${w.item || '؟'} را در کوله‌پشتی لمس می‌کند`;
+    case 'useItemOn': return `وقتی بازیکن ${w.item || '؟'} را از کوله‌پشتی روی ${describeRef(scene, w.target)} می‌کشد`;
   }
 }
 

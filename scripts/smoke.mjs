@@ -1562,6 +1562,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
       { name: 'Gem', initial: 2, saved: false, item: { asset: 'g' } },
       { name: 'Potion', initial: 0, saved: false, item: { asset: 'p' } },
       { name: 'used', initial: 0, saved: false },
+      { name: 'opened', initial: 0, saved: false },
     ],
     startScene: 's',
     scenes: [{
@@ -1579,6 +1580,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         ] },
         { id: 'r-take', when: { type: 'after', seconds: 1.5 }, condition: null, then: [{ type: 'take', item: 'Gem', amount: 5 }] },
         { id: 'r-use', when: { type: 'useItem', item: 'Potion' }, condition: null, then: [{ type: 'setVariable', name: 'used', op: 'add', amount: 1 }, { type: 'take', item: 'Potion', amount: 1 }] },
+        { id: 'r-on', when: { type: 'useItemOn', item: 'Key', target: { by: 'id', id: 'chest' } }, condition: null, then: [{ type: 'setVariable', name: 'opened', op: 'set', amount: 1 }, { type: 'take', item: 'Key', amount: 1 }] },
       ],
     }],
   };
@@ -1603,6 +1605,19 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await clickGame(page, 160, 1150);
   await sleep(300);
   check('bag: tapping another thing does not use this one', (await gameState(page)).variables.used === 1);
+  // The key is in the first place (x 160). The thing is held a little above the finger, so let go a little below the target.
+  const dragKey = async (x, y) => {
+    await page.mouse.move(...(await toPage(page, 160, 1150)));
+    await page.mouse.down();
+    await page.mouse.move(...(await toPage(page, x, y)), { steps: 8 });
+    await page.mouse.up();
+  };
+  await dragKey(600, 700);
+  s = await gameState(page);
+  check('bag: a thing dragged out and let go over nothing flies back, still carried', s.flights === 1 && s.variables.Key === 1 && s.variables.opened === 0, JSON.stringify({ f: s.flights, v: s.variables }));
+  await untilTime(page, s.time + 0.8);
+  await dragKey(350, 480);
+  check('bag: dragged onto the object a rule waits for, it is used on it', await until(page, () => window.__game.getState().variables.opened === 1, null, 5000) && (await gameState(page)).variables.Key === 0 && !(await gameState(page)).bag.includes('Key'));
   check('lab 17: no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
 }

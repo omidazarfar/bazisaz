@@ -529,6 +529,9 @@ export class Game {
   private readonly bagIcons = new WeakMap<Entity, Map<string, Container>>();
   private readonly bagPops = new Map<string, number>();
   private flights: { view: Sprite; item: string; from: Point; to: Point; fromSize: number; toSize: number; t: number; hides: boolean }[] = [];
+  /** A thing being dragged out of the bag by a finger, and things let go of since the last step, with where. */
+  private bagDrag: { pointer: number; item: string; view: Sprite; start: Point; slot: Point; size: number } | null = null;
+  private drops: { item: string; at: Point }[] = [];
 
   // Input since the last frame, and what is being held right now. All in screen coordinates.
   private readonly pointers = new Map<number, Pointer>();
@@ -1118,6 +1121,7 @@ export class Game {
     // Burst pieces, and things flying into the bag, were children of the layers and went with them.
     this.particles = [];
     this.flights = [];
+    this.bagDrag = null;
     this.tweens = [];
     this.died = [];
     this.rewards = 0;
@@ -1135,6 +1139,7 @@ export class Game {
     this.outbox = [];
     this.inbox = [];
     this.taps = [];
+    this.drops = [];
     this.swipes = [];
     this.keyTap = false;
     this.pointers.clear();
@@ -1993,6 +1998,7 @@ export class Game {
     }
 
     this.taps = [];
+    this.drops = [];
     this.swipes = [];
     this.keyTap = false;
     this.started = true;
@@ -2016,6 +2022,7 @@ export class Game {
       this.syncView(e);
     }
     this.taps = [];
+    this.drops = [];
     this.swipes = [];
     this.keyTap = false;
     this.changeScene();
@@ -2369,6 +2376,15 @@ export class Game {
       }
       case 'swipe':
         return this.swipes.includes(w.direction) ? [{}] : [];
+      case 'useItemOn': {
+        const hits: Context[] = [];
+        for (const drop of this.drops) {
+          if (drop.item !== w.item) continue;
+          const on = this.droppedOn(drop.at, w.target);
+          if (on) hits.push({ first: on });
+        }
+        return hits;
+      }
       case 'useItem': {
         if (this.time <= TAP_GRACE) return [];
         const used: Context[] = [];
@@ -3240,6 +3256,55 @@ export class Game {
     this.stepBag(0);
   }
 
+  /** The object of a group a thing was let go over, if any: the one drawn on top. */
+  private droppedOn(at: Point, target: Ref): Entity | undefined {
+    return this.matching(target).reverse().find((e) => e.visible && e.def.visual.kind !== 'bag' && contains(this.boxOf(e), this.inSpaceOf(e, at)));
+  }
+
+  /** Picks a thing up out of the bag under a finger, if a rule wants it dragged onto something. */
+  private startBagDrag(pointer: number, screen: Point): boolean {
+    const hit = this.bagHit(screen);
+    if (!hit || hit.bag.def.visual.kind !== 'bag') return false;
+    const item = hit.item;
+    if (!this.scene.rules.some((r) => r.when.type === 'useItemOn' && r.when.item === item)) return false;
+    const asset = this.project.variables.find((v) => v.name === item)?.item?.asset;
+    const texture = asset ? this.textures.get(asset)?.texture : undefined;
+    if (!texture) return false;
+    const slots = bagSlots(hit.bag.def.width, hit.bag.def.height, hit.bag.def.visual.slots);
+    const slot = slots[this.carried().indexOf(item)];
+    const size = slot.size * 0.95;
+    const view = new Sprite(texture);
+    view.anchor.set(0.5);
+    view.scale.set(size / Math.max(texture.width, texture.height, 1));
+    view.alpha = 0.92;
+    view.position.set(screen.x, screen.y - size * 0.4);
+    this.hud.addChild(view);
+    this.bagDrag = { pointer, item, view, start: screen, slot: this.onScreen(hit.bag, slot), size };
+    this.pointers.set(pointer, { ...screen, startX: screen.x, startY: screen.y, startedAt: performance.now(), drag: null });
+    this.bagPops.set(item, this.time);
+    return true;
+  }
+
+  /**
+   * Lets go of a thing taken out of the bag. A short press without moving is
+   * a tap, which uses it; let go over something a rule waits for, it is used
+   * on that; anywhere else it flies back into its place.
+   */
+  private endBagDrag(screen: Point): void {
+    const drag = this.bagDrag!;
+    this.bagDrag = null;
+    const at = { x: screen.x, y: screen.y - drag.size * 0.4 };
+    const moved = Math.hypot(screen.x - drag.start.x, screen.y - drag.start.y) >= 20;
+    const used = moved && this.scene.rules.some((r) => r.when.type === 'useItemOn' && r.when.item === drag.item && this.droppedOn(at, r.when.target));
+    if (!moved) this.taps.push(drag.start);
+    else if (used) this.drops.push({ item: drag.item, at });
+    if (used || !moved) {
+      drag.view.destroy();
+      return;
+    }
+    this.flights.push({ view: drag.view, item: drag.item, from: at, to: drag.slot, fromSize: drag.size, toSize: drag.size * 0.76, t: 0, hides: false });
+  }
+
   /** Moves things flying into the bag, and lets the pictures in the bag pop. */
   private stepBag(dt: number): void {
     const FLIGHT = 0.6;
@@ -3418,7 +3483,7 @@ export class Game {
   private onControl(screen: Point): boolean {
     if ([...this.controlTags].some((tag) => this.hitsTag(screen, tag))) return true;
     // A thing in the bag that a rule lets the player use is a button too.
-    if (this.scene.rules.some((rule) => rule.when.type === 'useItem') && this.bagHit(screen)) return true;
+    if (this.scene.rules.some((rule) => rule.when.type === 'useItem' || rule.when.type === 'useItemOn') && this.bagHit(screen)) return true;
     return this.scene.rules.some(
       (rule) =>
         rule.when.type === 'tapObject' &&
@@ -3462,6 +3527,9 @@ export class Game {
         return;
       }
 
+      // A finger on a thing in the bag that some rule wants dragged onto something picks it up.
+      if (this.time > TAP_GRACE && !this.bagDrag && this.startBagDrag(ev.pointerId, screen)) return;
+
       const draggable = this.topmostAt(screen, (e) => e.visible && e.def.behaviors.some((b) => b.type === 'draggable'));
       const grip = draggable && this.inSpaceOf(draggable, screen);
       this.pointers.set(ev.pointerId, {
@@ -3479,8 +3547,11 @@ export class Game {
       if (this.editDrag) return this.editMove(screen, ev);
       const pointer = this.pointers.get(ev.pointerId);
       if (pointer) Object.assign(pointer, screen);
+      // The thing taken out of the bag follows the finger, held a little above it so it can be seen.
+      if (this.bagDrag?.pointer === ev.pointerId) this.bagDrag.view.position.set(screen.x, screen.y - this.bagDrag.size * 0.4);
     };
     const onUp = (ev: PointerEvent) => {
+      if (this.bagDrag?.pointer === ev.pointerId) this.endBagDrag(this.toScreen(ev.clientX, ev.clientY));
       const pointer = this.pointers.get(ev.pointerId);
       this.pointers.delete(ev.pointerId);
       if (pointer?.drag?.held && this.mode.kind === 'play') {

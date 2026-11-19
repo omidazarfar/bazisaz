@@ -301,7 +301,7 @@ export function isVariableUsed(project: GameProject, name: string): boolean {
       s.rules.some(
         (r) =>
           (r.when.type === 'variable' && r.when.name === name) ||
-          (r.when.type === 'useItem' && r.when.item === name) ||
+          ((r.when.type === 'useItem' || r.when.type === 'useItemOn') && r.when.item === name) ||
           [r.condition, ...(r.also ?? [])].some((c) => c && c.of === undefined && c.name === name) ||
           ruleActions(r).some(
             (a) =>

@@ -823,7 +823,13 @@ export type Trigger =
   /** Fires when an object with real physics that was moving has come to a stop. That object is "first". */
   | { type: 'rest'; target: Ref }
   /** Fires when the player taps a thing they carry in a bag, to use it. The bag is "first". */
-  | { type: 'useItem'; item: string };
+  | { type: 'useItem'; item: string }
+  /**
+   * Fires when the player drags a thing out of the bag and lets go of it over
+   * an object of `target`, like a key onto a door. That object is "first".
+   * Let go anywhere else, the thing flies back into the bag.
+   */
+  | { type: 'useItemOn'; item: string; target: Ref };
 
 export interface Condition {
   name: string;

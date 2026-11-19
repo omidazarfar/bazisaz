@@ -632,6 +632,13 @@ export const TRIGGERS: { [K in Trigger['type']]: Block<Extract<Trigger, { type: 
     make: (ctx) => ({ type: 'useItem', item: firstItem(ctx) }),
     fields: [{ key: 'item', label: 'کدام وسیله', kind: 'item' }],
   },
+  useItemOn: {
+    title: 'بازیکن وسیله‌ای را روی چیزی می‌کشد',
+    about: 'بازیکن وسیله را از کوله‌پشتی با انگشت بیرون می‌کشد و روی یک شیء رها می‌کند؛ مثل کلید روی در، یا آب روی آتش. اگر جای دیگری رهایش کند، به کوله‌پشتی برمی‌گردد.',
+    available: hasItems,
+    make: (ctx) => ({ type: 'useItemOn', item: firstItem(ctx), target: firstRef(ctx) }),
+    fields: [{ key: 'item', label: 'کدام وسیله', kind: 'item' }, { key: 'target', label: 'روی کدام شیء', kind: 'ref' }],
+  },
   eachEvery: {
     title: 'هر چند ثانیه، برای هر شیء جدا',
     make: (ctx) => ({ type: 'eachEvery', target: firstRef(ctx), seconds: 2 }),
@@ -1072,7 +1079,7 @@ export const TRIGGER_GROUPS: BlockGroup<Trigger['type']>[] = [
   { title: 'زمان', types: ['start', 'every', 'eachEvery', 'after'] },
   { title: 'جورچین و منطق', types: ['message', 'value', 'line'] },
   { title: 'مقدارها و تبلیغ', types: ['variable', 'reward'] },
-  { title: 'کوله‌پشتی', types: ['useItem'] },
+  { title: 'کوله‌پشتی', types: ['useItem', 'useItemOn'] },
 ];
 
 export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [

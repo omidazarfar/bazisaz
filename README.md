@@ -106,7 +106,7 @@ A game is one JSON document (`src/format/types.ts`):
   slows anything touching something. Triggers `thrown`, `rest`, `snap`;
   actions `kick`, `spin`, `cut`, `setPhysics`. Physics events are kept until
   the rules have run (`Physics.endStep`), so a throw made between frames is
-  heard. Behaviors 26, triggers 24, actions 54.
+  heard. Behaviors 26, triggers 25, actions 54.
 - **Graphics**: `Scene.sky` (`src/runtime/sky.ts`): ten painted backdrops
   drawn once on canvases from a fixed seed and shown as repeating strips with
   parallax by depth, some animated (drifting clouds, twinkling stars, rising
@@ -135,7 +135,7 @@ A game is one JSON document (`src/format/types.ts`):
   row of places with each thing's picture and count, in the order things
   were picked up (`Game.carried`). Actions `give` (with `from`, the picture
   flies from that object into its place and pops) and `take` (never below
-  zero); trigger `useItem` fires when a thing in the bag is tapped. Editor:
+  zero); trigger `useItem` fires when a thing in the bag is tapped, and `useItemOn` when one is dragged out of the bag and let go over an object (`Game.startBagDrag`/`endBagDrag`; let go elsewhere, it flies back). Editor:
   "کوله‌پشتی" in the game tab, the bag in the library, the "key-door" part.
   Lab 17 and the editor suite cover it.
 - **Logic**: trigger `message` and action `send` (a rule hands its first and

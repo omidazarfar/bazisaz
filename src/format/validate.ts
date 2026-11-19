@@ -117,7 +117,7 @@ export function validateProject(project: GameProject): string[] {
       if ('target' in w) checkRef(w.target, name);
       if (w.type === 'touch' || w.type === 'near' || w.type === 'hit') [w.a, w.b].forEach((r) => checkRef(r, name));
       if (w.type === 'variable') needVariable(w.name, `${where}: ${name}`);
-      if (w.type === 'useItem') needItem(w.item, `${where}: ${name}`);
+      if (w.type === 'useItem' || w.type === 'useItemOn') needItem(w.item, `${where}: ${name}`);
       if ((w.type === 'every' || w.type === 'after' || w.type === 'eachEvery') && !(w.seconds > 0)) {
         say(`${where}: ${name} needs a time above zero.`);
       }
