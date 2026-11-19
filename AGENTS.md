@@ -17,3 +17,6 @@ This project is worked on by two agents in turn, Claude Code and Codex.
    - "Current state"
    - "Next steps"
    - a new dated entry at the top of "Session log"
+
+   Then commit and push with git, as described in the "Git" section of
+   `HANDOFF.md`. The repository is private on GitHub.

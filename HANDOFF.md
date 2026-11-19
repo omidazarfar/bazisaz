@@ -16,13 +16,30 @@ other did. **It is the single source of truth for "where are we".**
      Codex), what was asked, what you changed (files), test results, anything
      left half-done or unverified.
    - Keep the entry short and factual. Do not rewrite other agents' entries.
+   - Commit and push (see "Git" below).
 4. If you find something in here that is wrong, fix it and say so in your log
    entry.
 
-There is **no git** on this machine (the `git` command is not installed), so
-there is no history to fall back on. Before a large rewrite of a file, copy it
-to `<name>.bak` next to it or into a temp folder, and delete the copy once
-build and tests pass.
+### Git (since 2026-11-19)
+
+- The project is a git repository, branch `main`.
+- It is pushed to a **private** GitHub repository:
+  `https://github.com/omidazarfar/bazisaz.git` (remote `origin`).
+- Git is installed at `C:\Program Files\Git\cmd\git.exe`. In a shell opened
+  before the install, `git` may not be on the PATH; call it by that full path.
+- Commits are authored as `omidazarfar <omidazarfar@users.noreply.github.com>`.
+  This is set in the repo's local config; do not put the owner's personal
+  email in commits.
+- **At the start of a session:** run `git status`. If the other agent left
+  changes uncommitted, commit them first as "work left by <agent>".
+- **At the end of every session** (after build and tests pass, and after
+  updating this file): `git add -A`, then a commit whose message says what
+  changed, then `git push`.
+- Commit at good stopping points in between too. Never force-push. Never
+  rewrite history. Never commit `node_modules`, `dist*`, keystores or `keys/`.
+  `.gitignore` already keeps these out; check `git status` before committing.
+- To undo a bad change, use `git diff` / `git log`, then `git restore <file>`
+  or `git revert <commit>`. Tell the owner what you undid.
 
 ---
 
