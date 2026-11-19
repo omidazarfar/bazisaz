@@ -948,6 +948,37 @@ export const RECIPES: Recipe[] = [
     },
   },
   {
+    id: 'checkpoints',
+    title: 'ایست بازرسی',
+    about: 'دو پرچم در طول مرحله. بازیکن به هر پرچم که برسد، آن‌جا ایست بازرسی‌اش می‌شود؛ وقتی به خطر بخورد، به‌جای شروع دوباره‌ی کل مرحله، به آخرین پرچم برمی‌گردد.',
+    apply: async (p, s, centre) => {
+      const FLAG = 'ایست بازرسی';
+      const ground = await withGround(p, s, centre);
+      const flag = await useSprite(ground.project, 'flag');
+      const flags = [-120, 220].map((dx, i) => makeObject(`ایست بازرسی ${i + 1}`, { kind: 'image', asset: flag.asset }, 70, 100, { x: centre.x + dx, y: ground.top - 50 }, { tags: [FLAG] }));
+      const project = withRules(
+        addAll(flag.project, s, flags),
+        s,
+        rule({ type: 'touch', a: byTag(PLAYER), b: byTag(FLAG) }, [
+          { type: 'checkpoint', target: 'first' },
+          { type: 'effect', target: 'second', kind: 'pop', seconds: 0.35 },
+          { type: 'burst', target: 'second', color: '#ffd23f', count: 12 },
+          { type: 'playSound', sound: 'powerup' },
+        ]),
+        rule({ type: 'touch', a: byTag(PLAYER), b: byTag(DANGER) }, [
+          { type: 'flash', target: 'first', color: '#ff3b47', seconds: 0.3 },
+          { type: 'playSound', sound: 'hit' },
+          { type: 'respawn', target: 'first' },
+        ]),
+      );
+      return {
+        project,
+        select: flags[0].id,
+        note: 'پرچم‌ها را در مرحله جابه‌جا کن یا کپی کن؛ هر چیزی در گروه «ایست بازرسی» پرچم حساب می‌شود. اگر قانون دیگری داری که با خوردن به خطر صحنه را از نو شروع می‌کند، حذفش کن. با قطعه‌ی «جان با قلب‌ها» هم کار می‌کند.',
+      };
+    },
+  },
+  {
     id: 'hearts',
     title: 'جان با قلب‌ها',
     about: 'سه قلب گوشه‌ی صفحه. هر بار که بازیکن به خطر بخورد، یک قلب خالی می‌شود و بازیکن قرمز می‌شود؛ وقتی قلبی نماند، صحنه از نو شروع می‌شود. قلب‌ها با زیاد شدن lives دوباره پر می‌شوند.',

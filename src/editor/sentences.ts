@@ -111,6 +111,8 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     }
     case 'resetVariables': return 'همه‌ی مقدارها را از نو کن';
     case 'give': return `${a.amount === 1 ? 'یک' : fa(a.amount)} ${a.item || '؟'} به کوله‌پشتی بده${a.from !== undefined ? ` (از روی ${who(a.from)} پرواز کند)` : ''}`;
+    case 'checkpoint': return `جای فعلی ${who(a.target)} را ایست بازرسی‌اش کن`;
+    case 'respawn': return `${who(a.target)} را به ایست بازرسی‌اش برگردان`;
     case 'take': return `${a.amount === 1 ? 'یک' : fa(a.amount)} ${a.item || '؟'} از کوله‌پشتی بردار`;
     case 'destroy': return `${who(a.target)} را حذف کن`;
     case 'spawn': return `یک «${scene.prefabs.find((p) => p.id === a.prefab)?.name ?? '؟'}» روی ${who(a.at)} بساز`;

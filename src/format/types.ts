@@ -987,7 +987,11 @@ export type Action =
    */
   | { type: 'give'; item: string; amount: number; from?: Target }
   /** Takes things out of the player's bag; never fewer than none are left. */
-  | { type: 'take'; item: string; amount: number };
+  | { type: 'take'; item: string; amount: number }
+  /** Remembers where an object is now as the place it comes back to, like touching a checkpoint flag. */
+  | { type: 'checkpoint'; target: Target }
+  /** Puts an object back at its last checkpoint (or where the scene placed it), standing still. */
+  | { type: 'respawn'; target: Target };
 
 export const SOUND_NAMES = ['jump', 'coin', 'hit', 'win', 'lose', 'click', 'pop', 'laser', 'boom', 'powerup', 'bounce', 'tick'] as const;
 export type SoundName = (typeof SOUND_NAMES)[number];

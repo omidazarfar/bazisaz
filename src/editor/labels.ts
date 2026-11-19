@@ -677,6 +677,18 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
       { key: 'from', label: 'عکسش از کجا پرواز کند', hint: 'معمولاً همان چیزی که بازیکن به آن خورد. «بدون پرواز» یعنی فقط در کوله‌پشتی پیدا شود.', kind: 'flyFrom' },
     ],
   },
+  checkpoint: {
+    title: 'ثبت ایست بازرسی',
+    about: 'جایی که شیء همین حالا هست، جای برگشتنش می‌شود؛ مثل وقتی بازیکن به پرچم وسط مرحله می‌رسد. با کار «برگشتن به ایست بازرسی» به همین‌جا برمی‌گردد.',
+    make: () => ({ type: 'checkpoint', target: 'first' }),
+    fields: [TARGET],
+  },
+  respawn: {
+    title: 'برگشتن به ایست بازرسی',
+    about: 'شیء به آخرین ایست بازرسی‌اش برمی‌گردد (اگر به هیچ‌کدام نرسیده، به جای اولش در صحنه) و می‌ایستد؛ مثلاً وقتی بازیکن به خار می‌خورد، به‌جای شروع دوباره‌ی کل مرحله.',
+    make: () => ({ type: 'respawn', target: 'first' }),
+    fields: [TARGET],
+  },
   take: {
     title: 'برداشتن وسیله از کوله‌پشتی',
     about: 'وسیله‌ای از کوله‌پشتی کم می‌شود؛ مثلاً کلیدی که در را باز کرد. اگر بیشتر از آنچه هست برداری، فقط تا صفر کم می‌شود.',
@@ -1086,7 +1098,7 @@ export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'امتیاز و مقدارها', types: ['setVariable', 'resetVariables'] },
   { title: 'کوله‌پشتی', types: ['give', 'take'] },
   { title: 'اشیا', types: ['destroy', 'spawn', 'show', 'hide', 'damage'] },
-  { title: 'حرکت دادن', types: ['moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
+  { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
   { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'shake', 'vibrate', 'setSound'] },

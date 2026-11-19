@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **449 PASS, 0 FAIL**, all three
+- `npm run build` exits 0. `npm test` gives **450 PASS, 0 FAIL**, all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -210,7 +210,7 @@ The specs below are proposals; improve them if you find a better shape, and
 say so in the log.
 
 **Phase A: levels that feel like real games** (level tools, #10)
-- [ ] **Checkpoints and respawning.**
+- [x] **Checkpoints and respawning.** DONE 2026-11-19 (Claude): actions `checkpoint` and `respawn` (with `Entity.checkpoint`), part `checkpoints`, lab 17 check.
   - New action `respawn { target }`: puts an object back at its last
     checkpoint, or its start, with its speed zeroed.
   - New behavior or role "checkpoint": a flag (sprite `flag`) that stores the

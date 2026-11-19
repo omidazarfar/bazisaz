@@ -69,7 +69,7 @@ const PART_ICON: Record<string, string> = {
   score: 'coin', best: 'trophy', pause: 'btn-pause', sound: 'btn-sound', memory: 'card', tictactoe: 'tile-x', match3: 'gem',
   g2048: 'n-2048', startscreen: 'btn-play', gameover: 'btn-restart', obstacles: 'cactus', falling: 'apple', controls: 'btn-right',
   timer: 'clock', 'pause-menu': 'btn-home', levels: 'star', tower: 'crate', 'sling-tower': 'slingshot', pendulum: 'ball', car: 'car',
-  bridge: 'plank', conveyor: 'belt', pool: 'water', 'cut-rope': 'candy', 'key-door': 'door', hearts: 'heart', dialogue: 'hero', shop: 'coin',
+  bridge: 'plank', conveyor: 'belt', pool: 'water', 'cut-rope': 'candy', 'key-door': 'door', hearts: 'heart', dialogue: 'hero', shop: 'coin', checkpoints: 'flag',
 };
 const ROLE_ICON: Record<string, string> = { ...ROLE_SPRITE, button: 'btn-play', 'score-text': 'coin' };
 

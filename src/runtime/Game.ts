@@ -130,6 +130,8 @@ interface Entity extends Box {
   /** Where it was placed, the line a patrol moves along. */
   homeX: number;
   homeY: number;
+  /** Where "respawn" puts it back: the place of its last checkpoint, if it reached one. */
+  checkpoint?: Point;
   /** Seconds since it was created. */
   age: number;
   spawnIn: number;
@@ -2595,6 +2597,16 @@ export class Game {
         break;
       case 'moveTo':
         for (const e of this.targets(action.target, context)) this.place(e, action.x, action.y);
+        break;
+      case 'checkpoint':
+        for (const e of this.targets(action.target, context)) e.checkpoint = { x: e.x, y: e.y };
+        break;
+      case 'respawn':
+        for (const e of this.targets(action.target, context)) {
+          const back = e.checkpoint ?? { x: e.def.x, y: e.def.y };
+          this.place(e, back.x, back.y);
+          e.vx = e.vy = 0;
+        }
         break;
       case 'moveBy':
         for (const e of this.targets(action.target, context)) this.place(e, e.x + action.dx, e.y + action.dy);

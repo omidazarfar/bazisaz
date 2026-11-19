@@ -1571,6 +1571,8 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         // Four places across the bottom of the screen, 100 wide each: their middles at x 160, 260, 360, 460.
         box('bag', 110, 1100, 400, 100, { visual: { kind: 'bag', slots: 4 }, fixed: true }),
         box('chest', 300, 400, 100, 100),
+        box('runner', 100, 600, 50, 50),
+        box('stray', 40, 40, 50, 50),
       ],
       prefabs: [],
       rules: [
@@ -1578,6 +1580,10 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
           { type: 'give', item: 'Key', amount: 1, from: { by: 'id', id: 'chest' } },
           { type: 'give', item: 'Potion', amount: 3 },
         ] },
+        // Checkpoints: the runner reaches one at (400, 600), wanders off, and comes back to it; the stray never reached one.
+        { id: 'r-cp1', when: { type: 'after', seconds: 0.3 }, condition: null, then: [{ type: 'moveTo', target: { by: 'id', id: 'runner' }, x: 400, y: 600 }, { type: 'checkpoint', target: { by: 'id', id: 'runner' } }] },
+        { id: 'r-cp2', when: { type: 'after', seconds: 0.6 }, condition: null, then: [{ type: 'moveTo', target: { by: 'id', id: 'runner' }, x: 600, y: 900 }, { type: 'moveTo', target: { by: 'id', id: 'stray' }, x: 500, y: 200 }] },
+        { id: 'r-cp3', when: { type: 'after', seconds: 0.9 }, condition: null, then: [{ type: 'respawn', target: { by: 'id', id: 'runner' } }, { type: 'respawn', target: { by: 'id', id: 'stray' } }] },
         { id: 'r-take', when: { type: 'after', seconds: 1.5 }, condition: null, then: [{ type: 'take', item: 'Gem', amount: 5 }] },
         { id: 'r-use', when: { type: 'useItem', item: 'Potion' }, condition: null, then: [{ type: 'setVariable', name: 'used', op: 'add', amount: 1 }, { type: 'take', item: 'Potion', amount: 1 }] },
         { id: 'r-on', when: { type: 'useItemOn', item: 'Key', target: { by: 'id', id: 'chest' } }, condition: null, then: [{ type: 'setVariable', name: 'opened', op: 'set', amount: 1 }, { type: 'take', item: 'Key', amount: 1 }] },
@@ -1599,6 +1605,9 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('bag: its places and the things in them are drawn', drawn >= 4, `${drawn} pieces`);
   await untilTime(page, 1.6);
   s = await gameState(page);
+  const runner = s.entities.find((e) => e.id === 'runner');
+  const stray = s.entities.find((e) => e.id === 'stray');
+  check('checkpoint: respawning goes back to the last checkpoint, or to the start without one', runner.x === 400 && runner.y === 600 && stray.x === 40 && stray.y === 40, `${runner.x},${runner.y} / ${stray.x},${stray.y}`);
   check('bag: taking more than there is leaves none, and the others move up', s.variables.Gem === 0 && JSON.stringify(s.bag) === '["Key","Potion"]', JSON.stringify({ bag: s.bag, gem: s.variables.Gem }));
   await clickGame(page, 260, 1150);
   check('bag: tapping a thing in it uses it', await until(page, () => window.__game.getState().variables.used === 1, null, 5000) && (await gameState(page)).variables.Potion === 2, JSON.stringify((await gameState(page)).variables));
