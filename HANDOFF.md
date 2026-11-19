@@ -169,8 +169,15 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **442 PASS, 0 FAIL**, all three
+- `npm run build` exits 0. `npm test` gives **443 PASS, 0 FAIL**, all three
   suites.
+- The player (`src/player/main.ts`, i.e. the game on a phone) passes
+  `lighten: true`.
+  - After 3 s below 28 fps it calls `Game.lighten()`, which drops bloom,
+    shadow and glow filters for the session.
+  - The editor's try-out does not do this.
+  - The tests set `window.__LIGHTEN__ = false` (in `scripts/lib.mjs`),
+    because headless Chrome is slow enough to trigger it.
 - Nothing has been tested on a real phone. Bloom, shadows and glows may be
   slow on weak phones.
 - A few editor tests used to be timing-sensitive on a busy computer. The car
@@ -217,6 +224,17 @@ look:
 ---
 
 ## Session log (newest first)
+
+### 2026-11-19 (late) — Claude
+- The owner had little token budget left, so this was a small step: an
+  automatic light mode for slow phones (see "Current state").
+- Changed `src/runtime/Game.ts`, `src/player/main.ts`, `scripts/lib.mjs`,
+  `scripts/smoke.mjs` (lab 16 check) and `GUIDE-fa.md`.
+- Also set up git and the private GitHub repository.
+- Tests: 443 PASS, 0 FAIL.
+- Suggested next step: use a thing from the bag *on* something (drag the
+  key onto the door), then more parts (shop, dialogue box, hearts health
+  bar).
 
 ### 2026-11-19 — Claude
 - Asked: make all graphics "premium, attractive, gaming"; then the bag

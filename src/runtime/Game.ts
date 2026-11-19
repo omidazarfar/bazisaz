@@ -71,6 +71,12 @@ export interface GameOptions {
   onView?: (view: EditView) => void;
   /** Edit mode: called when a stroke of the paint tool ends, with the tile map's new rows. */
   onTiles?: (id: string, rows: string[]) => void;
+  /**
+   * On a phone too slow for them, drop the costly effects (bloom, soft shadows,
+   * glows) once the game has run below 28 frames a second for three seconds.
+   * For the player on a phone; the editor's try-out always shows everything.
+   */
+  lighten?: boolean;
   /** Called by the "show ad" action. */
   onShowAd?: () => void;
   /** Called by the "show rewarded ad" action. Resolves true if the player watched it through. */
@@ -341,6 +347,8 @@ export interface GameState {
   soundOn: boolean;
   /** A scene change is fading through black. */
   fading: boolean;
+  /** The costly effects were dropped for a slow phone. */
+  light: boolean;
   /** The things in the player's bag, in the order of their places; and how many are flying into it. */
   bag: string[];
   flights: number;
@@ -427,6 +435,9 @@ export class Game {
   private readonly debugView = new Graphics();
   private ruleLog: DebugInfo['log'] = [];
   private fps = 60;
+  /** The costly effects were dropped for a slow phone; and how long the game has been slow so far. */
+  private light = false;
+  private slowFor = 0;
   /** Everything the player sees of the scene, under one roof so a look (a colour treatment) can be laid over all of it. */
   private readonly scenery = new Container();
   /** The scene's background colour as a sheet inside the scenery, so a look tints it along with everything else. */
@@ -592,6 +603,10 @@ export class Game {
       return;
     }
     if (elapsed > 0) this.fps += (Math.min(240, 1 / elapsed) - this.fps) * 0.1;
+    if (this.options.lighten && !this.light && !this.debug.paused) {
+      this.slowFor = this.fps < 28 ? this.slowFor + elapsed : 0;
+      if (this.slowFor > 3) this.lighten();
+    }
     let total = Math.min(elapsed, MAX_FRAME) * this.debug.speed;
     if (this.debug.paused) {
       // Frozen by the try-out tools: nothing moves, except one frame at a time when asked.
@@ -679,7 +694,7 @@ export class Game {
       filters.push(this.lookFilter);
     }
     // Bloom: bright parts spill a soft glow over their surroundings.
-    if (this.scene.bloom) {
+    if (this.scene.bloom && !this.light) {
       // Only the brightest parts glow, and gently, so a bright sky is not washed out.
       this.bloomFilter ??= new AdvancedBloomFilter({ threshold: 0.84, bloomScale: 0.55, brightness: 1, blur: 5, quality: 5 });
       filters.push(this.bloomFilter);
@@ -986,6 +1001,7 @@ export class Game {
       paused: this.paused,
       soundOn: this.soundOn,
       fading: this.fade !== null,
+      light: this.light,
       bag: this.carried(),
       flights: this.flights.length,
       entities: this.entities.map((e) => ({
@@ -1317,8 +1333,25 @@ export class Game {
   }
 
   /** The lasting effects an object asks for: a soft shadow behind it, a glow around it. */
+  /**
+   * Drops the costly effects for the rest of the session, so a slow phone
+   * plays smoothly: no bloom, no soft shadows, no glows. The game is otherwise
+   * the same. Public so that it can be tried.
+   */
+  lighten(): void {
+    if (this.light) return;
+    this.light = true;
+    this.applyLook();
+    for (const e of this.entities) {
+      for (const f of e.fx) f.destroy();
+      e.fx = [];
+      this.applyFilters(e);
+    }
+  }
+
   private effectsOf(def: GameObject): Filter[] {
     const fx: Filter[] = [];
+    if (this.light) return fx;
     if (def.shadow) fx.push(new DropShadowFilter({ offset: { x: 5, y: 9 }, blur: 4, alpha: 0.35, quality: 3 }));
     if (def.glow) fx.push(new GlowFilter({ color: def.glow, distance: 18, outerStrength: 2.4, innerStrength: 0, quality: 0.25 }));
     return fx;

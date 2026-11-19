@@ -12,6 +12,8 @@ declare global {
     __GAME_PROJECT__?: GameProject;
     /** Set to false by the export server for games that should not carry the "Made with" note. */
     __WATERMARK__?: boolean;
+    /** false keeps every effect however slow the game runs. */
+    __LIGHTEN__?: boolean;
     __game?: Game;
     /** The game being played, so tests can hand an example to the editor. */
     __project?: GameProject;
@@ -31,6 +33,8 @@ async function main(): Promise<void> {
     // The game starts at once; ads join when (and if) they finish loading.
     let ads: Ads = { showInterstitial: () => {}, showRewarded: () => Promise.resolve(false) };
     window.__game = await Game.create(project, mount, {
+      // The tests turn this off: headless Chrome is slow, and they check the full look.
+      lighten: window.__LIGHTEN__ !== false,
       onShowAd: () => ads.showInterstitial(),
       onShowRewardedAd: () => ads.showRewarded(),
     });

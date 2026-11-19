@@ -1537,6 +1537,11 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.evaluate(() => window.__game.tap());
   const squash = await stretched;
   check('a jumping character stretches as it springs up and squashes as it lands', squash.most > 1.08 && squash.least < 0.95, JSON.stringify(squash));
+  const fxBefore = (await gameState(page)).entities.reduce((n, e) => n + e.effects, 0);
+  await page.evaluate(() => window.__game.lighten());
+  const lit = await gameState(page);
+  const fxAfter = lit.entities.reduce((n, e) => n + e.effects, 0);
+  check('a slow phone: the costly effects (shadows, glows, bloom) can be dropped, and the game goes on', fxBefore > 0 && fxAfter === 0 && lit.light, `${fxBefore} → ${fxAfter}`);
   check('lab 16: no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
 }

@@ -38,6 +38,8 @@ export async function openPage(browser, url, { viewport, project } = {}) {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   if (project) await page.evaluateOnNewDocument((p) => (window.__GAME_PROJECT__ = p), project);
+  // Headless Chrome runs slowly; the player would drop its costly effects, which the tests check.
+  await page.evaluateOnNewDocument(() => (window.__LIGHTEN__ = false));
   await page.goto(url);
   return { page, errors };
 }
