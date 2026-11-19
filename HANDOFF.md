@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **443 PASS, 0 FAIL**, all three
+- `npm run build` exits 0. `npm test` gives **449 PASS, 0 FAIL**, all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -224,6 +224,23 @@ look:
 ---
 
 ## Session log (newest first)
+
+### 2026-11-19 (night) — Claude
+- Asked: do next steps 1, 2 and 3 (weekly budget was at 86%).
+- Done, with a commit and push after each:
+  1. Trigger `useItemOn`: drag a thing out of the bag and let go of it over an
+     object; let go elsewhere, it flies back. Tested in lab 17.
+  2. Parts `hearts` (lives shown as 3 hearts), `dialogue` (tap to advance,
+     with a speaker picture) and `shop` (buy Heart and Shield for score; they
+     fly into the bag; opener toggles via "otherwise"). Covered by the editor
+     suite.
+  3. Built-in sounds rebuilt as layered synths in `src/runtime/sound.ts`
+     (notes, sweeps, filtered noise, through a compressor).
+- Not verified by ear: the agent cannot listen. The owner should try each
+  sound.
+- Tests: 449 PASS, 0 FAIL.
+- Next ideas: the owner's phone test; a sound preview button in the rule
+  editor; an AI helper (needs hosting).
 
 ### 2026-11-19 (late) — Claude
 - The owner had little token budget left, so this was a small step: an
