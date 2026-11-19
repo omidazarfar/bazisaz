@@ -121,6 +121,7 @@ function Row(props: { object: GameObject; project: Editor['project']; about: str
     <button type="button" className="row" title={props.about || 'هنوز کاری نمی‌کند'} aria-current={props.selected} onClick={(e) => props.onSelect(e.shiftKey || e.ctrlKey || e.metaKey)}>
       <Thumb object={object} project={props.project} />
       <span className="row-name">{object.name}</span>
+      {object.template && <span className="row-note" title="کپی زنده‌ی یک نمونه">کپی</span>}
       {object.locked && <span className="row-note">قفل</span>}
       {!object.visible && <span className="row-note">پنهان</span>}
     </button>

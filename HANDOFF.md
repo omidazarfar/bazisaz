@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **465 PASS, 0 FAIL**. The whole `npm test` now takes over 10 minutes: run it in the background or with a long timeout (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
+- `npm run build` exits 0. `npm test` gives **468 PASS, 0 FAIL**. The whole `npm test` now takes over 10 minutes: run it in the background or with a long timeout (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -251,7 +251,7 @@ say so in the log.
   give it a part.
 
 **Phase C: templates (prefab instances), #8**
-- [ ] `GameObject.template?: string`: the id of a prefab this placed object
+- [x] DONE 2026-11-19 (Claude): `syncTemplates(before, after)` in state.ts, run inside `editor.change` in App.tsx; `TemplateTools` in Inspector.tsx; "کپی" note in the object list; editor checks. `GameObject.template?: string`: the id of a prefab this placed object
   copies. The editor offers "make this a template" and "place another".
   Editing the template (its behaviors, look, tags) updates every copy;
   position and size stay per copy. Resolve in the editor state (`state.ts`)

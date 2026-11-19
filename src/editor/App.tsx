@@ -20,7 +20,7 @@ import { Preview } from './Preview';
 import { Rules } from './Rules';
 import { Tutor, Welcome } from './Tutor';
 import {
-  copyObjects, duplicateObjects, getScene, initialState, newId, pasteObjects, reducer, removeObjects, saveProject, updateScene,
+  copyObjects, duplicateObjects, getScene, initialState, newId, pasteObjects, reducer, removeObjects, saveProject, syncTemplates, updateScene,
   type Clipboard, type EditorState,
 } from './state';
 
@@ -71,7 +71,8 @@ export function App({ saved }: { saved: GameProject | null }) {
     selected,
     selection,
     change: (next, key, select) => {
-      dispatch({ type: 'change', project: next, key, select });
+      // Copies of a template are kept in step with it, whichever panel made the change.
+      dispatch({ type: 'change', project: syncTemplates(project, next), key, select });
       // Something was just added and selected: show its settings, whichever tab was open.
       if (typeof select === 'string' || (Array.isArray(select) && select.length > 0)) setTab('object');
     },

@@ -294,6 +294,52 @@ export function removeScene(project: GameProject, sceneId: string): GameProject 
   return { ...project, scenes, startScene: project.startScene === sceneId ? scenes[0].id : project.startScene };
 }
 
+/** What every copy of a template shares with it: everything but its own id, name, place and size. */
+function shared(o: GameObject): Omit<GameObject, 'id' | 'name' | 'x' | 'y' | 'width' | 'height' | 'template'> {
+  const { id: _id, name: _name, x: _x, y: _y, width: _w, height: _h, template: _t, ...rest } = o;
+  return rest;
+}
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Keeps templates and their copies in step after a change. A copy that was
+ * edited directly passes the change to its template; then every copy takes
+ * the template's looks, behaviors, groups and health, keeping its own place,
+ * size and name. A copy whose template is gone becomes an ordinary object.
+ */
+export function syncTemplates(before: GameProject, after: GameProject): GameProject {
+  if (!after.scenes.some((s) => s.objects.some((o) => o.template))) return after;
+  return {
+    ...after,
+    scenes: after.scenes.map((scene) => {
+      if (!scene.objects.some((o) => o.template)) return scene;
+      const old = before.scenes.find((s) => s.id === scene.id);
+      let prefabs = scene.prefabs;
+      for (const copy of scene.objects) {
+        if (!copy.template) continue;
+        const was = old?.objects.find((o) => o.id === copy.id);
+        const template = prefabs.find((p) => p.id === copy.template);
+        const oldTemplate = old?.prefabs.find((p) => p.id === copy.template);
+        if (!template || !was) continue;
+        // The copy changed while its template did not: the change was meant for all of them.
+        if (!same(shared(was), shared(copy)) && oldTemplate && same(shared(template), shared(oldTemplate))) {
+          prefabs = prefabs.map((p) => (p.id === template.id ? { id: p.id, name: p.name, x: p.x, y: p.y, width: p.width, height: p.height, ...shared(copy) } : p));
+        }
+      }
+      const objects = scene.objects.map((o): GameObject => {
+        if (!o.template) return o;
+        const template = prefabs.find((p) => p.id === o.template);
+        if (!template) {
+          const { template: _gone, ...plain } = o;
+          return plain;
+        }
+        return { ...shared(template), id: o.id, name: o.name, x: o.x, y: o.y, width: o.width, height: o.height, template: o.template };
+      });
+      return { ...scene, prefabs, objects };
+    }),
+  };
+}
+
 export function isVariableUsed(project: GameProject, name: string): boolean {
   return project.scenes.some(
     (s) =>

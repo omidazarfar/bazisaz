@@ -1185,7 +1185,10 @@ await until(page, () => window.__game.getState().time > 0.6);
 await page.evaluate(() => {
   const player = window.__game.entities.find((e) => e.def.tags.includes('بازیکن'));
   const enemy = window.__game.entities.find((e) => e.def.tags.includes('خطر'));
+  // Both hold still (there is no ground here, so the player would otherwise be falling).
   enemy.def = { ...enemy.def, behaviors: [] };
+  player.def = { ...player.def, behaviors: [] };
+  player.vx = player.vy = 0;
   enemy.x = player.x + player.width + 10;
   enemy.y = player.y;
 });
@@ -1193,6 +1196,28 @@ const swordButton = (await gameState(page)).entities.find((e) => e.tags.includes
 await tapAt(swordButton);
 check('in the try-out, the sword hits the enemy in front of the player', await until(page, () => window.__game.getState().entities.find((e) => e.tags.includes('خطر'))?.health === 1, null, 5000), JSON.stringify((await gameState(page)).entities.filter((e) => e.tags.includes('خطر')).map((e) => e.health)));
 await click('توقف');
+
+// ── Templates: live copies ─────────────────────────────────────────────────
+await freshGame();
+await openLibrary('با نقش آماده');
+await page.click('.modal button[data-block="patrol-enemy"]');
+await until(page, () => document.querySelector('.modal') === null, null, 10000);
+await sleep(200);
+await page.click('[data-make-template]');
+await sleep(200);
+await page.click('[data-add-copy]');
+await sleep(200);
+await page.click('[data-add-copy]');
+await sleep(200);
+sc = await scene();
+const liveCopies = sc.objects.filter((o) => o.template);
+check('an object made into a template gets live copies', liveCopies.length === 3 && sc.prefabs.some((p) => p.id === liveCopies[0].template), `${liveCopies.length} copies`);
+// Change one copy (its health): every copy follows, each keeping its place.
+await setControl('چند ضربه تحمل کند', 5);
+sc = await scene();
+const followed = sc.objects.filter((o) => o.template);
+check('changing one copy changes them all, and each keeps its own place', followed.every((o) => o.health === 5) && new Set(followed.map((o) => o.x)).size === 3, JSON.stringify(followed.map((o) => [o.health, o.x])));
+check('no errors with templates', errors.length === 0, errors.join(' | '));
 
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });

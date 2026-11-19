@@ -15,6 +15,56 @@ import { actionSentence, describeObject, subjectsOf, triggerSentence } from './s
 import { allTags, duplicateObjects, findObject, newId, removeObject, removeObjects, tileObject, updateObject, updateScene, valueNames } from './state';
 
 /** Settings of the selected object: name, groups, looks, place, and behaviors. */
+/**
+ * Templates: an object made into a template gets live copies. Whatever is
+ * changed on any copy (looks, behaviors, groups, health) changes on all of
+ * them; each keeps its own place, size and name.
+ */
+function TemplateTools({ editor, object }: { editor: Editor; object: GameObject }) {
+  const { project, scene, change } = editor;
+  const template = object.template ? scene.prefabs.find((p) => p.id === object.template) : undefined;
+  const copies = template ? scene.objects.filter((o) => o.template === template.id).length : 0;
+  if (!template) {
+    return (
+      <div className="adders" title="مثلاً یک دشمن را یک بار درست کن و بعد هر چند تا کپی که خواستی بگذار؛ تغییر یکی، همه را عوض می‌کند.">
+        <button
+          type="button"
+          className="chip"
+          data-make-template
+          onClick={() => {
+            const { template: _none, ...plain } = object;
+            const made = { ...plain, id: newId('obj'), name: `نمونه‌ی ${object.name}`, x: 0, y: 0 };
+            change(updateScene(project, scene.id, (s) => ({ ...s, prefabs: [...s.prefabs, made], objects: s.objects.map((o) => (o.id === object.id ? { ...o, template: made.id } : o)) })), `template.${object.id}`);
+          }}
+        >
+          تبدیل به نمونه (برای کپی‌های زنده)
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="field-warning template-note">
+      کپیِ زنده‌ی «{template.name}» ({fa(copies)} تا در صحنه). هر تغییری اینجا، به‌جز جا و اندازه و نام، روی همه‌ی کپی‌ها انجام می‌شود.
+      <div className="adders">
+        <button
+          type="button"
+          className="chip"
+          data-add-copy
+          onClick={() => {
+            const copy = { ...object, id: newId('obj'), name: `${template.name.replace(/^نمونه‌ی /, '')} ${fa(copies + 1)}`, x: object.x + object.width + 20 };
+            change(updateScene(project, scene.id, (s) => ({ ...s, objects: [...s.objects, copy] })), `copy.${copy.id}`, copy.id);
+          }}
+        >
+          + یک کپی دیگر
+        </button>
+        <button type="button" className="chip" onClick={() => change(updateObject(project, scene.id, object.id, ({ template: _t, ...o }) => o), `untemplate.${object.id}`)}>
+          جدا کردن از نمونه
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Inspector({ editor }: { editor: Editor }) {
   const { project, scene, selection, change } = editor;
   const found = selection ? findObject(scene, selection) : null;
@@ -177,6 +227,7 @@ export function Inspector({ editor }: { editor: Editor }) {
           value={object.locked ?? false}
           onChange={(locked) => update('locked', ({ locked: _old, ...o }) => (locked ? { ...o, locked } : o))}
         />
+        {list === 'objects' && <TemplateTools editor={editor} object={object} />}
       </header>
 
       <div className="about-object" aria-label="این شیء چه می‌کند">

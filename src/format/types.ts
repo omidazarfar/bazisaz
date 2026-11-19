@@ -192,6 +192,12 @@ export interface GameObject {
    * the "damage" action lowers it and the "dead" trigger fires at zero.
    */
   health?: number;
+  /**
+   * A live copy of a template: the id of one of the scene's prefabs. Everything
+   * but its place, size and name is the template's; the editor keeps them in
+   * step, so changing one copy changes them all. The game itself ignores it.
+   */
+  template?: string;
   /** After losing health, this many seconds in which it cannot lose more; it blinks meanwhile. */
   invincible?: number;
   /** Shows a small health bar above it. */
