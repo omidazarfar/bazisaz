@@ -56,6 +56,21 @@ async function badge(project: GameProject, icon: string, name: string, text: str
   return { project: mark.project, objects: [frame.object, mark.object, words], text: words };
 }
 
+/** A thing to carry shown with a picture: the game's own if it has one already, otherwise a new one named after `base`. */
+function withItem(project: GameProject, asset: string, base: string): { project: GameProject; item: string } {
+  const have = project.variables.find((v) => v.item?.asset === asset)?.name;
+  if (have) return { project, item: have };
+  let item = base;
+  for (let n = 2; project.variables.some((v) => v.name === item); n++) item = `${base}${n}`;
+  return { project: { ...project, variables: [...project.variables, { name: item, initial: 0, saved: false, item: { asset } }] }, item };
+}
+
+/** A bag across the top of the screen, if the scene has none yet. */
+const bagIfNone = (project: GameProject, sceneId: string): GameObject[] =>
+  getScene(project, sceneId).objects.some((o) => o.visual.kind === 'bag')
+    ? []
+    : [makeObject('کوله‌پشتی', { kind: 'bag', slots: 5 }, Math.min(450, project.meta.width - 40), 90, { x: project.meta.width / 2, y: 215 }, { fixed: true })];
+
 const playersOf = (scene: Scene) => [...scene.objects, ...scene.prefabs].filter((o) => o.tags.includes(PLAYER));
 
 /**
@@ -930,6 +945,121 @@ export const RECIPES: Recipe[] = [
         ? `کلید، در و کوله‌پشتی آماده‌اند. حالا به یکی از اشیا نقش «بازیکن» بده. وسیله‌ی «${item}» در برگه‌ی «بازی»، بخش «کوله‌پشتی» است.`
         : `بازیکن کلید را برمی‌دارد و عکسش به کوله‌پشتی پرواز می‌کند؛ در فقط با کلید باز می‌شود. وسیله‌ی «${item}» در برگه‌ی «بازی»، بخش «کوله‌پشتی» است.`;
       return { project, select: key.id, note };
+    },
+  },
+  {
+    id: 'hearts',
+    title: 'جان با قلب‌ها',
+    about: 'سه قلب گوشه‌ی صفحه. هر بار که بازیکن به خطر بخورد، یک قلب خالی می‌شود و بازیکن قرمز می‌شود؛ وقتی قلبی نماند، صحنه از نو شروع می‌شود. قلب‌ها با زیاد شدن lives دوباره پر می‌شوند.',
+    apply: async (p, s) => {
+      const MAX = 3;
+      let project = p.variables.some((v) => v.name === 'lives') ? p : { ...p, variables: [...p.variables, { name: 'lives', initial: MAX, saved: false }] };
+      const heart = await useSprite(project, 'heart');
+      project = heart.project;
+      const hearts = Array.from({ length: MAX }, (_, i) =>
+        makeObject(`قلب ${i + 1}`, { kind: 'image', asset: heart.asset }, 62, 56, { x: 50 + i * 70, y: 160 }, { fixed: true }));
+      const rules: Rule[] = hearts.flatMap((h, i) => [
+        // A heart beyond the lives left is shown empty (faint), and fills again with a pop.
+        rule({ type: 'variable', name: 'lives', op: '<', value: i + 1 }, [{ type: 'setOpacity', target: byId(h.id), opacity: 0.25 }, { type: 'effect', target: byId(h.id), kind: 'pop', seconds: 0.3 }]),
+        rule({ type: 'variable', name: 'lives', op: '>=', value: i + 1 }, [{ type: 'setOpacity', target: byId(h.id), opacity: 1 }, { type: 'effect', target: byId(h.id), kind: 'pop', seconds: 0.3 }]),
+      ]);
+      rules.push(
+        rule({ type: 'touch', a: byTag(PLAYER), b: byTag(DANGER) }, [
+          { type: 'setVariable', name: 'lives', op: 'subtract', amount: 1 },
+          { type: 'flash', target: 'first', color: '#ff3b47', seconds: 0.4 },
+          { type: 'playSound', sound: 'hit' },
+          { type: 'shake', strength: 8 },
+        ]),
+        rule({ type: 'variable', name: 'lives', op: '<=', value: 0 }, [{ type: 'playSound', sound: 'lose' }, { type: 'wait', seconds: 0.8 }, { type: 'resetVariables' }, { type: 'restartScene' }]),
+      );
+      project = withRules(addAll(project, s, hearts), s, ...rules);
+      return {
+        project,
+        select: hearts[0].id,
+        note: 'جان در مقدار lives است. اگر قانون دیگری داری که با خوردن به خطر صحنه را از نو شروع می‌کند، آن را حذف کن تا اول قلب‌ها کم شوند. برای قلب اضافه، در یک قانون lives را یکی زیاد کن.',
+      };
+    },
+  },
+  {
+    id: 'dialogue',
+    title: 'جعبه‌ی گفت‌وگو',
+    about: 'یک جعبه‌ی گفت‌وگو پایین صفحه با عکس گوینده؛ با هر لمس جعبه، جمله‌ی بعدی می‌آید و بعد از آخری جعبه بسته می‌شود. جمله‌ها را در قانون‌ها عوض کن.',
+    apply: async (p, s) => {
+      const TALK = 'گفت‌وگو';
+      const { width, height } = p.meta;
+      const lines = ['Hello, traveler!', 'A key is hidden nearby.', 'Good luck, hero!'];
+      const project0 = p.variables.some((v) => v.name === 'talk') ? p : { ...p, variables: [...p.variables, { name: 'talk', initial: 1, saved: false }] };
+      const box = await picture(project0, 'panel', 'جعبه‌ی گفت‌وگو', width - 60, 250, { x: width / 2, y: height - 170 }, { fixed: true, tags: [TALK] });
+      const face = await picture(box.project, 'hero', 'گوینده', 120, 132, { x: 110, y: height - 182 }, { fixed: true, tags: [TALK] });
+      const text = makeObject('جمله', { kind: 'text', text: lines[0], color: '#ffffff', size: 40, weight: 'bold', align: 'left', outline: INK, shadow: true }, 0, 0, { x: 190, y: height - 222 }, { fixed: true, tags: [TALK] });
+      const more = makeObject('ادامه', { kind: 'text', text: 'tap ▼', color: '#ffd23f', size: 30, weight: 'bold', align: 'right', shadow: true }, 0, 0, { x: width - 70, y: height - 110 }, { fixed: true, tags: [TALK], behaviors: [{ type: 'pulse', amount: 0.12, seconds: 0.8 }] });
+      // Newest step first, so one tap moves the talk on by one step only.
+      const step = (n: number, then: Action[]): Rule => ({
+        ...rule({ type: 'tapObject', target: byId(box.object.id) }, [{ type: 'playSound', sound: 'click' }, ...then]),
+        condition: { name: 'talk', op: '==', value: n },
+      });
+      const rules: Rule[] = [
+        rule({ type: 'start' }, [{ type: 'setVariable', name: 'talk', op: 'set', amount: 1 }]),
+        step(lines.length, [{ type: 'hide', target: byTag(TALK) }, { type: 'setVariable', name: 'talk', op: 'set', amount: lines.length + 1 }]),
+      ];
+      // At step k the box shows line k; a tap shows line k + 1.
+      for (let k = lines.length - 1; k >= 1; k--) {
+        rules.push(step(k, [{ type: 'setText', target: byId(text.id), text: lines[k] }, { type: 'setVariable', name: 'talk', op: 'set', amount: k + 1 }]));
+      }
+      const project = withRules(addAll(face.project, s, [box.object, face.object, text, more]), s, ...rules);
+      return {
+        project,
+        select: text.id,
+        note: 'جمله‌ی اول در خود متن است و جمله‌های بعدی در قانون‌های «وقتی روی جعبه‌ی گفت‌وگو زده می‌شود» (کار «عوض کردن متن»). عکس گوینده را مثل هر عکس دیگری عوض کن. جمله‌ها کوتاه باشند تا در جعبه جا شوند.',
+      };
+    },
+  },
+  {
+    id: 'shop',
+    title: 'فروشگاه',
+    about: 'یک دکمه‌ی فروشگاه گوشه‌ی صفحه که فروشگاهی باز می‌کند: قلب به ۵ سکه و سپر به ۱۰ سکه. با سکه‌ی کافی، وسیله به کوله‌پشتی پرواز می‌کند؛ وگرنه دکمه قرمز می‌شود.',
+    apply: async (p, s) => {
+      const SHOP = 'فروشگاه';
+      const { width, height } = p.meta;
+      let project = withVariable(p, 'score');
+      if (!project.variables.some((v) => v.name === 'shopOpen')) project = { ...project, variables: [...project.variables, { name: 'shopOpen', initial: 0, saved: false }] };
+      const hidden = { fixed: true, visible: false, locked: true, tags: [SHOP] };
+      const opener = await picture(project, 'coin', 'دکمه‌ی فروشگاه', 90, 90, { x: width - 75, y: 180 }, { fixed: true, behaviors: [{ type: 'pulse', amount: 0.06, seconds: 1.2 }] });
+      const panel = await picture(opener.project, 'panel', 'صفحه‌ی فروشگاه', Math.min(560, width - 60), 520, { x: width / 2, y: height / 2 }, hidden);
+      project = panel.project;
+      const objects: GameObject[] = [opener.object, panel.object, makeObject('عنوان فروشگاه', { kind: 'text', text: 'Shop', color: '#ffd23f', size: 80, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: width / 2, y: height / 2 - 235 }, hidden)];
+      const rules: Rule[] = [{
+        ...rule({ type: 'tapObject', target: byId(opener.object.id) }, [{ type: 'playSound', sound: 'click' }, { type: 'show', target: byTag(SHOP) }, { type: 'setVariable', name: 'shopOpen', op: 'set', amount: 1 }]),
+        condition: { name: 'shopOpen', op: '==', value: 0 },
+        otherwise: [{ type: 'playSound', sound: 'click' }, { type: 'hide', target: byTag(SHOP) }, { type: 'setVariable', name: 'shopOpen', op: 'set', amount: 0 }],
+      }];
+      const offers = [{ sprite: 'heart', base: 'Heart', price: 5 }, { sprite: 'shield', base: 'Shield', price: 10 }];
+      for (const [i, offer] of offers.entries()) {
+        const y = height / 2 - 80 + i * 170;
+        const look = await useSprite(project, offer.sprite);
+        const made = withItem(look.project, look.asset, offer.base);
+        const icon = makeObject(`${offer.base} در فروشگاه`, { kind: 'image', asset: look.asset }, 100, 100, { x: width / 2 - 170, y }, hidden);
+        const buy = await picture(made.project, 'btn-wide', `خرید ${offer.base}`, 230, 80, { x: width / 2 + 110, y }, hidden);
+        const coin = await picture(buy.project, 'coin', `سکه‌ی ${offer.base}`, 46, 46, { x: width / 2 + 60, y: y - 4 }, hidden);
+        project = coin.project;
+        objects.push(icon, buy.object, coin.object, label(`قیمت ${offer.base}`, String(offer.price), 44, width / 2 + 125, y - 30, hidden));
+        rules.push({
+          ...rule({ type: 'tapObject', target: byId(buy.object.id) }, [
+            { type: 'setVariable', name: 'score', op: 'subtract', amount: offer.price },
+            { type: 'give', item: made.item, amount: 1, from: { by: 'id', id: icon.id } },
+            { type: 'playSound', sound: 'coin' },
+          ]),
+          condition: { name: 'score', op: '>=', value: offer.price },
+          otherwise: [{ type: 'flash', target: 'first', color: '#ff3b47', seconds: 0.3 }, { type: 'playSound', sound: 'hit' }],
+        });
+      }
+      objects.push(...bagIfNone(project, s));
+      project = withRules(addAll(project, s, objects), s, ...rules);
+      return {
+        project,
+        select: opener.object.id,
+        note: 'قیمت‌ها با مقدار score پرداخت می‌شوند؛ با قطعه‌ی «جایزه‌هایی که از بالا می‌افتند» یا هر قانونی که score را زیاد کند، سکه جمع کن. قیمت هر وسیله در شرط قانون خریدش است. وسیله‌ها در برگه‌ی «بازی»، بخش «کوله‌پشتی» هستند.',
+      };
     },
   },
 ];

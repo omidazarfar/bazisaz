@@ -1143,6 +1143,19 @@ check('in the try-out, walking into the key puts it in the bag', await until(pag
 await click('توقف');
 check('no errors with the bag', errors.length === 0, errors.join(' | '));
 
+for (const part of ['hearts', 'dialogue', 'shop']) {
+  await freshGame();
+  await addPart(part);
+  sc = await scene();
+  check(`the "${part}" part adds its objects and rules, with nothing pointed out as wrong`, sc.objects.length >= 3 && sc.rules.length >= 3 && (await page.$('.problem')) === null, `${sc.objects.length} objects, ${sc.rules.length} rules`);
+}
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 0.6);
+const opener = (await gameState(page)).entities.find((e) => e.width === 90 && e.height === 90);
+await tapAt(opener);
+check('in the try-out, the shop button opens the shop', await until(page, () => window.__game.getState().variables.shopOpen === 1, null, 5000));
+await click('توقف');
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

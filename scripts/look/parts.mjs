@@ -10,7 +10,7 @@ import { launch, openPage, sleep, toPage } from '../lib.mjs';
 const only = process.argv[2] ? process.argv[2].split(',') : null;
 const PARTS = [
   ['sling-tower', []], ['car', []], ['bridge', []], ['conveyor', []], ['pool', []], ['cut-rope', []], ['pendulum', []],
-  ['pause-menu', ['score']], ['startscreen', []], ['levels', []], ['controls', ['score', 'best', 'timer']],
+  ['pause-menu', ['score']], ['startscreen', []], ['levels', []], ['controls', ['score', 'best', 'timer']], ['hearts', []], ['dialogue', []], ['shop', ['score']],
 ];
 const browser = await launch();
 const { page, errors } = await openPage(browser, EDITOR, { viewport: { width: 1500, height: 950 } });
@@ -34,7 +34,7 @@ for (const [id, extra] of PARTS) {
   await page.screenshot({ path: `${out}p-${id}-edit.png` });
   await click('امتحان کن');
   await page.waitForFunction(() => window.__game.getState().mode === 'play' && window.__game.getState().time > 1.2, { timeout: 20000 });
-  if (id === 'pause-menu') {
+  if (id === 'pause-menu' || id === 'shop') {
     const b = await page.evaluate(() => window.__game.getState().entities.find((e) => e.width === 90 && e.height === 90));
     if (b) {
       await page.mouse.move(...(await toPage(page, b.x + b.width / 2, b.y + b.height / 2)));
