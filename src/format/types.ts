@@ -654,6 +654,12 @@ export interface CameraBehavior {
   lock: 'free' | 'up' | 'right';
   /** 0 or absent keeps the object dead centre; up to 1 lets the view trail behind and catch up softly. */
   smooth?: number;
+  /**
+   * Rooms: the view stays inside the object of this group that the followed
+   * object is in (usually hidden boxes, one per room), and moves on to the
+   * next room when it goes there. Empty or absent: the whole world.
+   */
+  roomTag?: string;
 }
 
 /** Grows and shrinks gently, to draw the eye to a button or a prize. */

@@ -1670,6 +1670,28 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.evaluate((k) => localStorage.removeItem(k), key);
   check('lab 18: no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
+
+  // Rooms: two hidden boxes side by side; the view keeps within the one the hero is in.
+  const box = (id, x, y, w, h, extra = {}) => ({ id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#ff5a5f' }, tags: [], visible: true, behaviors: [], ...extra });
+  const rooms = {
+    ...project, startScene: 'r',
+    scenes: [{ id: 'r', name: 'r', width: 2000, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [
+      { id: 'r-go', when: { type: 'after', seconds: 0.5 }, condition: null, then: [{ type: 'moveTo', target: { by: 'id', id: 'hero' }, x: 1100, y: 600 }] },
+    ], objects: [
+      box('room1', 0, 0, 1000, 1280, { tags: ['room'], visible: false }),
+      box('room2', 1000, 0, 1000, 1280, { tags: ['room'], visible: false }),
+      box('hero', 900, 600, 50, 50, { behaviors: [{ type: 'camera', lock: 'free', smooth: 0, roomTag: 'room' }] }),
+    ] }],
+  };
+  const second = await openPage(browser, url, { project: rooms });
+  await loaded(second.page);
+  await untilTime(second.page, 0.3);
+  const inFirst = (await gameState(second.page)).camera.x;
+  await untilTime(second.page, 0.7);
+  const inSecond = (await gameState(second.page)).camera.x;
+  check('camera rooms: the view stays inside the room the hero is in, and moves to the next room with it', inFirst === 280 && inSecond === 1000, `${inFirst} → ${inSecond}`);
+  check('lab 18 (rooms): no errors in the page', second.errors.length === 0, second.errors.join(' | '));
+  await second.page.close();
 }
 
 // ── 14. A broken project is refused with a readable message ───────────────

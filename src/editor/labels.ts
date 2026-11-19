@@ -426,7 +426,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { value: 'free', label: 'آزاد' },
       { value: 'up', label: 'فقط بالا برود' },
       { value: 'right', label: 'فقط راست برود' },
-    ] }],
+    ] }, { key: 'roomTag', label: 'دوربین از اتاق بیرون نرود', hint: 'برای دنیای اتاق‌به‌اتاق: برای هر اتاق یک مستطیل پنهان در یک گروه بکش (مثلاً «اتاق») و نام گروه را این‌جا بنویس. دوربین داخل اتاقی که شیء در آن است می‌ماند و وقتی به اتاق بعد برود، آن‌جا را نشان می‌دهد. خالی یعنی کل دنیا.', kind: 'tag', fallback: '', advanced: true }],
   },
   launch: {
     title: 'شروع با سرعت',

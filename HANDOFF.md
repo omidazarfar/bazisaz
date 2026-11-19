@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **454 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
+- `npm run build` exits 0. `npm test` gives **456 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -225,10 +225,10 @@ say so in the log.
 - [x] **Saving progress.** DONE 2026-11-19 (Claude): actions `saveGame` (key `save:<appId>:#game`, scene + all values) and `loadGame { scene }` (fallback); start-screen part has Play (reset) and Continue; lab 18. An action `saveGame` / trigger at start: remember
   the scene, plus every variable marked saved. A "Continue" button on the
   start screen part.
-- [ ] **Autotile for tile maps.** Already partly there: `tiles.ts` knows which
+- [ ] (deferred, low priority: tiles already draw by open sides) **Autotile for tile maps.** Already partly there: `tiles.ts` knows which
   sides are open. Make sure corners and edges look right for every style, and
   that slopes join smoothly.
-- [ ] **Camera zones and limits.** A "camera stops at" behavior: the camera
+- [x] **Camera zones and limits.** DONE 2026-11-19 (Claude): `CameraBehavior.roomTag` (view clamped to the room box the followed object is in), lab 18 check; `issues.ts` treats roomTag as optional. A "camera stops at" behavior: the camera
   stays inside an object's box. Useful for rooms and arenas.
 
 **Phase B: combat and smarter enemies** (complex games)

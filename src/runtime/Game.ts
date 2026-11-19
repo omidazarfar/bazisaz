@@ -1597,8 +1597,21 @@ export class Game {
     const smooth = camera?.type === 'camera' && !fresh ? (camera.smooth ?? 0) : 0;
     // A soft camera closes a share of the gap each moment instead of all of it.
     const share = smooth > 0 ? 1 - Math.exp(-dt / (smooth * 0.4)) : 1;
-    const x = this.camera.x + (target.x + target.width / 2 - width / this.z / 2 - this.camera.x) * share;
-    const y = this.camera.y + (target.y + target.height / 2 - height / this.z / 2 - this.camera.y) * share;
+    const [vw, vh] = [width / this.z, height / this.z];
+    let wantX = target.x + target.width / 2 - vw / 2;
+    let wantY = target.y + target.height / 2 - vh / 2;
+    // In a room, the view keeps within its walls; a room smaller than the view sits in its middle.
+    const roomTag = camera?.type === 'camera' ? camera.roomTag : undefined;
+    if (roomTag) {
+      const middle = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+      const room = this.entities.find((e) => e.alive && e.def.tags.includes(roomTag) && contains({ x: e.x, y: e.y, width: e.width, height: e.height }, middle));
+      if (room) {
+        wantX = room.width <= vw ? room.x + (room.width - vw) / 2 : clamp(wantX, room.x, room.x + room.width - vw);
+        wantY = room.height <= vh ? room.y + (room.height - vh) / 2 : clamp(wantY, room.y, room.y + room.height - vh);
+      }
+    }
+    const x = this.camera.x + (wantX - this.camera.x) * share;
+    const y = this.camera.y + (wantY - this.camera.y) * share;
     // A locked view never goes back: up means y only shrinks, right means x only grows.
     this.setCamera(lock === 'right' ? Math.max(this.camera.x, x) : x, lock === 'up' ? Math.min(this.camera.y, y) : y);
   }
