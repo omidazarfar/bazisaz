@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **450 PASS, 0 FAIL**, all three
+- `npm run build` exits 0. `npm test` gives **451 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -218,7 +218,7 @@ say so in the log.
     is updated.
   - A part "checkpoints": danger → lose a heart → respawn, instead of
     restarting the scene.
-- [ ] **Doors between scenes with an arrival point.**
+- [x] **Doors between scenes with an arrival point.** DONE 2026-11-19 (Claude): `goToScene.arriveAt` / `bring` (`Game.arrival`, applied in `loadScene`), lab 13 check, guide §۹.
   - `goToScene` gets an optional `arriveAt: tag`. In the new scene, objects
     tagged as players are moved to the first object with that tag.
   - Makes multi-room worlds (houses, dungeons) possible.

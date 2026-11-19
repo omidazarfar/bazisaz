@@ -751,7 +751,11 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
   goToScene: {
     title: 'رفتن به صحنه‌ی دیگر',
     make: ({ project }) => ({ type: 'goToScene', scene: project.scenes[0].id }),
-    fields: [{ key: 'scene', label: 'کدام صحنه', kind: 'scene' }],
+    fields: [
+      { key: 'scene', label: 'کدام صحنه', kind: 'scene' },
+      { key: 'arriveAt', label: 'کنار کدام در برسد', hint: 'برای دنیای چنداتاقه: نام گروهی در صحنه‌ی بعد (مثلاً «در خانه»). بازیکن کنار اولین شیء آن گروه ظاهر می‌شود، نه جای اولش. خالی یعنی جای خودش.', kind: 'tag', fallback: '', advanced: true },
+      { key: 'bring', label: 'چه کسی آن‌جا ظاهر شود', hint: 'نام گروه؛ خالی یعنی گروه «بازیکن».', kind: 'tag', fallback: '', advanced: true, showIf: (v) => Boolean(v.arriveAt) },
+    ],
   },
   restartScene: { title: 'شروع دوباره‌ی همین صحنه', make: () => ({ type: 'restartScene' }), fields: [] },
   playSound: {

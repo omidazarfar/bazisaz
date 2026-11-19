@@ -534,6 +534,8 @@ export class Game {
   /** A thing being dragged out of the bag by a finger, and things let go of since the last step, with where. */
   private bagDrag: { pointer: number; item: string; view: Sprite; start: Point; slot: Point; size: number } | null = null;
   private drops: { item: string; at: Point }[] = [];
+  /** Set by going through a door: in the next scene, the objects of group `bring` appear at the first object of group `at`. */
+  private arrival: { at: string; bring: string } | null = null;
 
   // Input since the last frame, and what is being held right now. All in screen coordinates.
   private readonly pointers = new Map<number, Pointer>();
@@ -1091,6 +1093,15 @@ export class Game {
       play && def.visual.kind === 'tiles' ? this.tileEntities(def, def.visual) : [this.createEntity(def, def.x, def.y)],
     );
     this.entities.forEach((e) => this.layerOf(e).addChild(e.view));
+    // Coming through a door: whoever came is put at the door they arrive by, standing on its bottom edge.
+    const arrival = this.arrival;
+    this.arrival = null;
+    const door = arrival && play ? this.entities.find((e) => e.def.tags.includes(arrival.at)) : undefined;
+    if (arrival && door) {
+      for (const e of this.entities) {
+        if (e !== door && e.def.tags.includes(arrival.bring)) this.place(e, door.x + (door.width - e.width) / 2, door.y + door.height - e.height);
+      }
+    }
     this.playZoom = 1;
     this.zoomGlide = null;
     this.musicOverride = null;
@@ -2725,6 +2736,7 @@ export class Game {
         break;
       case 'goToScene':
         this.nextScene = action.scene;
+        this.arrival = action.arriveAt ? { at: action.arriveAt, bring: action.bring || 'بازیکن' } : null;
         break;
       case 'nextScene': {
         const scenes = this.project.scenes;

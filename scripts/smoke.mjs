@@ -1383,6 +1383,12 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
       ] },
       { id: 'b', name: 'b', width: 720, height: 1280, background: null, music: null, gravity: 0, objects: [], prefabs: [], rules: [
         { id: 'r-b', when: { type: 'start' }, condition: null, then: [{ type: 'setVariable', name: 'reached', op: 'set', amount: 1 }] },
+        // Through a door into room c, arriving at its door rather than where the player was placed.
+        { id: 'r-door', when: { type: 'after', seconds: 1.5 }, condition: null, then: [{ type: 'goToScene', scene: 'c', arriveAt: 'door', bring: 'hero' }] },
+      ] },
+      { id: 'c', name: 'c', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [], objects: [
+        { id: 'p', name: 'p', x: 10, y: 10, width: 50, height: 50, visual: { kind: 'rect', color: '#ff5a5f' }, tags: ['hero'], visible: true, behaviors: [] },
+        { id: 'd', name: 'd', x: 300, y: 500, width: 100, height: 200, visual: { kind: 'rect', color: '#8d6e63' }, tags: ['door'], visible: true, behaviors: [] },
       ] },
     ],
   };
@@ -1394,6 +1400,9 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   let s = await gameState(page);
   check('otherwise: once the condition fails, the "otherwise" actions run instead', s.variables.missed >= 2 && s.variables.got === 3, `got ${s.variables.got}, missed ${s.variables.missed}`);
   check('next scene: goes to the scene after this one in the list', moved && s.variables.reached === 1, JSON.stringify({ scene: s.scene, time: s.time, v: s.variables }));
+  await until(page, () => window.__game.getState().scene === 'c', null, 15000);
+  const arrived = (await gameState(page)).entities.find((e) => e.id === 'p');
+  check('a door into another scene: the player arrives at the door, standing on its bottom edge', arrived?.x === 325 && arrived?.y === 650, `${arrived?.x},${arrived?.y}`);
   const log = await page.evaluate(() => window.__game.getDebug().log);
   check('try-out tools: the rules that ran are listed, with those stopped by their condition told apart', log.some((e) => e.rule === 'r-got' && e.ran) && log.some((e) => e.rule === 'r-got' && !e.ran) && log.some((e) => e.rule === 'r-b'), JSON.stringify(log.slice(-4)));
   await page.evaluate(() => window.__game.setDebug({ paused: true }));

@@ -910,7 +910,12 @@ export type Action =
   /** Throws every object with physics within `radius` of a place away from it, harder the closer it is, like a bomb. */
   | { type: 'blast'; at: Target; strength: number; radius: number }
   | { type: 'jump'; target: Target }
-  | { type: 'goToScene'; scene: string }
+  /**
+   * With `arriveAt`, a door into a room: in the new scene, the objects of group
+   * `bring` (the player, "بازیکن", if empty) are put at the first object of
+   * group `arriveAt`, standing on its bottom edge.
+   */
+  | { type: 'goToScene'; scene: string; arriveAt?: string; bring?: string }
   /** Goes to the scene after this one in the game's list of scenes; after the last, to the first. */
   | { type: 'nextScene' }
   /** Sends a message to the rules of the scene that wait for it (trigger `message`). */

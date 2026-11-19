@@ -130,7 +130,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'setPhysics': return a.kind === 'moving' ? `${who(a.target)} را رها کن تا بیفتد` : `${who(a.target)} را همان‌جا محکم کن`;
     case 'blast': return `روی ${who(a.at)} انفجار کن و اشیای فیزیکی دور و برش را پرت کن`;
     case 'jump': return `${who(a.target)} را بپران`;
-    case 'goToScene': return `به صحنه‌ی «${project.scenes.find((s) => s.id === a.scene)?.name ?? '؟'}» برو`;
+    case 'goToScene': return `به صحنه‌ی «${project.scenes.find((s) => s.id === a.scene)?.name ?? '؟'}» برو${a.arriveAt ? ` و کنار «${a.arriveAt}» برس` : ''}`;
     case 'restartScene': return 'صحنه را از اول شروع کن';
     case 'nextScene': return 'به صحنه‌ی بعد برو';
     case 'setLook': return `حال و هوای تصویر را «${LOOK_OPTIONS.find((o) => o.value === a.look)?.label ?? a.look}» کن`;
