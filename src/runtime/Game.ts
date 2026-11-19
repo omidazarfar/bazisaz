@@ -132,6 +132,8 @@ interface Entity extends Box {
   homeY: number;
   /** Where "respawn" puts it back: the place of its last checkpoint, if it reached one. */
   checkpoint?: Point;
+  /** Until when (game time) it cannot lose health after a hit. */
+  hurtUntil?: number;
   /** Seconds since it was created. */
   age: number;
   spawnIn: number;
@@ -534,6 +536,8 @@ export class Game {
   /** A thing being dragged out of the bag by a finger, and things let go of since the last step, with where. */
   private bagDrag: { pointer: number; item: string; view: Sprite; start: Point; slot: Point; size: number } | null = null;
   private drops: { item: string; at: Point }[] = [];
+  /** Health bars over objects, made anew with each scene's world. */
+  private healthBars: Graphics | null = null;
   /** Set by going through a door: in the next scene, the objects of group `bring` appear at the first object of group `at`. */
   private arrival: { at: string; bring: string } | null = null;
 
@@ -628,6 +632,7 @@ export class Game {
     const steps = Math.max(1, Math.ceil(total / MAX_STEP));
     for (let i = 0; i < steps; i++) this.update(total / steps);
     if (this.physics) this.drawPhysics();
+    this.drawHealthBars();
     this.skyView?.update(this.camera, this.z, this.scene.height, this.paused ? 0 : total);
     this.drawShade();
     this.drawDebug();
@@ -1093,6 +1098,8 @@ export class Game {
       play && def.visual.kind === 'tiles' ? this.tileEntities(def, def.visual) : [this.createEntity(def, def.x, def.y)],
     );
     this.entities.forEach((e) => this.layerOf(e).addChild(e.view));
+    this.healthBars = new Graphics();
+    this.world.addChild(this.healthBars);
     // Coming through a door: whoever came is put at the door they arrive by, standing on its bottom edge.
     const arrival = this.arrival;
     this.arrival = null;
@@ -1565,7 +1572,26 @@ export class Game {
       view.alpha = e.visible ? opacity : HIDDEN_ALPHA_IN_EDITOR;
     } else {
       view.visible = e.visible;
-      view.alpha = opacity;
+      // Blinks while it cannot be hurt again.
+      view.alpha = this.time < (e.hurtUntil ?? 0) && Math.floor(this.time * 14) % 2 ? opacity * 0.25 : opacity;
+    }
+  }
+
+  /** Small health bars over the objects that show one, drawn in the world above everything in it. */
+  private drawHealthBars(): void {
+    const g = this.healthBars;
+    if (!g || g.destroyed) return;
+    g.clear();
+    if (this.mode.kind !== 'play') return;
+    for (const e of this.entities) {
+      const full = e.def.health;
+      if (!e.def.healthBar || !full || !e.alive || !e.visible || e.def.fixed) continue;
+      const share = clamp(e.health / full, 0, 1);
+      const w = Math.max(40, e.width);
+      const [x, y] = [e.x + (e.width - w) / 2, e.y - 18];
+      g.roundRect(x - 2, y - 2, w + 4, 14, 7).fill({ color: '#0d1330', alpha: 0.85 });
+      if (share > 0) g.roundRect(x, y, Math.max(10, w * share), 10, 5).fill(share > 0.5 ? '#34d17e' : share > 0.25 ? '#ffd23f' : '#ff5a6e');
+      g.roundRect(x + 2, y + 1, Math.max(6, (w - 4) * share), 3, 1.5).fill({ color: '#ffffff', alpha: 0.35 });
     }
   }
 
@@ -2811,9 +2837,17 @@ export class Game {
         break;
       case 'damage':
         for (const e of this.targets(action.target, context)) {
-          if (e.def.health === undefined || e.health <= 0) continue;
+          if (e.def.health === undefined || e.health <= 0 || this.time < (e.hurtUntil ?? 0)) continue;
           e.health -= action.amount;
           if (e.health <= 0) this.died.push(e);
+          else if (e.def.invincible) e.hurtUntil = this.time + e.def.invincible;
+          // Knocked away from whatever hit it, and up a little.
+          const from = e === context.first ? context.second : context.first;
+          if (action.push && from) {
+            const side = e.x + e.width / 2 >= from.x + from.width / 2 ? 1 : -1;
+            e.vx = side * action.push;
+            e.vy = -action.push * 0.6;
+          }
         }
         break;
       case 'pause':

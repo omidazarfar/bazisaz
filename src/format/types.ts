@@ -192,6 +192,10 @@ export interface GameObject {
    * the "damage" action lowers it and the "dead" trigger fires at zero.
    */
   health?: number;
+  /** After losing health, this many seconds in which it cannot lose more; it blinks meanwhile. */
+  invincible?: number;
+  /** Shows a small health bar above it. */
+  healthBar?: boolean;
   /** Treats the object as a circle when testing what it touches. Solid walls still stop it as a box. */
   round?: boolean;
   /** Turn, in degrees clockwise. What the object touches is tested against the turned shape; solid walls still stop it as an unturned box. */
@@ -946,7 +950,8 @@ export type Action =
   /** Makes the scene darker or lighter over `seconds`, for nightfall or a light switch. */
   | { type: 'setDarkness'; amount: number; seconds: number }
   /** Takes hits off an object that has health. */
-  | { type: 'damage'; target: Target; amount: number }
+  /** With `push`, the object is also knocked away from the other object of the rule at that speed. */
+  | { type: 'damage'; target: Target; amount: number; push?: number }
   /** Freezes the game. Only taps still act, so a rule can resume it. */
   | { type: 'pause' }
   | { type: 'resume' }

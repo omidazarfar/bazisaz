@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **456 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
+- `npm run build` exits 0. `npm test` gives **458 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -232,7 +232,7 @@ say so in the log.
   stays inside an object's box. Useful for rooms and arenas.
 
 **Phase B: combat and smarter enemies** (complex games)
-- [ ] **Hurt properly.**
+- [x] **Hurt properly.** DONE 2026-11-19 (Claude): `GameObject.invincible` (blinks, `Entity.hurtUntil`), `healthBar` (drawn by `drawHealthBars` in `Game.healthBars`), `damage.push` knockback; lab 17 checks.
   - A short invincibility after a hit (`invincible` seconds on health
     objects; blink while it lasts).
   - Knockback (push away from what hit it).

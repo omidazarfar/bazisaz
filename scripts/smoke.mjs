@@ -1582,6 +1582,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         box('chest', 300, 400, 100, 100),
         box('runner', 100, 600, 50, 50),
         box('stray', 40, 40, 50, 50),
+        box('knight', 560, 300, 80, 80, { health: 3, invincible: 1, healthBar: true }),
       ],
       prefabs: [],
       rules: [
@@ -1593,6 +1594,9 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         { id: 'r-cp1', when: { type: 'after', seconds: 0.3 }, condition: null, then: [{ type: 'moveTo', target: { by: 'id', id: 'runner' }, x: 400, y: 600 }, { type: 'checkpoint', target: { by: 'id', id: 'runner' } }] },
         { id: 'r-cp2', when: { type: 'after', seconds: 0.6 }, condition: null, then: [{ type: 'moveTo', target: { by: 'id', id: 'runner' }, x: 600, y: 900 }, { type: 'moveTo', target: { by: 'id', id: 'stray' }, x: 500, y: 200 }] },
         { id: 'r-cp3', when: { type: 'after', seconds: 0.9 }, condition: null, then: [{ type: 'respawn', target: { by: 'id', id: 'runner' } }, { type: 'respawn', target: { by: 'id', id: 'stray' } }] },
+        // Two hits a moment apart: the second lands while the knight still cannot be hurt.
+        { id: 'r-hit1', when: { type: 'after', seconds: 0.4 }, condition: null, then: [{ type: 'damage', target: { by: 'id', id: 'knight' }, amount: 1 }] },
+        { id: 'r-hit2', when: { type: 'after', seconds: 0.7 }, condition: null, then: [{ type: 'damage', target: { by: 'id', id: 'knight' }, amount: 1 }] },
         { id: 'r-take', when: { type: 'after', seconds: 1.5 }, condition: null, then: [{ type: 'take', item: 'Gem', amount: 5 }] },
         { id: 'r-use', when: { type: 'useItem', item: 'Potion' }, condition: null, then: [{ type: 'setVariable', name: 'used', op: 'add', amount: 1 }, { type: 'take', item: 'Potion', amount: 1 }] },
         { id: 'r-on', when: { type: 'useItemOn', item: 'Key', target: { by: 'id', id: 'chest' } }, condition: null, then: [{ type: 'setVariable', name: 'opened', op: 'set', amount: 1 }, { type: 'take', item: 'Key', amount: 1 }] },
@@ -1614,6 +1618,10 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('bag: its places and the things in them are drawn', drawn >= 4, `${drawn} pieces`);
   await untilTime(page, 1.6);
   s = await gameState(page);
+  const knight = s.entities.find((e) => e.id === 'knight');
+  check('hurt: a second hit while it cannot be hurt again takes nothing', knight.health === 2, `health ${knight.health}`);
+  const barWidth = await page.evaluate(() => window.__game.healthBars.bounds.width);
+  check('hurt: a health bar is drawn over it', barWidth >= 80, `${barWidth}px`);
   const runner = s.entities.find((e) => e.id === 'runner');
   const stray = s.entities.find((e) => e.id === 'stray');
   check('checkpoint: respawning goes back to the last checkpoint, or to the start without one', runner.x === 400 && runner.y === 600 && stray.x === 40 && stray.y === 40, `${runner.x},${runner.y} / ${stray.x},${stray.y}`);

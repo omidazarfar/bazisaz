@@ -412,6 +412,18 @@ export function Inspector({ editor }: { editor: Editor }) {
       <Section title="جان" about="برای دشمن یا آجری که با چند ضربه از بین می‌رود. کار «کم کردن جان شیء» آن را کم می‌کند.">
         <Check label="این شیء جان داشته باشد" value={object.health !== undefined} onChange={(on) => update('health.on', ({ health: _old, ...o }) => (on ? { ...o, health: 3 } : o))} />
         {object.health !== undefined && <NumberField label="چند ضربه تحمل کند" value={object.health} onChange={(n) => update('health', (o) => ({ ...o, health: Math.max(1, Math.round(n)) }))} />}
+        {object.health !== undefined && (
+          <Slider
+            label="بعد از هر ضربه، چند ثانیه آسیب‌ناپذیر"
+            hint="در این مدت چشمک می‌زند و ضربه‌ی دیگری جانش را کم نمی‌کند؛ مثل بیشتر بازی‌ها بعد از خوردن به دشمن. صفر یعنی هیچ."
+            min={0}
+            max={3}
+            step={0.1}
+            value={object.invincible ?? 0}
+            onChange={(n) => update('invincible', ({ invincible: _old, ...o }) => (n > 0 ? { ...o, invincible: n } : o))}
+          />
+        )}
+        {object.health !== undefined && <Check label="نوار جان بالای سرش" hint="یک نوار کوچک سبز که با هر ضربه کوتاه‌تر و زرد و قرمز می‌شود؛ برای دشمن‌ها و غول آخر." value={object.healthBar ?? false} onChange={(healthBar) => update('healthBar', (o) => ({ ...o, healthBar }))} />}
       </Section>
 
       {object.behaviors.map((behavior, index) => {

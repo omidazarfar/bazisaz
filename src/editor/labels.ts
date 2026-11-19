@@ -810,7 +810,7 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     title: 'کم کردن جان شیء',
     about: 'فقط روی شیئی اثر دارد که در برگه‌ی «شیء» برایش «جان» گذاشته‌ای. وقتی جانش تمام شود، اتفاق «جان یک شیء تمام می‌شود» رخ می‌دهد.',
     make: (ctx) => ({ type: 'damage', target: firstRef(ctx), amount: 1 }),
-    fields: [TARGET, { key: 'amount', label: 'چقدر', kind: 'number' }],
+    fields: [TARGET, { key: 'amount', label: 'چقدر', kind: 'number' }, { ...slider('push', 'پس زدن', 0, 1500, 50, 'شیء از چیزی که به آن خورد دور و کمی بالا پرت می‌شود؛ مثل وقتی بازیکن به دشمن می‌خورد. صفر یعنی بدون پس زدن.'), fallback: 0 }],
   },
   pause: { title: 'مکث بازی', about: 'همه‌چیز می‌ایستد. فقط قانون‌های «لمس» کار می‌کنند تا بتوانی بازی را ادامه بدهی.', make: () => ({ type: 'pause' }), fields: [] },
   resume: { title: 'ادامه‌ی بازی بعد از مکث', make: () => ({ type: 'resume' }), fields: [] },
