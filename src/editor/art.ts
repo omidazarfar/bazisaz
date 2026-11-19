@@ -703,6 +703,18 @@ export const ART_SPRITES: Sprite[] = [
   },
 
   // ── Buttons ──
+  {
+    id: 'btn-sword', name: 'حمله', category: 'button', width: 100, height: 100,
+    body: button('#ff7a1a', () => `<path d="M68 22 74 26 46 58 40 52z" ${WHITE}/><path d="M34 52l14 14M30 66l8 8" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/><circle cx="31" cy="69" r="5" fill="#ffffff"/>`),
+  },
+  {
+    id: 'slash', name: 'ضربه‌ی شمشیر', category: 'item', width: 120, height: 120,
+    body: draw((k) =>
+      `<path d="M20 18Q104 18 108 60 104 102 20 102 84 94 86 60 84 26 20 18z" fill="${k.grad([[0, '#ffffff', 0.95], [1, '#7fe8ff', 0.6]], 0, 0, 1, 0)}" filter="${k.glow(4)}"/>` +
+      `<path d="M34 30Q92 34 94 60 92 86 34 90" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-opacity="0.9"/>` +
+      glint(100, 60, 8),
+    ),
+  },
   { id: 'btn-play', name: 'شروع', category: 'button', width: 100, height: 100, body: button('#3fbf4f', () => `<path d="M40 30v38l30-19z" ${WHITE}/>`) },
   { id: 'btn-pause', name: 'مکث', category: 'button', width: 100, height: 100, body: button('#ff9f1c', () => `<rect x="33" y="30" width="12" height="38" rx="4" fill="#ffffff"/><rect x="55" y="30" width="12" height="38" rx="4" fill="#ffffff"/>`) },
   { id: 'btn-restart', name: 'دوباره', category: 'button', width: 100, height: 100, body: button('#2f7cf6', () => `<path d="M68 49a18 18 0 1 1-7-14" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/><path d="M64 20v18H46z" fill="#ffffff"/>`) },

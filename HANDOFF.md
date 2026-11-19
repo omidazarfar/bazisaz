@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **463 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
+- `npm run build` exits 0. `npm test` gives **465 PASS, 0 FAIL**. The whole `npm test` now takes over 10 minutes: run it in the background or with a long timeout (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -244,7 +244,7 @@ say so in the log.
   - shooter that fires every N seconds toward the player
   - jumper
   - boss with phases, using a value `phase` and value triggers
-- [ ] **Melee attack:** a button or tap that briefly creates a hitbox prefab
+- [x] DONE 2026-11-19 (Claude): `spawn.ahead` (in front, same facing), part `sword` (btn-sword, slash prefab, damage with push, dead enemies explode); patrol and shooter roles now have 2 health. **Melee attack:** a button or tap that briefly creates a hitbox prefab
   in front of the player (spawn + lifetime + facing). Needs `spawn` to respect
   facing; check `Entity.facing`.
 - [ ] **Projectiles aimed at the player.** `launch.toward: 'group'` exists;

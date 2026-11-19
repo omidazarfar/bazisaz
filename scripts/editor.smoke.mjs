@@ -1170,6 +1170,30 @@ await click('امتحان کن');
 check('in the try-out, the boss fires at the player', await until(page, () => window.__game.getState().entities.filter((e) => e.tags.includes('خطر')).length > 1, null, 10000));
 await click('توقف');
 
+await freshGame();
+for (const role of ['jump-player', 'patrol-enemy']) {
+  await openLibrary('با نقش آماده');
+  await page.click(`.modal button[data-block="${role}"]`);
+  await until(page, () => document.querySelector('.modal') === null, null, 10000);
+  await sleep(200);
+}
+await addPart('sword');
+check('the sword part adds a sword button, a swing made during play, and its rules', (await scene()).prefabs.some((o) => o.tags.includes('ضربه')) && (await page.$('.problem')) === null);
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 0.6);
+// The enemy is put right in front of the player, who faces right; then the sword button is tapped.
+await page.evaluate(() => {
+  const player = window.__game.entities.find((e) => e.def.tags.includes('بازیکن'));
+  const enemy = window.__game.entities.find((e) => e.def.tags.includes('خطر'));
+  enemy.def = { ...enemy.def, behaviors: [] };
+  enemy.x = player.x + player.width + 10;
+  enemy.y = player.y;
+});
+const swordButton = (await gameState(page)).entities.find((e) => e.tags.includes('دکمه‌ی شمشیر'));
+await tapAt(swordButton);
+check('in the try-out, the sword hits the enemy in front of the player', await until(page, () => window.__game.getState().entities.find((e) => e.tags.includes('خطر'))?.health === 1, null, 5000), JSON.stringify((await gameState(page)).entities.filter((e) => e.tags.includes('خطر')).map((e) => e.health)));
+await click('توقف');
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

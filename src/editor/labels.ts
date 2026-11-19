@@ -727,7 +727,11 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     title: 'ساختن یک شیء',
     available: hasPrefabs,
     make: (ctx) => ({ type: 'spawn', prefab: ctx.scene.prefabs[0].id, at: firstRef(ctx) }),
-    fields: [{ key: 'prefab', label: 'چه چیزی', kind: 'prefab' }, { key: 'at', label: 'کجا', kind: 'place' }],
+    fields: [
+      { key: 'prefab', label: 'چه چیزی', kind: 'prefab' },
+      { key: 'at', label: 'کجا', kind: 'place' },
+      { key: 'ahead', label: 'جلوی آن، به طرفی که نگاه می‌کند', hint: 'برای ضربه‌ی شمشیر یا شلیک: به‌جای وسط شیء، درست جلویش ساخته می‌شود و به همان طرف نگاه می‌کند.', kind: 'bool', fallback: false, advanced: true, showIf: (v) => v.at !== 'tap' },
+    ],
   },
   show: { title: 'نشان دادن شیء', make: (ctx) => ({ type: 'show', target: firstRef(ctx) }), fields: [TARGET] },
   hide: { title: 'پنهان کردن شیء', make: (ctx) => ({ type: 'hide', target: firstRef(ctx) }), fields: [TARGET] },

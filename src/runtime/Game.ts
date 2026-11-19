@@ -2633,8 +2633,10 @@ export class Game {
           break;
         }
         for (const at of this.targets(action.at, context)) {
-          const entity = this.createEntity(prefab, at.x + (at.width - prefab.width) / 2, at.y + (at.height - prefab.height) / 2);
+          const ahead = action.ahead ? (at.facing * (at.width + prefab.width)) / 2 : 0;
+          const entity = this.createEntity(prefab, at.x + (at.width - prefab.width) / 2 + ahead, at.y + (at.height - prefab.height) / 2);
           entity.spawned = true;
+          if (action.ahead) entity.facing = at.facing;
           this.insertAbove(entity, at);
         }
         break;

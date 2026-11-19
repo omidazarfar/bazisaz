@@ -897,7 +897,8 @@ export type Action =
   | { type: 'resetVariables' }
   | { type: 'destroy'; target: Target }
   /** Creates a prefab at the position of another object. */
-  | { type: 'spawn'; prefab: string; at: Place }
+  /** With `ahead`, it appears just in front of the object, on the side it faces, and faces the same way: a sword's swing, a shot. */
+  | { type: 'spawn'; prefab: string; at: Place; ahead?: boolean }
   | { type: 'show'; target: Target }
   | { type: 'hide'; target: Target }
   | { type: 'moveTo'; target: Target; x: number; y: number }

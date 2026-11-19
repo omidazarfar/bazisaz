@@ -959,6 +959,36 @@ export const RECIPES: Recipe[] = [
     },
   },
   {
+    id: 'sword',
+    title: 'زدن با شمشیر',
+    about: 'یک دکمه‌ی شمشیر گوشه‌ی صفحه. با هر لمس، برق ضربه‌ای جلوی بازیکن (به طرفی که نگاه می‌کند) می‌زند؛ دشمن‌هایی که «جان» دارند با هر ضربه جان از دست می‌دهند و عقب پرت می‌شوند، و وقتی جانشان تمام شود منفجر می‌شوند.',
+    apply: async (p, s) => {
+      const HIT = 'ضربه';
+      const { width, height } = p.meta;
+      const slashLook = await useSprite(p, 'slash');
+      const slash = makeObject('ضربه‌ی شمشیر', { kind: 'image', asset: slashLook.asset }, 110, 110, { x: 0, y: 0 }, {
+        tags: [HIT], glow: '#7fe8ff', behaviors: [{ type: 'lifetime', seconds: 0.18 }],
+      });
+      const button = await picture(slashLook.project, 'btn-sword', 'دکمه‌ی شمشیر', 130, 130, { x: width - 100, y: height - 280 }, { fixed: true, opacity: 0.9, tags: ['دکمه‌ی شمشیر'] });
+      const project = withRules(
+        addObject(addObject(button.project, s, 'prefabs', slash), s, 'objects', button.object),
+        s,
+        rule({ type: 'tapObject', target: byId(button.object.id) }, [{ type: 'spawn', prefab: slash.id, at: byTag(PLAYER), ahead: true }, { type: 'playSound', sound: 'laser' }]),
+        rule({ type: 'touch', a: byTag(HIT), b: byTag(DANGER) }, [
+          { type: 'damage', target: 'second', amount: 1, push: 500 },
+          { type: 'flash', target: 'second', color: '#ffffff', seconds: 0.15 },
+          { type: 'playSound', sound: 'hit' },
+        ]),
+        rule({ type: 'dead', target: byTag(DANGER) }, [{ type: 'burst', target: 'first', color: '#ff7a1a', count: 24 }, { type: 'playSound', sound: 'boom' }, { type: 'destroy', target: 'first' }]),
+      );
+      const scene = getScene(p, s);
+      const note = playersOf(scene).length === 0
+        ? 'دکمه‌ی شمشیر آماده است. حالا به یکی از اشیا نقش «بازیکن» بده.'
+        : 'فقط دشمن‌هایی که «جان» دارند (برگه‌ی «شیء»، بخش «جان») زخمی می‌شوند؛ نقش‌های «دشمن نگهبان»، «دشمن تیرانداز» و «غول آخر» از اول جان دارند. خار و چیزهای بی‌جان آسیب نمی‌بینند.';
+      return { project, select: button.object.id, note };
+    },
+  },
+  {
     id: 'checkpoints',
     title: 'ایست بازرسی',
     about: 'دو پرچم در طول مرحله. بازیکن به هر پرچم که برسد، آن‌جا ایست بازرسی‌اش می‌شود؛ وقتی به خطر بخورد، به‌جای شروع دوباره‌ی کل مرحله، به آخرین پرچم برمی‌گردد.',

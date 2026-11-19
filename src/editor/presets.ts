@@ -155,14 +155,16 @@ export const PRESETS: Preset[] = [
     title: 'دشمن نگهبان',
     about: 'به چپ و راست رفت و برگشت می‌کند، مثل نگهبان؛ اگر بازیکن به او بخورد، بازیکن می‌بازد. فاصله و سرعتش در رفتار «رفت و برگشت» است.',
     fits: isShape,
-    apply: (p, s, id) => withTouchRule(shape(p, s, id, 'نگهبان', DANGER, [{ type: 'patrol', axis: 'x', distance: 240, speed: 120 }]), s, PLAYER, DANGER, LOSE),
+    apply: (p, s, id) =>
+      withTouchRule(updateObject(shape(p, s, id, 'نگهبان', DANGER, [{ type: 'patrol', axis: 'x', distance: 240, speed: 120 }]), s, id, (o) => ({ ...o, health: 2, healthBar: true, invincible: 0.3 })), s, PLAYER, DANGER, LOSE),
   },
   {
     id: 'shooter-enemy',
     title: 'دشمن تیرانداز',
     about: 'سر جایش می‌ماند و هر ۲ ثانیه یک گلوله‌ی قرمز درخشان به طرف بازیکن شلیک می‌کند. خوردن به خودش یا گلوله‌اش یعنی باخت.',
     fits: isShape,
-    apply: (p, s, id) => withTouchRule(withBullets(shape(p, s, id, 'تیرانداز', DANGER), s, id, 2), s, PLAYER, DANGER, LOSE),
+    apply: (p, s, id) =>
+      withTouchRule(withBullets(updateObject(shape(p, s, id, 'تیرانداز', DANGER), s, id, (o) => ({ ...o, health: 2, healthBar: true, invincible: 0.3 })), s, id, 2), s, PLAYER, DANGER, LOSE),
   },
   {
     id: 'boss',
