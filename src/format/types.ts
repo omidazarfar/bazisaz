@@ -352,7 +352,18 @@ export interface TextVisual {
 
 // ── Behaviors ──────────────────────────────────────────────────────────────
 
-export type Behavior =
+/**
+ * States: an object's own value `state` (0 unless something sets it) says
+ * which of its behaviors are on. A behavior with `onlyIn` works only while
+ * `state` is one of those numbers; one without it always works. An enemy can
+ * patrol in state 0 and chase in state 1, and a rule moves it between them.
+ * (Real physics, joints and bodies ignore it: they are what the object is.)
+ */
+export interface StateGate {
+  onlyIn?: number[];
+}
+
+export type Behavior = StateGate & (
   | BodyBehavior
   | JumperBehavior
   | WalkerBehavior
@@ -378,7 +389,8 @@ export type Behavior =
   | JointBehavior
   | ParticlesBehavior
   | LightBehavior
-  | FieldBehavior;
+  | FieldBehavior
+);
 
 /**
  * A steady stream of small particles coming from the object: fire and smoke

@@ -487,6 +487,26 @@ export function Inspector({ editor }: { editor: Editor }) {
             action={<button type="button" className="link" onClick={() => removeBehavior(behavior.type)}>حذف رفتار</button>}
           >
             <Fields fields={info.fields} value={behavior as unknown as Record<string, unknown>} ctx={ctx} onChange={(key, value) => setBehavior(index, key, value)} />
+            {!['body', 'physics', 'joint'].includes(behavior.type) && (
+              <div className="control">
+                <div className="control-head"><label htmlFor={`state-${behavior.type}`}>فقط وقتی حالتش (state) این باشد</label></div>
+                {/* Kept as typed until the field is left, so "1," can become "1,2". */}
+                <input
+                  id={`state-${behavior.type}`}
+                  type="text"
+                  dir="ltr"
+                  data-only-in={behavior.type}
+                  key={(behavior.onlyIn ?? []).join(',')}
+                  defaultValue={(behavior.onlyIn ?? []).join(',')}
+                  placeholder="همیشه"
+                  onBlur={(e) => {
+                    const states = e.target.value.split(/[,،\s]+/).filter(Boolean).map(Number).filter((n) => Number.isFinite(n));
+                    setBehavior(index, 'onlyIn', states.length > 0 ? states : undefined);
+                  }}
+                />
+                <p className="control-hint">خالی یعنی همیشه. مثلاً «0» برای نگهبانی و «1» برای تعقیب؛ چند حالت را با ویرگول جدا کن. حالت را با کار «تغییر مقدار یک شیء» روی مقدار state عوض کن.</p>
+              </div>
+            )}
           </Section>
         );
       })}

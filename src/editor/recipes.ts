@@ -967,7 +967,7 @@ export const RECIPES: Recipe[] = [
       const { width, height } = p.meta;
       const slashLook = await useSprite(p, 'slash');
       const slash = makeObject('ضربه‌ی شمشیر', { kind: 'image', asset: slashLook.asset }, 110, 110, { x: 0, y: 0 }, {
-        tags: [HIT], glow: '#7fe8ff', behaviors: [{ type: 'lifetime', seconds: 0.18 }],
+        tags: [HIT], glow: '#7fe8ff', behaviors: [{ type: 'lifetime', seconds: 0.25 }],
       });
       const button = await picture(slashLook.project, 'btn-sword', 'دکمه‌ی شمشیر', 130, 130, { x: width - 100, y: height - 280 }, { fixed: true, opacity: 0.9, tags: ['دکمه‌ی شمشیر'] });
       const project = withRules(

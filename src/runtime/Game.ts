@@ -134,6 +134,9 @@ interface Entity extends Box {
   checkpoint?: Point;
   /** Until when (game time) it cannot lose health after a hit. */
   hurtUntil?: number;
+  /** For an object with states: its full definition, and the state its `def` was last cut down for. */
+  base?: GameObject;
+  stateShown?: number;
   /** Seconds since it was created. */
   age: number;
   spawnIn: number;
@@ -1687,6 +1690,7 @@ export class Game {
     for (const { e } of order) {
       if (!e.alive) continue;
       e.age += dt;
+      this.applyState(e);
       let body: BodyBehavior | null = null;
       let steered = false;
       let attached = false;
@@ -3278,6 +3282,22 @@ export class Game {
     const before = this.ruleHeld.get(ruleId) ?? new Set<Entity>();
     this.ruleHeld.set(ruleId, now);
     return [...now].filter((e) => !before.has(e));
+  }
+
+  /**
+   * Turns an object's behaviors on and off for its `state` value: its
+   * definition is swapped for one with only the behaviors of that state. The
+   * things it is made of (body, physics, joints) are never switched off.
+   */
+  private applyState(e: Entity): void {
+    const base = e.base ?? e.def;
+    if (!base.behaviors.some((b) => b.onlyIn)) return;
+    const state = e.values.get('state') ?? 0;
+    if (e.base && e.stateShown === state) return;
+    const always = new Set(['body', 'physics', 'joint']);
+    e.base = base;
+    e.stateShown = state;
+    e.def = { ...base, behaviors: base.behaviors.filter((b) => always.has(b.type) || !b.onlyIn || b.onlyIn.includes(state)) };
   }
 
   // ── The player's bag ─────────────────────────────────────────────────────

@@ -187,6 +187,23 @@ look:
 
 ## Next steps (agreed or likely)
 
+### FIRST: one failing test to fix (left by Claude, 2026-11-19)
+
+`npm test` gives 1 FAIL in the editor suite: "in the try-out, the sword hits the enemy in front of the player" (enemy health stays 2). It passed once, right after Phase B3. It has failed on every run since Phase C, even with:
+- the slash's lifetime raised to 0.25 s
+- the enemy's and player's speed zeroed in the test
+- three taps
+
+What was checked:
+- The geometry looks right: the slash spawns ahead of the player and overlaps the enemy.
+- An earlier debug print showed **no slash entity at all**, 60 ms after the tap.
+
+So first suspect: the tap on the fixed sword button does not fire the `tapObject` rule. Look at `tappable`, `onControl`, and the jump-player's tap jump. Next suspect: `spawn` with `at: byTag(PLAYER)` and `ahead`.
+
+Debug with `node scripts/look/sworddebug.mjs`. It still hangs while adding the first role (waiting for the library to close). Compare with how `editor.smoke.mjs` adds roles (`openLibrary` with the Persian tab name), then print the rule log (`getDebug().log`) after the tap.
+
+Fix the cause, not the test.
+
 ### THE CURRENT PLAN: "complex games" roadmap (agreed by the owner 2026-11-19)
 
 The owner said: "now it is just making simple games … making more complex
@@ -261,7 +278,7 @@ say so in the log.
 **Phase D: logic for bigger games**
 - [ ] **Text variables** (names, quest steps) or **lists of numbers**.
   Start with a value that can hold a short text, shown with `{name}`.
-- [ ] **Object states.** A value `state` plus behaviors that are on only in
+- [x] DONE 2026-11-19 (Claude): `StateGate.onlyIn` on every behavior; `Game.applyState` swaps `e.def` for the state's behaviors (`e.base` keeps the full one); body/physics/joint are never switched off; Inspector field under each behavior; lab 17 check. **Object states.** A value `state` plus behaviors that are on only in
   some states (`Behavior.onlyIn?: number[]`). For example, an enemy has
   patrol in state 0 and chase in state 1. This one is very powerful and cheap
   in the runtime: skip behaviors whose `onlyIn` does not contain the value.

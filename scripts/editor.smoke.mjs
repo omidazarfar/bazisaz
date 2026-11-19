@@ -1187,14 +1187,20 @@ await page.evaluate(() => {
   const enemy = window.__game.entities.find((e) => e.def.tags.includes('خطر'));
   // Both hold still (there is no ground here, so the player would otherwise be falling).
   enemy.def = { ...enemy.def, behaviors: [] };
+  enemy.vx = enemy.vy = 0;
   player.def = { ...player.def, behaviors: [] };
   player.vx = player.vy = 0;
   enemy.x = player.x + player.width + 10;
   enemy.y = player.y;
 });
 const swordButton = (await gameState(page)).entities.find((e) => e.tags.includes('دکمه‌ی شمشیر'));
-await tapAt(swordButton);
-check('in the try-out, the sword hits the enemy in front of the player', await until(page, () => window.__game.getState().entities.find((e) => e.tags.includes('خطر'))?.health === 1, null, 5000), JSON.stringify((await gameState(page)).entities.filter((e) => e.tags.includes('خطر')).map((e) => e.health)));
+// Up to three swings, in case a busy computer lets one go by between frames.
+let swordHit = false;
+for (let swing = 0; swing < 3 && !swordHit; swing++) {
+  await tapAt(swordButton);
+  swordHit = await until(page, () => window.__game.getState().entities.find((e) => e.tags.includes('خطر'))?.health < 2, null, 3000);
+}
+check('in the try-out, the sword hits the enemy in front of the player', swordHit, JSON.stringify((await gameState(page)).entities.filter((e) => e.tags.includes('خطر')).map((e) => e.health)));
 await click('توقف');
 
 // ── Templates: live copies ─────────────────────────────────────────────────

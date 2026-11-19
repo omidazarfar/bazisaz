@@ -1583,6 +1583,8 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         box('runner', 100, 600, 50, 50),
         box('stray', 40, 40, 50, 50),
         box('knight', 560, 300, 80, 80, { health: 3, invincible: 1, healthBar: true }),
+        // States: moves right in state 0, down in state 1.
+        box('guard', 600, 700, 40, 40, { behaviors: [{ type: 'mover', vx: 100, vy: 0, speedVariable: '', atEdge: 'nothing', onlyIn: [0] }, { type: 'rotate', speed: 90, onlyIn: [1] }] }),
       ],
       prefabs: [],
       rules: [
@@ -1595,6 +1597,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         { id: 'r-cp2', when: { type: 'after', seconds: 0.6 }, condition: null, then: [{ type: 'moveTo', target: { by: 'id', id: 'runner' }, x: 600, y: 900 }, { type: 'moveTo', target: { by: 'id', id: 'stray' }, x: 500, y: 200 }] },
         { id: 'r-cp3', when: { type: 'after', seconds: 0.9 }, condition: null, then: [{ type: 'respawn', target: { by: 'id', id: 'runner' } }, { type: 'respawn', target: { by: 'id', id: 'stray' } }] },
         // Two hits a moment apart: the second lands while the knight still cannot be hurt.
+        { id: 'r-state', when: { type: 'after', seconds: 0.5 }, condition: null, then: [{ type: 'setValue', target: { by: 'id', id: 'guard' }, name: 'state', op: 'set', amount: 1 }] },
         { id: 'r-hit1', when: { type: 'after', seconds: 0.4 }, condition: null, then: [{ type: 'damage', target: { by: 'id', id: 'knight' }, amount: 1 }] },
         { id: 'r-hit2', when: { type: 'after', seconds: 0.7 }, condition: null, then: [{ type: 'damage', target: { by: 'id', id: 'knight' }, amount: 1 }] },
         { id: 'r-take', when: { type: 'after', seconds: 1.5 }, condition: null, then: [{ type: 'take', item: 'Gem', amount: 5 }] },
@@ -1618,6 +1621,8 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('bag: its places and the things in them are drawn', drawn >= 4, `${drawn} pieces`);
   await untilTime(page, 1.6);
   s = await gameState(page);
+  const guard = s.entities.find((e) => e.id === 'guard');
+  check('states: behaviors work only in their state (moved while 0, turns instead while 1)', guard.x > 630 && guard.x < 670 && Math.abs(guard.angle) > 0.5, `x ${guard.x.toFixed(0)}, angle ${guard.angle.toFixed(2)}`);
   const knight = s.entities.find((e) => e.id === 'knight');
   check('hurt: a second hit while it cannot be hurt again takes nothing', knight.health === 2, `health ${knight.health}`);
   const barWidth = await page.evaluate(() => window.__game.healthBars.bounds.width);
