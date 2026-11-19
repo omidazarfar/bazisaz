@@ -1640,6 +1640,38 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13g. Lab 18: saving progress and continuing ───────────────────────────
+{
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab18', orientation: 'portrait', width: 720, height: 1280, background: '#222831', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labeighteen', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [{ name: 'marker', initial: 0, saved: false }], startScene: 'x',
+    scenes: [
+      { id: 'x', name: 'x', width: 720, height: 1280, background: null, music: null, gravity: 0, objects: [], prefabs: [], rules: [
+        { id: 'r-save', when: { type: 'after', seconds: 0.2 }, condition: null, then: [{ type: 'setVariable', name: 'marker', op: 'set', amount: 5 }, { type: 'saveGame' }] },
+        { id: 'r-load', when: { type: 'tap' }, condition: null, then: [{ type: 'loadGame', scene: 'x' }] },
+      ] },
+      { id: 'y', name: 'y', width: 720, height: 1280, background: null, music: null, gravity: 0, objects: [], prefabs: [], rules: [] },
+    ],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.4);
+  const key = 'save:com.example.labeighteen:#game';
+  const kept = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null'), key);
+  check('save: the scene and every value are kept on the device', kept?.scene === 'x' && kept?.values?.marker === 5, JSON.stringify(kept));
+  // Pretend the player had got further: saved in scene y, with another value.
+  await page.evaluate((k) => localStorage.setItem(k, JSON.stringify({ scene: 'y', values: { marker: 42 } })), key);
+  await untilTime(page, 0.6);
+  await clickGame(page, 360, 640);
+  check('continue: goes back to the saved scene with the saved values', await until(page, () => window.__game.getState().scene === 'y' && window.__game.getState().variables.marker === 42, null, 5000), JSON.stringify((await gameState(page)).variables));
+  await page.evaluate((k) => localStorage.removeItem(k), key);
+  check('lab 18: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

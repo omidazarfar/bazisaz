@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **451 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
+- `npm run build` exits 0. `npm test` gives **454 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -222,7 +222,7 @@ say so in the log.
   - `goToScene` gets an optional `arriveAt: tag`. In the new scene, objects
     tagged as players are moved to the first object with that tag.
   - Makes multi-room worlds (houses, dungeons) possible.
-- [ ] **Saving progress.** An action `saveGame` / trigger at start: remember
+- [x] **Saving progress.** DONE 2026-11-19 (Claude): actions `saveGame` (key `save:<appId>:#game`, scene + all values) and `loadGame { scene }` (fallback); start-screen part has Play (reset) and Continue; lab 18. An action `saveGame` / trigger at start: remember
   the scene, plus every variable marked saved. A "Continue" button on the
   start screen part.
 - [ ] **Autotile for tile maps.** Already partly there: `tiles.ts` knows which

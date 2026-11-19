@@ -757,6 +757,18 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
       { key: 'bring', label: 'چه کسی آن‌جا ظاهر شود', hint: 'نام گروه؛ خالی یعنی گروه «بازیکن».', kind: 'tag', fallback: '', advanced: true, showIf: (v) => Boolean(v.arriveAt) },
     ],
   },
+  saveGame: {
+    title: 'ذخیره‌ی بازی',
+    about: 'صحنه‌ای که بازیکن در آن است و همه‌ی مقدارها (امتیاز، جان، وسیله‌های کوله‌پشتی) روی گوشی نگه داشته می‌شوند، حتی اگر بازی بسته شود. مثلاً وقتی هر مرحله شروع می‌شود.',
+    make: () => ({ type: 'saveGame' }),
+    fields: [],
+  },
+  loadGame: {
+    title: 'ادامه‌ی بازی ذخیره‌شده',
+    about: 'به جایی که بازی ذخیره شده بود برمی‌گردد، با همان مقدارها؛ برای دکمه‌ی «Continue». اگر هنوز چیزی ذخیره نشده، به صحنه‌ای می‌رود که این‌جا انتخاب می‌کنی.',
+    make: ({ project }) => ({ type: 'loadGame', scene: project.scenes[0].id }),
+    fields: [{ key: 'scene', label: 'اگر چیزی ذخیره نشده، برو به', kind: 'scene' }],
+  },
   restartScene: { title: 'شروع دوباره‌ی همین صحنه', make: () => ({ type: 'restartScene' }), fields: [] },
   playSound: {
     title: 'پخش صدا',
@@ -1106,7 +1118,7 @@ export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
   { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'shake', 'vibrate', 'setSound'] },
-  { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
+  { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },
   { title: 'تبلیغ', types: ['showAd', 'showRewardedAd'] },
 ];

@@ -287,7 +287,7 @@ export function removeScene(project: GameProject, sceneId: string): GameProject 
     .map((s) => ({
       ...s,
       rules: s.rules.map((r) => {
-        const keep = (a: Action) => a.type !== 'goToScene' || a.scene !== sceneId;
+        const keep = (a: Action) => !((a.type === 'goToScene' || a.type === 'loadGame') && a.scene === sceneId);
         return { ...r, then: r.then.filter(keep), ...(r.otherwise ? { otherwise: r.otherwise.filter(keep) } : {}) };
       }),
     }));

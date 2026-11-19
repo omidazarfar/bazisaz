@@ -106,7 +106,7 @@ A game is one JSON document (`src/format/types.ts`):
   slows anything touching something. Triggers `thrown`, `rest`, `snap`;
   actions `kick`, `spin`, `cut`, `setPhysics`. Physics events are kept until
   the rules have run (`Physics.endStep`), so a throw made between frames is
-  heard. Behaviors 26, triggers 25, actions 56.
+  heard. Behaviors 26, triggers 25, actions 58.
 - **Graphics**: `Scene.sky` (`src/runtime/sky.ts`): ten painted backdrops
   drawn once on canvases from a fixed seed and shown as repeating strips with
   parallax by depth, some animated (drifting clouds, twinkling stars, rising

@@ -132,6 +132,8 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'jump': return `${who(a.target)} را بپران`;
     case 'goToScene': return `به صحنه‌ی «${project.scenes.find((s) => s.id === a.scene)?.name ?? '؟'}» برو${a.arriveAt ? ` و کنار «${a.arriveAt}» برس` : ''}`;
     case 'restartScene': return 'صحنه را از اول شروع کن';
+    case 'saveGame': return 'بازی را روی گوشی ذخیره کن';
+    case 'loadGame': return `بازی ذخیره‌شده را ادامه بده (اگر نبود، به صحنه‌ی «${project.scenes.find((s) => s.id === a.scene)?.name ?? '؟'}» برو)`;
     case 'nextScene': return 'به صحنه‌ی بعد برو';
     case 'setLook': return `حال و هوای تصویر را «${LOOK_OPTIONS.find((o) => o.value === a.look)?.label ?? a.look}» کن`;
     case 'setDarkness': return a.amount <= 0.01 ? 'صحنه را روشن کن' : `صحنه را ${a.amount >= 0.99 ? 'کاملاً' : 'کمی'} تاریک کن`;

@@ -147,7 +147,7 @@ export function validateProject(project: GameProject): string[] {
         if (a.type === 'playSound' && !(SOUND_NAMES as readonly string[]).includes(a.sound) && project.assets[a.sound]?.type !== 'sound') {
           say(`${where}: ${name} plays missing sound "${a.sound}".`);
         }
-        if (a.type === 'goToScene' && !sceneIds.has(a.scene)) {
+        if ((a.type === 'goToScene' || a.type === 'loadGame') && !sceneIds.has(a.scene)) {
           say(`${where}: ${name} goes to missing scene "${a.scene}".`);
         }
         // An empty picture or music is "not chosen yet" (or, for music, silence), which plays fine.

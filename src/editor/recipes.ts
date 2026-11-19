@@ -425,7 +425,9 @@ export const RECIPES: Recipe[] = [
     apply: async (p, s) => {
       const { width, height } = p.meta;
       const id = newId('scene');
-      const button = await picture(p, 'btn-play', 'دکمه‌ی شروع', 240, 240, { x: width / 2, y: height * 0.58 }, { behaviors: [{ type: 'pulse', amount: 0.08, seconds: 1 }] });
+      const button = await picture(p, 'btn-play', 'دکمه‌ی شروع', 240, 240, { x: width / 2, y: height * 0.55 }, { behaviors: [{ type: 'pulse', amount: 0.08, seconds: 1 }] });
+      // "Continue" picks up saved progress; the game scene saves it each time it starts.
+      const more = await picture(button.project, 'btn-wide', 'دکمه‌ی ادامه', 300, 100, { x: width / 2, y: height * 0.76 });
       const start: Scene = {
         id,
         name: 'Start',
@@ -437,14 +439,23 @@ export const RECIPES: Recipe[] = [
         sky: 'sunset',
         bloom: true,
         vignette: true,
-        objects: [title('نام بازی', p.meta.name, 110, width / 2, height * 0.25), button.object],
+        objects: [
+          title('نام بازی', p.meta.name, 110, width / 2, height * 0.25),
+          button.object,
+          more.object,
+          label('نوشته‌ی ادامه', 'Continue', 44, width / 2, height * 0.76 - 32, { fixed: false }),
+        ],
         prefabs: [],
-        rules: [rule({ type: 'tapObject', target: byId(button.object.id) }, [{ type: 'playSound', sound: 'click' }, { type: 'goToScene', scene: s }])],
+        rules: [
+          rule({ type: 'tapObject', target: byId(button.object.id) }, [{ type: 'playSound', sound: 'click' }, { type: 'resetVariables' }, { type: 'goToScene', scene: s }]),
+          rule({ type: 'tapObject', target: byId(more.object.id) }, [{ type: 'playSound', sound: 'click' }, { type: 'loadGame', scene: s }]),
+        ],
       };
+      const saved = withRules(more.project, s, rule({ type: 'start' }, [{ type: 'saveGame' }]));
       return {
-        project: { ...button.project, scenes: [...button.project.scenes, start], startScene: id },
+        project: { ...saved, scenes: [...saved.scenes, start], startScene: id },
         select: null,
-        note: 'صحنه‌ی «Start» ساخته شد و بازی حالا از آن شروع می‌شود. از فهرست «صحنه» بازش کن تا نام و ظاهرش را عوض کنی. برای امتحان همین صحنه، «امتحان همین صحنه» را بزن.',
+        note: 'صحنه‌ی «Start» ساخته شد و بازی حالا از آن شروع می‌شود. «Play» بازی تازه است؛ «Continue» از آخرین جایی که بازی ذخیره شده ادامه می‌دهد (این صحنه هر بار که شروع شود بازی را ذخیره می‌کند؛ در صحنه‌های دیگر هم کار «ذخیره‌ی بازی» را بگذار).',
       };
     },
   },

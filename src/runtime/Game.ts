@@ -2609,6 +2609,29 @@ export class Game {
       case 'moveTo':
         for (const e of this.targets(action.target, context)) this.place(e, action.x, action.y);
         break;
+      case 'saveGame':
+        try {
+          localStorage.setItem(this.savedKey('#game'), JSON.stringify({ scene: this.scene.id, values: Object.fromEntries(this.variables) }));
+        } catch {
+          // Progress simply isn't kept on this device.
+        }
+        break;
+      case 'loadGame': {
+        let saved: { scene?: string; values?: Record<string, number> } | null = null;
+        try {
+          saved = JSON.parse(localStorage.getItem(this.savedKey('#game')) ?? 'null');
+        } catch {
+          saved = null;
+        }
+        if (saved?.scene && this.project.scenes.some((s) => s.id === saved.scene)) {
+          for (const v of this.project.variables) {
+            const value = saved.values?.[v.name];
+            if (typeof value === 'number') this.setValueOf(v.name, value);
+          }
+          this.nextScene = saved.scene;
+        } else if (this.project.scenes.some((s) => s.id === action.scene)) this.nextScene = action.scene;
+        break;
+      }
       case 'checkpoint':
         for (const e of this.targets(action.target, context)) e.checkpoint = { x: e.x, y: e.y };
         break;
