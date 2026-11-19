@@ -1156,6 +1156,20 @@ await tapAt(opener);
 check('in the try-out, the shop button opens the shop', await until(page, () => window.__game.getState().variables.shopOpen === 1, null, 5000));
 await click('توقف');
 
+for (const role of ['patrol-enemy', 'shooter-enemy', 'boss']) {
+  await freshGame();
+  await openLibrary('با نقش آماده');
+  await page.click(`.modal button[data-block="${role}"]`);
+  await until(page, () => document.querySelector('.modal') === null, null, 10000);
+  await sleep(200);
+  sc = await scene();
+  check(`the "${role}" role makes an enemy, with nothing pointed out as wrong`, sc.objects.some((o) => o.tags.includes('خطر')) && (await page.$('.problem')) === null, JSON.stringify(sc.objects.map((o) => o.tags)));
+}
+check('the boss has health, a health bar and a rule for when it dies', sc.objects.some((o) => o.health === 12 && o.healthBar) && sc.rules.some((r) => r.when.type === 'dead'));
+await click('امتحان کن');
+check('in the try-out, the boss fires at the player', await until(page, () => window.__game.getState().entities.filter((e) => e.tags.includes('خطر')).length > 1, null, 10000));
+await click('توقف');
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

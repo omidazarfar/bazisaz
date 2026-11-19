@@ -169,7 +169,7 @@ look:
 ## Current state (keep this up to date)
 
 - Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **458 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
+- `npm run build` exits 0. `npm test` gives **463 PASS, 0 FAIL** (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
   suites.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
@@ -238,7 +238,7 @@ say so in the log.
   - Knockback (push away from what hit it).
   - A health bar that follows an object: `bar` visual + `attach`, or a
     built-in option on health objects.
-- [ ] **Enemy brain role presets** (in `presets.ts`), built from the existing
+- [x] DONE 2026-11-19 (Claude): roles `patrol-enemy`, `shooter-enemy`, `boss` (bullets via `withBullets` in presets.ts: prefab + eachEvery spawn). Edge-turning walker and a jumping enemy still open. **Enemy brain role presets** (in `presets.ts`), built from the existing
   patrol, chase, near, eachEvery, spawn and launch blocks:
   - walker that turns at edges
   - shooter that fires every N seconds toward the player

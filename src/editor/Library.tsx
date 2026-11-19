@@ -63,6 +63,9 @@ const ROLE_SPRITE: Record<string, string> = {
   'physics-crate': 'crate',
   'physics-ball': 'ball',
   'sling-stone': 'rock',
+  'patrol-enemy': 'slime',
+  'shooter-enemy': 'ufo',
+  boss: 'bat',
 };
 /** The library picture shown on the card of each ready-made part, so the list reads at a glance. */
 const PART_ICON: Record<string, string> = {

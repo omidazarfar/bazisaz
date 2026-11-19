@@ -1,5 +1,5 @@
 import type { Action, Behavior, GameObject, GameProject, PhysicsBehavior, Rule } from '../format/types';
-import { newId, updateObject, updateScene } from './state';
+import { makeObject, newId, updateObject, updateScene } from './state';
 
 /**
  * Ready-made roles. A role is a shortcut, not a different kind of object: it
@@ -59,6 +59,25 @@ export function withTouchRule(project: GameProject, sceneId: string, a: string, 
 }
 
 /** Losing: a sound, a breath, then the scene again with the score back at its start. */
+/**
+ * What shooting enemies fire: a glowing red ball, made during play, that
+ * flies at the nearest player and is gone after a few seconds. The shooter
+ * fires one every `seconds`, on its own clock.
+ */
+function withBullets(project: GameProject, sceneId: string, shooterId: string, seconds: number): GameProject {
+  const bullet = makeObject('گلوله‌ی دشمن', { kind: 'ellipse', color: '#ff4d5e', shade: true }, 30, 30, { x: 0, y: 0 }, {
+    tags: [DANGER], round: true, glow: '#ff4d5e',
+    behaviors: [{ type: 'launch', vx: 0, vy: 0, toward: 'group', targetTag: PLAYER, speed: 420 }, { type: 'lifetime', seconds: 3 }],
+  });
+  const fire: Rule = {
+    id: newId('rule'),
+    when: { type: 'eachEvery', target: { by: 'id', id: shooterId }, seconds },
+    condition: null,
+    then: [{ type: 'spawn', prefab: bullet.id, at: 'first' }, { type: 'playSound', sound: 'laser' }],
+  };
+  return updateScene(project, sceneId, (s) => ({ ...s, prefabs: [...s.prefabs, bullet], rules: [...s.rules, fire] }));
+}
+
 export const LOSE: Action[] = [{ type: 'shake', strength: 14 }, { type: 'playSound', sound: 'lose' }, { type: 'wait', seconds: 0.4 }, { type: 'resetVariables' }, { type: 'restartScene' }];
 const isShape = (o: GameObject) => o.visual.kind !== 'text' && o.visual.kind !== 'bar';
 
@@ -130,6 +149,45 @@ export const PRESETS: Preset[] = [
     fits: isShape,
     apply: (p, s, id) =>
       withTouchRule(shape(p, s, id, 'دشمن', DANGER, [{ type: 'chase', targetTag: PLAYER, speed: 150 }]), s, PLAYER, DANGER, LOSE),
+  },
+  {
+    id: 'patrol-enemy',
+    title: 'دشمن نگهبان',
+    about: 'به چپ و راست رفت و برگشت می‌کند، مثل نگهبان؛ اگر بازیکن به او بخورد، بازیکن می‌بازد. فاصله و سرعتش در رفتار «رفت و برگشت» است.',
+    fits: isShape,
+    apply: (p, s, id) => withTouchRule(shape(p, s, id, 'نگهبان', DANGER, [{ type: 'patrol', axis: 'x', distance: 240, speed: 120 }]), s, PLAYER, DANGER, LOSE),
+  },
+  {
+    id: 'shooter-enemy',
+    title: 'دشمن تیرانداز',
+    about: 'سر جایش می‌ماند و هر ۲ ثانیه یک گلوله‌ی قرمز درخشان به طرف بازیکن شلیک می‌کند. خوردن به خودش یا گلوله‌اش یعنی باخت.',
+    fits: isShape,
+    apply: (p, s, id) => withTouchRule(withBullets(shape(p, s, id, 'تیرانداز', DANGER), s, id, 2), s, PLAYER, DANGER, LOSE),
+  },
+  {
+    id: 'boss',
+    title: 'غول آخر',
+    about: 'دوازده جان و نوار جان بالای سرش؛ آرام دنبال بازیکن می‌آید و هر یک‌ونیم ثانیه شلیک می‌کند. وقتی جانش تمام شود، منفجر می‌شود و پیام «برد» را می‌فرستد. برای زدنش، در یک قانون از جانش کم کن.',
+    fits: isShape,
+    apply: (p, s, id) => {
+      const boss = updateObject(shape(p, s, id, 'غول آخر', DANGER, [{ type: 'chase', targetTag: PLAYER, speed: 70 }]), s, id, (o) => ({ ...o, health: 12, healthBar: true, invincible: 0.4 }));
+      const dies: Rule = {
+        id: newId('rule'),
+        when: { type: 'dead', target: { by: 'id', id } },
+        condition: null,
+        then: [
+          { type: 'burst', target: 'first', color: '#ffd23f', count: 40 },
+          { type: 'shake', strength: 18 },
+          { type: 'playSound', sound: 'boom' },
+          { type: 'destroy', target: 'first' },
+          { type: 'wait', seconds: 0.6 },
+          { type: 'playSound', sound: 'win' },
+          { type: 'send', name: 'برد' },
+        ],
+      };
+      const armed = withBullets(boss, s, id, 1.5);
+      return withTouchRule(updateScene(armed, s, (scene) => ({ ...scene, rules: [...scene.rules, dies] })), s, PLAYER, DANGER, LOSE);
+    },
   },
   {
     id: 'physics-crate',
