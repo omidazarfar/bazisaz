@@ -202,6 +202,26 @@ Already ruled out (by Claude): `tappable` is set to `visible` every step (Game.t
 
 So first suspect: the tap on the fixed sword button does not fire the `tapObject` rule. Look at `tappable`, `onControl`, and the jump-player's tap jump. Next suspect: `spawn` with `at: byTag(PLAYER)` and `ahead`.
 
+**NEW CLUE (Claude, 2026-11-20). It is probably not the sword at all.**
+
+With `node scripts/look/sworddebug.mjs` (now fixed, runs end to end):
+- After pressing "امتحان کن", the try-out reports mode "play".
+- The game clock stays at about 0.03 s for 8 seconds of real time. Only one or two frames ran.
+- No page errors, and the CPU was idle.
+- Calling `window.__game.advance(0.016)` by hand works fine.
+
+So the Pixi ticker or requestAnimationFrame is being **starved in the editor's try-out**, and the sword test fails because the game hardly runs.
+
+It started between commit d1d98bf (B3, where the test passed) and 4c7862c (Phase C).
+
+Suspects, in order:
+1. A React re-render loop in the editor during try-out, e.g. something calling `change` or setting state every render. Check `App.tsx` (the `change` wrapper now calls `syncTemplates`), `Inspector.tsx` (`TemplateTools`), `ObjectList.tsx`, and `DebugPanel.tsx`. A quick check: count renders, or use the Performance panel in headless Chrome.
+2. Something per frame in `Game.ts` that is slow only with these objects.
+
+Compare with `git diff d1d98bf 4c7862c -- src/`.
+
+The old debug note below is kept for history.
+
 Debug with `node scripts/look/sworddebug.mjs`. It still hangs while adding the first role (waiting for the library to close). Compare with how `editor.smoke.mjs` adds roles (`openLibrary` with the Persian tab name), then print the rule log (`getDebug().log`) after the tap.
 
 Fix the cause, not the test.

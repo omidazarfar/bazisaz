@@ -15,16 +15,18 @@ await sleep(400);
 const add = async (tab, id) => {
   await page.click('button[data-library="objects"]');
   await page.waitForSelector('.modal');
-  await page.click(`.modal [data-library-tab="${tab}"]`);
+  await page.evaluate((t) => [...document.querySelectorAll('.modal [role=tab]')].find((b) => b.textContent.includes(t)).click(), tab);
+  await sleep(200);
   await page.click(`.modal button[data-block="${id}"]`);
-  await page.waitForFunction(() => !document.querySelector('.modal'));
+  await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 15000 });
   await sleep(200);
 };
-await add('roles', 'jump-player');
-await add('roles', 'patrol-enemy');
-await add('parts', 'sword');
+await add('با نقش آماده', 'jump-player');
+await add('با نقش آماده', 'patrol-enemy');
+await add('قطعه‌های آماده', 'sword');
+console.log('rules', JSON.stringify(await page.evaluate(() => { const s = window.__editor.getState(); const sc = s.project.scenes.find((x) => x.id === s.sceneId); return sc.rules.map((r) => [r.id, r.when.type, JSON.stringify(r.when.target ?? '')]); })));
 await click('امتحان کن');
-await page.waitForFunction(() => window.__game.getState().mode === 'play' && window.__game.getState().time > 0.6);
+await page.waitForFunction(() => window.__game.getState().mode === 'play' && window.__game.getState().time > 0.6, { timeout: 8000 }).catch(async () => { console.log('ADVANCE:', await page.evaluate(() => { try { window.__game.advance(0.016); return 'ok ' + window.__game.getState().time; } catch (e) { return String((e && e.stack) ? e.stack : e).slice(0, 700); } })); console.log('NOT STARTED', JSON.stringify(await page.evaluate(() => ({ t: window.__game.getState().time, paused: window.__game.getState().paused, dbg: window.__game.getDebug().paused, fps: window.__game.getDebug().fps, n: window.__game.getState().entities.length }))), JSON.stringify(await page.evaluate(() => window.__game.getState().mode)), errors, await page.$$eval('.problem, .chip-warn', (els) => els.map((e) => e.textContent))); process.exit(1); });
 await page.evaluate(() => {
   const player = window.__game.entities.find((e) => e.def.tags.includes('بازیکن'));
   const enemy = window.__game.entities.find((e) => e.def.tags.includes('خطر'));
@@ -42,7 +44,7 @@ for (let i = 0; i < 6; i++) {
   console.log(await page.evaluate(() => {
     const s = window.__game.getState();
     const pick = s.entities.filter((e) => ['ضربه', 'خطر', 'بازیکن'].includes(e.tags[0])).map((e) => `${e.tags[0]}@${Math.round(e.x)},${Math.round(e.y)} w${e.width} h${e.health}`);
-    const log = window.__game.getDebug().log.slice(-4).map((l) => `${l.rule}:${l.ran}`);
+    const log = window.__game.getDebug().log.slice(-6).map((l) => `${l.rule}:${l.ran}`);
     return `t${s.time.toFixed(2)} ${pick.join(' | ')} || ${log.join(' ')}`;
   }));
   await sleep(50);
