@@ -132,12 +132,24 @@ export function makeObject(name: string, visual: Visual, width: number, height: 
 }
 
 /** A place for a new object at or near `centre` where it will not land exactly on top of one already there. */
-export function freeSpot(scene: Scene, centre: { x: number; y: number }): { x: number; y: number } {
-  const taken = (p: { x: number; y: number }) =>
-    scene.objects.some((o) => Math.abs(o.x + (o.visual.kind === 'text' ? 0 : o.width / 2) - p.x) < 24 && Math.abs(o.y + o.height / 2 - p.y) < 24);
-  let spot = centre;
-  for (let i = 0; i < 12 && taken(spot); i++) spot = { x: spot.x + 40, y: spot.y + 40 };
-  return spot;
+export function freeSpot(scene: Scene, centre: { x: number; y: number }, width = 0, height = 0): { x: number; y: number } {
+  // Search outwards from the insertion point. A small offset between centres
+  // still leaves full-size roles touching and can trigger a loss on frame one.
+  const fits = (x: number, y: number) =>
+    x - width / 2 >= 0 && x + width / 2 <= scene.width &&
+    y - height / 2 >= 0 && y + height / 2 <= scene.height &&
+    !scene.objects.some(o => x + width / 2 + 12 > o.x && x - width / 2 - 12 < o.x + o.width &&
+      y + height / 2 + 12 > o.y && y - height / 2 - 12 < o.y + o.height);
+  for (let radius = 0; radius <= 12; radius++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const x = centre.x + dx * 40, y = centre.y + dy * 40;
+        if (fits(x, y)) return { x, y };
+      }
+    }
+  }
+  return centre;
 }
 
 export function addObject(project: GameProject, sceneId: string, list: ObjectList, object: GameObject): GameProject {

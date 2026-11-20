@@ -67,7 +67,7 @@ export function validateProject(project: GameProject): string[] {
         }
       }
       if (obj.visual.kind === 'image') {
-        for (const asset of [...(obj.visual.moveFrames ?? []), ...(obj.visual.airFrames ?? [])]) {
+        for (const asset of [...(obj.visual.moveFrames ?? []), ...(obj.visual.airFrames ?? []), ...(obj.visual.hurtFrames ?? [])]) {
           if (project.assets[asset]?.type !== 'image') say(`${where}: "${obj.id}" uses missing image "${asset}".`);
         }
       }
@@ -144,6 +144,9 @@ export function validateProject(project: GameProject): string[] {
         }
         if ((a.type === 'effect' || a.type === 'glide') && !(a.seconds > 0)) say(`${where}: ${name} has an effect that takes no time.`);
         if (a.type === 'wait' && !(a.seconds > 0)) say(`${where}: ${name} waits for no time.`);
+        if (a.type === 'playSound' && a.volume !== undefined && !(Number.isFinite(a.volume) && a.volume >= 0 && a.volume <= 100)) {
+          say(`${where}: ${name} needs a sound volume between 0 and 100.`);
+        }
         if (a.type === 'playSound' && !(SOUND_NAMES as readonly string[]).includes(a.sound) && project.assets[a.sound]?.type !== 'sound') {
           say(`${where}: ${name} plays missing sound "${a.sound}".`);
         }

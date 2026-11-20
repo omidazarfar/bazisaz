@@ -1,4 +1,4 @@
-import type { SoundName } from '../format/types';
+import { SOUND_NAMES, type GameProject, type SoundName } from '../format/types';
 
 /**
  * Built-in sound effects, synthesised on the spot so a game needs no audio
@@ -68,7 +68,16 @@ function whiteNoise(audio: AudioContext): AudioBuffer {
   return noise;
 }
 
-export function playSound(name: SoundName): void {
+/** Rule volumes are percentages. Older projects play at full volume. */
+export function playEffect(project: GameProject, name: string, volume = 100): void {
+  const level = Math.min(100, Math.max(0, volume)) / 100;
+  if (!level) return;
+  if ((SOUND_NAMES as readonly string[]).includes(name)) return playSound(name as SoundName, level);
+  const asset = project.assets[name];
+  if (asset?.type === 'sound') playClip(asset.src, level);
+}
+
+export function playSound(name: SoundName, level = 1): void {
   try {
     // Browsers only allow audio after a touch; a game's first sound always follows one.
     context ??= new AudioContext();
@@ -81,7 +90,7 @@ export function playSound(name: SoundName): void {
       const gain = audio.createGain();
       // A very short attack, then a smooth fall to silence: no clicks at either end.
       gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.linearRampToValueAtTime(layer.gain ?? 1, t + Math.min(0.006, layer.seconds / 4));
+      gain.gain.linearRampToValueAtTime((layer.gain ?? 1) * level, t + Math.min(0.006, layer.seconds / 4));
       gain.gain.exponentialRampToValueAtTime(0.0001, end);
       gain.connect(out(audio));
       let source: AudioScheduledSourceNode;
@@ -142,7 +151,7 @@ export function preloadClip(src: string): void {
 }
 
 /** Plays a sound the user added. The same clip can overlap itself. */
-export function playClip(src: string): void {
+export function playClip(src: string, level = 1): void {
   try {
     decoded(src).then(
       (buffer) => {
@@ -151,12 +160,16 @@ export function playClip(src: string): void {
         const source = context.createBufferSource();
         source.buffer = buffer;
         const gain = context.createGain();
-        gain.gain.value = 0.8;
+        gain.gain.value = 0.8 * level;
         source.connect(gain).connect(context.destination);
         source.start();
       },
       // A file the browser cannot decode this way may still play as an ordinary audio element.
-      () => void new Audio(src).play().catch(() => {}),
+      () => {
+        const audio = new Audio(src);
+        audio.volume = level;
+        void audio.play().catch(() => {});
+      },
     );
   } catch {
     // No audio here; carry on silently.

@@ -120,7 +120,7 @@ A game is one JSON document (`src/format/types.ts`):
   `TextVisual.shadow`; `Scene.bloom` (AdvancedBloomFilter over the scenery,
   with the look). Characters with a jumper stretch on a jump and squash with a
   puff of dust on a hard landing (`Entity.squash`). Library pictures are
-  drawn in `src/editor/art.ts` (81, in a glossy mobile-game style: a small
+  drawn in `src/editor/art.ts` (95, in a glossy mobile-game style: a small
   kit of gradients, glows and drop shadows declared per drawing, outlines in
   a deeper tone of each shape's own colour, shines, big eyes) and stored at
   three times their size under `art-<id>` (projects keep any older `lib-<id>`
@@ -151,8 +151,8 @@ A game is one JSON document (`src/format/types.ts`):
   background included) and `Scene.vignette`; actions `setLook` and
   `setDarkness`; `glide` takes an `ease`. Anything a "tap on object" rule
   waits for gives a little when tapped.
-- **Built-in music** (`src/runtime/music.ts`): five pieces (`music:happy`,
-  `adventure`, `calm`, `tense`, `mystery`) written out note by note from a
+- **Built-in music** (`src/runtime/music.ts`): eight pieces (`music:happy`,
+  `adventure`, `calm`, `tense`, `mystery`, `dungeon`, `orbit`, `forest`) written out note by note from a
   fixed seed and turned into a looping 22 kHz WAV the first time they play;
   nothing is stored in the game. Usable wherever a sound asset is for music.
 - **Pixel pictures**: `ImageAsset.pixel` marks a picture painted in the
@@ -243,7 +243,15 @@ The editor, file by file:
 In edit mode the runtime also handles zoom, sliding the view, selecting
 several objects, snapping to other objects or a grid, and locked objects.
 
-## Where the project stands (16 November 2026)
+## Where the project stands (20 November 2026)
+
+- The library includes dungeon, space and forest art and four characters with
+  idle, run, jump and hurt poses. The genre helper adds editable roles,
+  controls and parts to the current scene in one undo step. Sound actions
+  have a preview and independent volume. Three new pieces bring the built-in
+  music library to eight.
+- Placing roles now considers their bounds. A newly added patrol and player
+  previously started overlapping and repeatedly restarted the try-out.
 
 - The goal is a tool for building any simple 2D game, for players in Iran,
   with a Persian editor and English games aimed at Google Play. The editor

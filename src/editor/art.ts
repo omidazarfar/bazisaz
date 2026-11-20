@@ -229,25 +229,63 @@ const grassy = (k: Kit, w: number, h: number, grassDepth: number, round: number,
   );
 };
 
+function character(id: string, name: string, width: number, height: number, body: string, strides?: string[]): Sprite {
+  const pose = (transform: string) => `<g transform="${transform}">${body}</g>`;
+  return {
+    id, name, category: 'character', width, height, body,
+    move: strides ?? [pose('translate(4 -1) rotate(5 50 80) scale(.96 .98)'), pose('translate(0 4) rotate(-4 50 80) scale(1 .94)')],
+    jump: pose('translate(6 -1) rotate(-8 50 48) scale(.9 .92)'),
+    hurt: pose('translate(0 14) rotate(-12 50 70) scale(.95 .81)') + glint(86, 17, 11, '#ffd84a') + glint(73, 9, 5),
+  };
+}
+
+const cat = draw((k) =>
+  `<path d="M16 44 12 6l32 18Z" fill="${k.lin('#ff9f43')}" ${ol('#d9741a')}/><path d="M94 44l4-38-32 18Z" fill="${k.lin('#ff9f43')}" ${ol('#d9741a')}/>` +
+  `<path d="M20 34 18 16l16 10Z" fill="#ffb3c1"/><path d="M90 34l2-18-16 10Z" fill="#ffb3c1"/>` +
+  `<ellipse cx="55" cy="58" rx="45" ry="38" fill="${k.sphere('#ffa94d')}" ${ol('#d9741a')}/>` +
+  `<path d="M47 22l3 12M55 20v13M63 22l-3 12" stroke="#d9741a" stroke-width="4" stroke-linecap="round"/>` +
+  shine(k, 34, 36, 14, 7) +
+  eye(k, 38, 54, 10, '#2fbf71') + eye(k, 72, 54, 10, '#2fbf71') +
+  `<path d="M50 68h10l-5 6z" fill="#ff6f91" stroke="#1f2a37" stroke-width="2" stroke-linejoin="round"/><path d="M55 74v4m0 0q-7 6-13 0m13 0q7 6 13 0" fill="none" stroke="#1f2a37" stroke-width="2.5" stroke-linecap="round"/>` +
+  `<path d="M30 70H12M30 76l-16 4M80 70h18M80 76l16 4" stroke="#7a4a2e" stroke-width="2" stroke-linecap="round"/>` +
+  blush(30, 66) + blush(80, 66),
+);
+
+const knight = draw(k =>
+  `<path d="M26 77l-8 26h20l10-22 9 22h21l-9-28" fill="${k.lin('#485774')}" ${ol('#485774')}/>
+   <path d="M22 48l-9 42 63-3-8-38" fill="${k.lin('#c94054')}" ${ol('#982d43')}/>
+   <rect x="27" y="53" width="45" height="35" rx="13" fill="${k.lin('#a2b5d3')}" ${ol('#74829d')}/>
+   <path d="M45 24Q42 1 70 4L59 19Z" fill="${k.lin('#ff545d')}" ${ol('#b63846')}/>
+   <rect x="20" y="17" width="59" height="46" rx="21" fill="${k.lin('#acc2df')}" ${ol('#71839f')}/>
+   <path d="M32 37l43-5-2 17-36 5z" fill="#253952"/><path d="M44 38v9m11-11v9m10-12v10" stroke="#9be8fa" stroke-width="4"/>
+   <path d="M78 72l10-40 6-8 2 11-12 39z" fill="${k.lin('#d9edff')}" ${ol('#7487a8',2)}/><path d="M73 67l18 5" stroke="#eab44e" stroke-width="6"/>`
+);
+
+function pack(id: string, name: string, category: Sprite['category'], paint: (k: Kit) => string): Sprite {
+  return { id, name, category, width: 100, height: 100, body: draw(paint) };
+}
+
+const packArt = [
+  pack('dungeon-stone', 'سنگ قلعه', 'dungeon', k => `<rect x="4" y="15" width="92" height="70" rx="10" fill="${k.lin('#758099')}" ${ol('#53566d')}/><path d="M5 48h90M37 16v32m29 0v36" stroke="#46485c" stroke-width="5"/>${shine(k,23,23,13,3)}`),
+  pack('torch', 'مشعل', 'dungeon', k => `<path d="M40 52h19l-5 42h-9z" fill="${k.side('#925432')}" ${ol('#825336')}/><path d="M49 5q5 19 14 23l3-13q21 38-14 44Q20 55 35 32z" fill="${k.lin('#ff8a21')}" ${ol('#d65922')}/><path d="M49 27q18 21 4 27-16-3-4-27" fill="#fff397"/><rect x="34" y="54" width="32" height="9" rx="4" fill="${k.lin('#8393a7')}"/>`),
+  pack('skeleton', 'اسکلت', 'dungeon', k => `<path d="M50 51v26m-18-17 18 6 18-6m-32 11 14 4 13-4m-14 7-15 15m16-15 14 15M32 60 21 76m46-16 13 15" stroke="#decfb0" stroke-width="8" stroke-linecap="round"/><path d="M23 32q0-27 28-27t27 27q0 16-14 18l-4 8H41l-4-8q-14-3-14-18z" fill="${k.sphere('#f4e5c8')}" ${ol('#ae9b83')}/><ellipse cx="39" cy="33" rx="8" ry="9" fill="#413b56"/><ellipse cx="63" cy="33" rx="8" ry="9" fill="#413b56"/><path d="m51 41-4 7h8z" fill="#554355"/>`),
+  pack('chest', 'صندوق گنج', 'dungeon', k => `<rect x="7" y="29" width="86" height="56" rx="12" fill="${k.lin('#97522c')}" ${ol('#754524')}/><path d="M8 51q0-30 18-30h48q17 0 18 30z" fill="${k.lin('#d58137')}" ${ol('#815330')}/><path d="M23 24v55m54-55v55" stroke="#edb746" stroke-width="8"/><rect x="42" y="44" width="16" height="19" rx="4" fill="#ffda62"/><circle cx="50" cy="52" r="3"/>`),
+  pack('space-ship', 'سفینه', 'space', k => `<path d="M36 66 13 81l8-25 17-13m26 23 23 15-8-25-17-13" fill="${k.lin('#6566e4')}" ${ol('#4a4f9b')}/><path d="M39 73l11 23 12-23" fill="#ffad38"/><path d="M50 5q25 22 20 64l-9 9H39l-9-9Q25 28 50 5z" fill="${k.lin('#bce3ee')}" ${ol('#53709c')}/><ellipse cx="50" cy="40" rx="12" ry="16" fill="${k.sphere('#3eb6f3')}" ${ol('#396aad')}/>`),
+  pack('asteroid', 'سیارک', 'space', k => `<path d="m12 28 22-16 31-5 22 24 7 27-16 26-38 7-30-23z" fill="${k.sphere('#948299')}" ${ol('#6d627c')}/><g fill="#62586f"><ellipse cx="35" cy="37" rx="11" ry="8"/><circle cx="66" cy="58" r="13"/><circle cx="35" cy="70" r="5"/></g>`),
+  pack('alien', 'موجود فضایی', 'space', k => `<path d="M14 52q-6-40 36-41t36 41Q70 81 50 92 27 79 14 52Z" fill="${k.sphere('#80d86a')}" ${ol('#4a915c')}/>${eye(k,34,46,13,'#945ad8')}${eye(k,66,46,13,'#945ad8')}${smile(50,68,6)}`),
+  pack('mushroom', 'قارچ', 'forest', k => `<path d="M41 48h19l9 39q-19 10-39-1z" fill="${k.lin('#ead5b2')}" ${ol('#b19579')}/><path d="M5 57Q24-8 64 14q18 8 31 42-39 13-90 1z" fill="${k.lin('#ed534a')}" ${ol('#ad4239')}/><g fill="#ffedd8"><ellipse cx="34" cy="36" rx="8" ry="5"/><circle cx="61" cy="27" r="4"/><ellipse cx="71" cy="46" rx="10" ry="6"/></g>`),
+  pack('log', 'کنده‌ی درخت', 'forest', k => `<path d="M18 34l60-17q16 1 17 25t-10 25L25 85z" fill="${k.lin('#936036')}" ${ol('#734427')}/><path d="m32 44 52-17m-50 34 54-17" stroke="#683e29" stroke-width="4"/><ellipse cx="23" cy="60" rx="18" ry="25" fill="${k.lin('#e2ad72')}" ${ol('#925938')}/><ellipse cx="23" cy="60" rx="9" ry="15" fill="none" stroke="#a87043" stroke-width="3"/>`),
+  pack('fox', 'روباه', 'forest', k => `<path d="m11 52 1-42 27 16q12-4 23 0l26-16 1 43-15 23-24 15-25-16z" fill="${k.sphere('#ef863b')}" ${ol('#ad5c32')}/><path d="m20 20 2 21 10-11m46-10-10 10 11 11" fill="#693b3c"/><path d="M14 54q23 1 36 17 14-16 36-17-14 27-36 36-23-10-36-36" fill="#fff0d7"/>${eye(k,35,48,8)}${eye(k,65,48,8)}<path d="M43 68h14l-7 8z" fill="#35303b"/>`),
+];
+
 export const ART_SPRITES: Sprite[] = [
   // ── Characters ──
   { id: 'bird', name: 'پرنده', category: 'character', width: 120, height: 100, body: bird(62), frames: [bird(42)] },
-  { id: 'hero', name: 'آدمک', category: 'character', width: 100, height: 110, body: hero([20, 89], [56, 89]), move: [hero([12, 87], [62, 91]), hero([28, 91], [50, 87])] },
-  { id: 'robot', name: 'ربات', category: 'character', width: 100, height: 110, body: robot([22, 90], [54, 90]), move: [robot([14, 88], [60, 91]), robot([30, 91], [48, 88])] },
-  {
-    id: 'cat', name: 'گربه', category: 'character', width: 110, height: 100,
-    body: draw((k) =>
-      `<path d="M16 44 12 6l32 18Z" fill="${k.lin('#ff9f43')}" ${ol('#d9741a')}/><path d="M94 44l4-38-32 18Z" fill="${k.lin('#ff9f43')}" ${ol('#d9741a')}/>` +
-      `<path d="M20 34 18 16l16 10Z" fill="#ffb3c1"/><path d="M90 34l2-18-16 10Z" fill="#ffb3c1"/>` +
-      `<ellipse cx="55" cy="58" rx="45" ry="38" fill="${k.sphere('#ffa94d')}" ${ol('#d9741a')}/>` +
-      `<path d="M47 22l3 12M55 20v13M63 22l-3 12" stroke="#d9741a" stroke-width="4" stroke-linecap="round"/>` +
-      shine(k, 34, 36, 14, 7) +
-      eye(k, 38, 54, 10, '#2fbf71') + eye(k, 72, 54, 10, '#2fbf71') +
-      `<path d="M50 68h10l-5 6z" fill="#ff6f91" stroke="#1f2a37" stroke-width="2" stroke-linejoin="round"/><path d="M55 74v4m0 0q-7 6-13 0m13 0q7 6 13 0" fill="none" stroke="#1f2a37" stroke-width="2.5" stroke-linecap="round"/>` +
-      `<path d="M30 70H12M30 76l-16 4M80 70h18M80 76l16 4" stroke="#7a4a2e" stroke-width="2" stroke-linecap="round"/>` +
-      blush(30, 66) + blush(80, 66),
-    ),
-  },
+  character('hero', 'آدمک', 100, 110, hero([20, 89], [56, 89]), [hero([12, 87], [62, 91]), hero([28, 91], [50, 87])]),
+  character('robot', 'ربات', 100, 110, robot([22, 90], [54, 90]), [robot([14, 88], [60, 91]), robot([30, 91], [48, 88])]),
+  character('cat', 'گربه', 110, 100, cat),
+  character('knight', 'شوالیه', 100, 110, knight),
+  ...packArt,
   {
     id: 'ball', name: 'توپ', category: 'character', width: 100, height: 100,
     body: draw((k) =>

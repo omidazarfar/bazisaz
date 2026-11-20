@@ -26,7 +26,13 @@ await add('با نقش آماده', 'patrol-enemy');
 await add('قطعه‌های آماده', 'sword');
 console.log('rules', JSON.stringify(await page.evaluate(() => { const s = window.__editor.getState(); const sc = s.project.scenes.find((x) => x.id === s.sceneId); return sc.rules.map((r) => [r.id, r.when.type, JSON.stringify(r.when.target ?? '')]); })));
 await click('امتحان کن');
-await page.waitForFunction(() => window.__game.getState().mode === 'play' && window.__game.getState().time > 0.6, { timeout: 8000 }).catch(async () => { console.log('ADVANCE:', await page.evaluate(() => { try { window.__game.advance(0.016); return 'ok ' + window.__game.getState().time; } catch (e) { return String((e && e.stack) ? e.stack : e).slice(0, 700); } })); console.log('NOT STARTED', JSON.stringify(await page.evaluate(() => ({ t: window.__game.getState().time, paused: window.__game.getState().paused, dbg: window.__game.getDebug().paused, fps: window.__game.getDebug().fps, n: window.__game.getState().entities.length }))), JSON.stringify(await page.evaluate(() => window.__game.getState().mode)), errors, await page.$$eval('.problem, .chip-warn', (els) => els.map((e) => e.textContent))); process.exit(1); });
+try {
+  await page.waitForFunction(() => window.__game.getState().mode === 'play' && window.__game.getState().time > 0.6, { timeout: 60000 });
+} catch (error) {
+  console.log('Try-out stalled', await page.evaluate(() => ({ state: window.__game.getState(), debug: window.__game.getDebug() })), errors);
+  await browser.close();
+  throw error;
+}
 await page.evaluate(() => {
   const player = window.__game.entities.find((e) => e.def.tags.includes('بازیکن'));
   const enemy = window.__game.entities.find((e) => e.def.tags.includes('خطر'));

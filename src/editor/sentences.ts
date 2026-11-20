@@ -140,7 +140,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'send': return `پیام «${a.name || '؟'}» را بفرست`;
     case 'playSound': {
       const own = project.assets[a.sound];
-      return `صدای «${own?.type === 'sound' ? own.name : (SOUND_LABEL[a.sound as keyof typeof SOUND_LABEL] ?? a.sound)}» را پخش کن`;
+      return `صدای «${own?.type === 'sound' ? own.name : (SOUND_LABEL[a.sound as keyof typeof SOUND_LABEL] ?? a.sound)}» را پخش کن${a.volume !== undefined && a.volume !== 100 ? ` با بلندی ${fa(a.volume)}٪` : ''}`;
     }
     case 'burst': return `از ${who(a.target)} جرقه بپران`;
     case 'shake': return 'صفحه را بلرزان';

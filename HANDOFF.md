@@ -88,7 +88,7 @@ other did. **It is the single source of truth for "where are we".**
 |---|---|
 | `npm start` | build + Capacitor sync + start the server. The editor is at **http://localhost:5180**, the phone server is on port 5181 |
 | `npm run build` | type-check, then build the player (`dist/`) and the editor (`dist-editor/editor.html`), each a single file |
-| `npm test` | `scripts/smoke.mjs` (runtime labs 1–17), then `scripts/editor.smoke.mjs` (drives the real editor), then `scripts/server.smoke.mjs`; uses puppeteer-core and Chrome |
+| `npm test` | `scripts/smoke.mjs` (runtime labs 1–18), then `scripts/editor.smoke.mjs` (drives the real editor), then `scripts/server.smoke.mjs`; uses puppeteer-core and Chrome |
 | `npx tsc --noEmit -p .` | type-check only |
 
 Shell is **Windows PowerShell 5.1**: no `&&`. `Set-Content` writes ANSI and
@@ -105,8 +105,8 @@ corrupts Persian, so write files with an editor tool, or with
 | `src/runtime/physics.ts` | Real physics on planck.js (Box2D): slings, joints, fields, conveyors… |
 | `src/runtime/sky.ts`, `tiles.ts`, `particles.ts`, `music.ts`, `bag.ts` | Painted backdrops, tile materials, particles, built-in music, the player's bag |
 | `src/editor/` | The editor (React). `App.tsx` layout; `Inspector.tsx` object panel; `Rules.tsx` rules; `GamePanel.tsx` game settings; `Library.tsx` the "add" window; `labels.ts` **every block's Persian name and fields** (add a block here and the panels draw it); `Fields.tsx` field widgets; `sentences.ts` rules as Persian sentences; `state.ts` project helpers |
-| `src/editor/art.ts` | **All 81 library pictures**, drawn as SVG in a glossy mobile-game style with a small gradient and glow kit. `sprites.ts` turns one into a PNG asset (key `art-<id>`) |
-| `src/editor/recipes.ts` | The 25 ready-made **parts**, such as sling-and-tower, car, bridge, key-and-door, pause menu, levels |
+| `src/editor/art.ts` | **All 95 library pictures**, drawn as SVG in a glossy mobile-game style with a small gradient and glow kit. `sprites.ts` turns one into a PNG asset (key `art-<id>`) |
+| `src/editor/recipes.ts` | The 31 ready-made **parts**, such as sling-and-tower, car, bridge, key-and-door, pause menu, levels |
 | `src/editor/presets.ts` | The ready-made **roles**, such as jump-player, ground, prize, danger |
 | `src/editor/editor.css` | The editor's look: a dark "studio at night" theme |
 | `scripts/` | Tests (`smoke.mjs`, `editor.smoke.mjs`, `server.smoke.mjs`, shared `lib.mjs`) |
@@ -118,6 +118,7 @@ corrupts Persian, so write files with an editor tool, or with
 After `npm run build`, these write PNGs to `scripts/look/out/`. Open them and
 look:
 
+- `node scripts/look/genres.mjs`: the genre helper and all five choices in fresh editor try-outs.
 - `node scripts/look/sheet.mjs`: every library picture, large, on light and dark.
 - `node scripts/look/parts.mjs [id,id]`: each ready-made part in a fresh game, played. For example `parts.mjs sling-tower,car`.
 - `node scripts/look/editorlook.mjs`: the editor in its main states (library, parts, object, rules, game tab, playing).
@@ -168,9 +169,12 @@ look:
 
 ## Current state (keep this up to date)
 
-- Last updated: **2026-11-19 by Claude**.
-- `npm run build` exits 0. `npm test` gives **468 PASS, 0 FAIL**. The whole `npm test` now takes over 10 minutes: run it in the background or with a long timeout (the Catch test "basket follows the finger" is occasionally flaky; re-run), all three
-  suites.
+- Last updated **2026-11-20 by Codex**. Phase E is implemented. The editor
+  library has five genre choices, four animated character sets, three art
+  packs, sound preview and volume, and eight built-in music pieces.
+- The sword try-out advances and one swing damages the patrol. A scene-load
+  trace established that the loss rule kept restarting the test scene.
+- `npm run build` passed. The complete `npm test` run passed all three suites with **479 PASS, 0 FAIL**.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
   - After 3 s below 28 fps it calls `Game.lighten()`, which drops bloom,
@@ -187,44 +191,22 @@ look:
 
 ## Next steps (agreed or likely)
 
-### FIRST: one failing test to fix (left by Claude, 2026-11-19)
+### FIRST issue resolved (2026-11-20)
 
-`npm test` gives 1 FAIL in the editor suite: "in the try-out, the sword hits the enemy in front of the player" (enemy health stays 2). It passed once, right after Phase B3. It has failed on every run since Phase C, even with:
-- the slash's lifetime raised to 0.25 s
-- the enemy's and player's speed zeroed in the test
-- three taps
+The original placement helper only separated object centres by 40 pixels.
+The player at (310,585), size 100×110, already overlapped the patrol at
+(345,640), size 110×80. The first physics step fired their loss rule. Its
+delayed restart repeatedly reset scene time before the sword check could run.
+The ticker was advancing. The editor now searches using the new object's
+bounds and a gap. Existing scenes keep their authored positions. To repair an
+already overlapping pair, move the patrol clear of the player's start.
 
-What was checked:
-- The geometry looks right: the slash spawns ahead of the player and overlaps the enemy.
-- An earlier debug print showed **no slash entity at all**, 60 ms after the tap.
+### Remaining roadmap work
 
-Already ruled out (by Claude): `tappable` is set to `visible` every step (Game.ts, end of `update`), and `startBagDrag` returns false when there is no bag, so neither swallows the tap.
-
-So first suspect: the tap on the fixed sword button does not fire the `tapObject` rule. Look at `tappable`, `onControl`, and the jump-player's tap jump. Next suspect: `spawn` with `at: byTag(PLAYER)` and `ahead`.
-
-**NEW CLUE (Claude, 2026-11-20). It is probably not the sword at all.**
-
-With `node scripts/look/sworddebug.mjs` (now fixed, runs end to end):
-- After pressing "امتحان کن", the try-out reports mode "play".
-- The game clock stays at about 0.03 s for 8 seconds of real time. Only one or two frames ran.
-- No page errors, and the CPU was idle.
-- Calling `window.__game.advance(0.016)` by hand works fine.
-
-So the Pixi ticker or requestAnimationFrame is being **starved in the editor's try-out**, and the sword test fails because the game hardly runs.
-
-It started between commit d1d98bf (B3, where the test passed) and 4c7862c (Phase C).
-
-Suspects, in order:
-1. A React re-render loop in the editor during try-out, e.g. something calling `change` or setting state every render. Check `App.tsx` (the `change` wrapper now calls `syncTemplates`), `Inspector.tsx` (`TemplateTools`), `ObjectList.tsx`, and `DebugPanel.tsx`. A quick check: count renders, or use the Performance panel in headless Chrome.
-2. Something per frame in `Game.ts` that is slow only with these objects.
-
-Compare with `git diff d1d98bf 4c7862c -- src/`.
-
-The old debug note below is kept for history.
-
-Debug with `node scripts/look/sworddebug.mjs`. It still hangs while adding the first role (waiting for the library to close). Compare with how `editor.smoke.mjs` adds roles (`openLibrary` with the Persian tab name), then print the rule log (`getDebug().log`) after the tap.
-
-Fix the cause, not the test.
+Owner phone feedback comes first when available. The remaining scoped items
+are text variables and one-shot per-object timers (D), edge-turning and
+jumping enemies and an aimed-projectile part (B), then deferred autotiling
+(A). The AI helper still waits for the hosting decision.
 
 ### THE CURRENT PLAN: "complex games" roadmap (agreed by the owner 2026-11-19)
 
@@ -307,21 +289,10 @@ say so in the log.
 - [ ] **Timers per object** exist (`eachEvery`). Add an "after N seconds,
   once, for this object" trigger.
 
-**Phase E: content: art packs (#6), sound (#9), genre helper (#7)**
-- [ ] **Character sets** in `art.ts`: idle, run (2 frames), jump and hurt for
-  hero, robot, cat and a knight. Themed packs: dungeon (stone, torches,
-  skeleton, chest), space (ship, asteroid, alien), forest (mushroom, log,
-  fox). Same glossy style: use the `draw(k => …)` kit.
-- [ ] **Sound:** a ▶ preview button next to every sound pick list (editor
-  `Fields.tsx`, kind `sound`). Volume per sound action. Three more built-in
-  music pieces (`music.ts`).
-- [ ] **Genre helper** (not a template game; it adds parts to the user's own
-  scene):
-  - "What are you making?" offers platformer, top-down adventure, shooter,
-    puzzle, physics.
-  - The answer adds the matching player role, controls, camera, hearts,
-    score and a level part, and explains each.
-  - Lives in `Library.tsx` as a first tab or in the welcome.
+**Phase E: content (completed 2026-11-20)**
+- [x] Hero, robot, cat and knight have idle, two running frames, jumping and hit poses. Dungeon, space and forest packs add ten pictures.
+- [x] Rule sound pickers have preview and per-action volume (0–100%). Dungeon, orbit and forest pieces are available for scenes and music actions.
+- [x] The genre tab adds editable objects and rules to the current scene in one undo step. Each of five styles gets its own player/control combination, a camera, score, hearts and level pieces. Shooter includes a laser and a target. See `node scripts/look/genres.mjs` for all five try-outs.
 
 ### Also open
 - The owner will test on their phone and report problems. Fix what they find
@@ -358,6 +329,12 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-20 — Codex
+- Traced the apparent try-out freeze to repeated scene restarts on initial player–patrol overlap. Fixed sized placement in `state.ts`, `Library.tsx` and `ObjectList.tsx`. The editor test checks clock progress and damage from one real button press.
+- Implemented Phase E in editor art, sprites, library, recipes, inspector and sound fields, project types and validation, runtime animation, sound and music. Updated the Persian guide and README.
+- Verification: `npm run build` exited 0, then `npm test` exited 0 with 479 PASS and 0 FAIL across runtime, editor and server.
+- Added lab and editor checks and photographed all five genre choices in Chrome. The quarter-speed lab compares equal frame inputs. The gesture lab exercises holding and a fast swipe separately, so observation time cannot turn the swipe into a long drag. Sound quality by ear and real-phone behavior remain unverified.
 
 ### 2026-11-20 — Claude (end of session, owner switching to Codex)
 - Did the "complex games" roadmap, Phases A to D. Each phase was committed and pushed separately; see the ticks above.

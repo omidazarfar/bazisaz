@@ -21,12 +21,17 @@ export interface Sprite {
   frames?: string[];
   /** Drawings shown while the object moves sideways. */
   move?: string[];
+  jump?: string;
+  hurt?: string;
 }
 
-export type SpriteCategory = 'character' | 'enemy' | 'item' | 'board' | 'ground' | 'scenery' | 'button';
+export type SpriteCategory = 'character' | 'enemy' | 'item' | 'board' | 'ground' | 'scenery' | 'button' | 'dungeon' | 'space' | 'forest';
 
 export const SPRITE_CATEGORIES: { id: SpriteCategory; title: string }[] = [
   { id: 'character', title: 'شخصیت‌ها' },
+  { id: 'dungeon', title: 'بسته‌ی سیاه‌چال' },
+  { id: 'space', title: 'بسته‌ی فضا' },
+  { id: 'forest', title: 'بسته‌ی جنگل' },
   { id: 'enemy', title: 'دشمن و خطر' },
   { id: 'item', title: 'جایزه و وسیله' },
   { id: 'board', title: 'مهره و صفحه' },
@@ -63,6 +68,8 @@ export interface PlacedSprite {
   asset: string;
   frames: string[];
   move: string[];
+  jump?: string;
+  hurt?: string;
 }
 
 /**
@@ -80,5 +87,7 @@ export async function useSprite(project: GameProject, id: string): Promise<Place
   const asset = await store(`art-${id}`, sprite.body);
   const frames = await Promise.all((sprite.frames ?? []).map((body, i) => store(`art-${id}-f${i + 1}`, body)));
   const move = await Promise.all((sprite.move ?? []).map((body, i) => store(`art-${id}-m${i + 1}`, body)));
-  return { project: { ...project, assets }, asset, frames, move };
+  const jump = sprite.jump && await store(`art-${id}-jump`, sprite.jump);
+  const hurt = sprite.hurt && await store(`art-${id}-hurt`, sprite.hurt);
+  return { project: { ...project, assets }, asset, frames, move, jump, hurt };
 }

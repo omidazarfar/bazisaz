@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Amount, Comparison, Place, Ref, Spot } from '../format/types';
+import { playEffect } from '../runtime/sound';
 import { SOUND_NAMES } from '../format/types';
 import { Check, Choice, ColorField, NumberField, Select, Slider, TextField } from './controls';
 import { pickFile, readImage } from './images';
@@ -331,16 +332,19 @@ function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
             );
           case 'sound':
             return (
-              <Select
-                {...common}
-                value={v as string}
-                options={[
-                  ...SOUND_NAMES.map((s) => ({ value: s as string, label: SOUND_LABEL[s] })),
-                  // Sounds the user added, by the file name they came with.
-                  ...Object.entries(project.assets).flatMap(([id, a]) => (a.type === 'sound' ? [{ value: id, label: `صدای تو: ${a.name}` }] : [])),
-                ]}
-                onChange={set}
-              />
+              <div key={field.key}>
+                <Select
+                  {...common}
+                  value={v as string}
+                  options={[
+                    ...SOUND_NAMES.map((s) => ({ value: s as string, label: SOUND_LABEL[s] })),
+                    // Sounds the user added, by the file name they came with.
+                    ...Object.entries(project.assets).flatMap(([id, a]) => (a.type === 'sound' ? [{ value: id, label: `صدای تو: ${a.name}` }] : [])),
+                  ]}
+                  onChange={set}
+                />
+                <button type="button" className="chip" aria-label="شنیدن نمونه صدا" onClick={() => playEffect(project, String(v), Number(value.volume ?? 100))}>▶ شنیدن</button>
+              </div>
             );
         }
       })}

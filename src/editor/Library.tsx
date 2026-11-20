@@ -5,11 +5,11 @@ import { pickFile, readImage } from './images';
 import { fa, PALETTE } from './labels';
 import { Dialog } from './Pick';
 import { PixelEditor } from './PixelEditor';
-import { PRESETS } from './presets';
+import { PLAYER, PRESETS } from './presets';
 import { SheetCutter } from './SheetCutter';
 import { RECIPES } from './recipes';
 import { SPRITE_CATEGORIES, SPRITES, spriteUrl, useSprite, type Sprite } from './sprites';
-import { addObject, freeSpot, makeObject, newId, newTileMap, type ObjectList as ListName } from './state';
+import { addObject, freeSpot, makeObject, newId, newTileMap, updateObject, type ObjectList as ListName } from './state';
 
 /** The library pictures as a grid to choose from, under their category headings. */
 export function SpriteGrid({ onPick }: { onPick: (sprite: Sprite) => void }) {
@@ -41,6 +41,8 @@ export async function spriteVisual(editorProject: Editor['project'], sprite: Spr
     asset: placed.asset,
     ...(placed.frames.length > 0 ? { frames: placed.frames } : {}),
     ...(placed.move.length > 0 ? { moveFrames: placed.move } : {}),
+    ...(placed.jump ? { airFrames: [placed.jump] } : {}),
+    ...(placed.hurt ? { hurtFrames: [placed.hurt] } : {}),
     ...(animated ? { fps: 8 } : {}),
     // Characters are drawn facing right and turn to face the way they go.
     ...(sprite.category === 'character' ? { flip: true } : {}),
@@ -69,7 +71,7 @@ const ROLE_SPRITE: Record<string, string> = {
 };
 /** The library picture shown on the card of each ready-made part, so the list reads at a glance. */
 const PART_ICON: Record<string, string> = {
-  score: 'coin', best: 'trophy', pause: 'btn-pause', sound: 'btn-sound', memory: 'card', tictactoe: 'tile-x', match3: 'gem',
+  'player-laser': 'space-ship', score: 'coin', best: 'trophy', pause: 'btn-pause', sound: 'btn-sound', memory: 'card', tictactoe: 'tile-x', match3: 'gem',
   g2048: 'n-2048', startscreen: 'btn-play', gameover: 'btn-restart', obstacles: 'cactus', falling: 'apple', controls: 'btn-right',
   timer: 'clock', 'pause-menu': 'btn-home', levels: 'star', tower: 'crate', 'sling-tower': 'slingshot', pendulum: 'ball', car: 'car',
   bridge: 'plank', conveyor: 'belt', pool: 'water', 'cut-rope': 'candy', 'key-door': 'door', hearts: 'heart', dialogue: 'hero', shop: 'coin', checkpoints: 'flag', sword: 'btn-sword',
@@ -85,7 +87,15 @@ function CardIcon({ sprite: id }: { sprite?: string }) {
 /** Pictures of round things, which touch as circles. */
 const ROUND_SPRITES = new Set(['coin', 'ball', 'rock', 'tire', 'peg', 'bomb', 'spikeball']);
 
-type Tab = 'pictures' | 'basic' | 'roles' | 'parts';
+const genres = [
+  { id: 'platform', title: 'سکوبازی', role: 'jump-player', sprite: 'hero', parts: ['controls', 'checkpoints'], about: 'راه رفتن و پرش با سه دکمه و دو پرچم برای برگشت به مسیر.' },
+  { id: 'adventure', title: 'ماجراجویی از بالا', role: 'steer-player', sprite: 'knight', parts: ['key-door'], about: 'شوالیه را با دسته‌ی لمسی حرکت بده؛ کلید را بردار و در را باز کن.' },
+  { id: 'shooter', title: 'تیراندازی', role: 'finger-player', sprite: 'space-ship', parts: ['player-laser'], about: 'سفینه دنبال انگشت می‌آید و رو به بالا تیر می‌زند. با زدن سیارک امتیاز می‌گیری؛ از آن کپی بگیر تا مرحله را بچینی.' },
+  { id: 'puzzle', title: 'معمایی', role: 'finger-player', sprite: 'cat', parts: ['key-door'], about: 'گربه را با انگشت به کلید برسان؛ از کلید برای باز کردن در استفاده کن.' },
+  { id: 'physics', title: 'فیزیکی', role: 'sling-stone', sprite: 'rock', parts: ['tower'], about: 'سنگ را عقب بکش و رها کن تا به برج جعبه‌ها بخورد.' },
+];
+
+type Tab = 'genre' | 'pictures' | 'basic' | 'roles' | 'parts';
 
 /**
  * Everything that can be added to a scene, in one place: ready-made pictures,
@@ -99,7 +109,7 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
   /** The painter or the sheet cutter, when one of them is open in place of the tabs. */
   const [tool, setTool] = useState<null | { kind: 'draw' } | { kind: 'sheet'; src: string; width: number; height: number }>(null);
   const placed = list === 'objects';
-  const centre = () => (placed ? freeSpot(scene, editor.viewCentre()) : { x: 0, y: 0 });
+  const centre = (width = 0, height = 0) => (placed ? freeSpot(scene, editor.viewCentre(), width, height) : { x: 0, y: 0 });
   const count = scene.objects.length + scene.prefabs.length;
 
   const finish = (next: Editor['project'], object: GameObject) => {
@@ -116,10 +126,10 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
   const addSprite = (sprite: Sprite) =>
     run(async () => {
       const { project: next, visual } = await spriteVisual(project, sprite);
-      finish(next, makeObject(sprite.name, visual, sprite.width, sprite.height, centre(), ROUND_SPRITES.has(sprite.id) ? { round: true } : {}));
+      finish(next, makeObject(sprite.name, visual, sprite.width, sprite.height, centre(sprite.width, sprite.height), ROUND_SPRITES.has(sprite.id) ? { round: true } : {}));
     });
 
-  const addBasic = (name: string, visual: Visual, width: number, height: number) => finish(project, makeObject(`${name} ${fa(count + 1)}`, visual, width, height, centre()));
+  const addBasic = (name: string, visual: Visual, width: number, height: number) => finish(project, makeObject(`${name} ${fa(count + 1)}`, visual, width, height, centre(width, height)));
 
   const addOwnImage = () =>
     run(async () => {
@@ -152,7 +162,7 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
         // Named like a plain shape, so the role's own name ("بازیکن") takes its place.
         // The ground lies along the bottom of the view, where a ground belongs; everything else goes in the middle.
         const view = editor.viewCentre();
-        const at = presetId === 'ground' ? { x: view.x, y: Math.round(view.y + project.meta.height / 2 - sprite.height / 2) } : centre();
+        const at = presetId === 'ground' ? { x: view.x, y: Math.round(view.y + project.meta.height / 2 - sprite.height / 2) } : centre(sprite.width, sprite.height);
         object = makeObject(`شکل ${fa(count + 1)}`, made.visual, sprite.width, sprite.height, at, ROUND_SPRITES.has(sprite.id) ? { round: true } : {});
       } else {
         object = makeObject(`متن ${fa(count + 1)}`, { kind: 'text', text: 'Text', color: '#1b3a4b', size: 60 }, 0, 0, centre());
@@ -160,6 +170,25 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
       change(preset.apply(addObject(next, scene.id, 'objects', object), scene.id, object.id), `add.${object.id}`, object.id);
       onClose();
     });
+
+  const addGenre = (genre: typeof genres[number]) => run(async () => {
+    const sprite = SPRITES.find(s => s.id === genre.sprite)!;
+    const made = await spriteVisual(project, sprite);
+    const player = makeObject(sprite.name, made.visual, sprite.width, sprite.height,
+      centre(sprite.width, sprite.height), { tags: [PLAYER] });
+    const preset = PRESETS.find(p => p.id === genre.role)!;
+    let next = preset.apply(addObject(made.project, scene.id, 'objects', player), scene.id, player.id);
+    next = updateObject(next, scene.id, player.id, o => ({
+      ...o, behaviors: [...o.behaviors, { type: 'camera', lock: 'free', smooth: 0.3 }],
+    }));
+    for (const id of [...genre.parts, 'score', 'hearts']) {
+      const part = RECIPES.find(r => r.id === id)!;
+      next = (await part.apply(next, scene.id, editor.viewCentre())).project;
+    }
+    change(next, `genre.${newId('x')}`, player.id);
+    props.onNote(genre.about);
+    onClose();
+  });
 
   const addPart = (id: string) =>
     run(async () => {
@@ -170,6 +199,7 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
     });
 
   const tabs: { id: Tab; label: string }[] = [
+    ...(placed ? [{ id: 'genre' as const, label: 'راهنمای سبک' }] : []),
     { id: 'pictures', label: 'عکس‌های آماده' },
     { id: 'basic', label: 'شکل، متن و عکس خودت' },
     ...(placed ? [{ id: 'roles' as const, label: 'با نقش آماده' }, { id: 'parts' as const, label: 'قطعه‌های آماده' }] : []),
@@ -224,6 +254,15 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
           </button>
         ))}
       </div>
+
+      {tab === 'genre' && <div className="pick-list">
+        <h3>چه سبکی می‌سازی؟</h3>
+        <p>با انتخاب سبک، بازیکن و قطعه‌های زیر به همین صحنه اضافه می‌شوند. دوربین بازیکن را دنبال می‌کند، سه قلب جان را نشان می‌دهند و قاب امتیاز مقدار score را نمایش می‌دهد.</p>
+        <div className="pick-items">{genres.map(g =>
+          <button key={g.id} type="button" className="card card-with-icon" disabled={busy} data-genre={g.id} onClick={() => addGenre(g)}>
+            <CardIcon sprite={g.sprite} /><strong>{g.title}</strong><span>{g.about}</span>
+          </button>)}</div>
+      </div>}
 
       {tab === 'pictures' && <SpriteGrid onPick={addSprite} />}
 

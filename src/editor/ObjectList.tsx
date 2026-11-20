@@ -15,7 +15,7 @@ export function ObjectList({ editor, onNote }: { editor: Editor; onNote: (text: 
   const placed = [...scene.objects].reverse();
 
   const add = (list: ListName, name: string, visual: Visual, w: number, h: number, next = project) => {
-    const object = makeObject(name, visual, w, h, list === 'prefabs' ? { x: 0, y: 0 } : freeSpot(scene, editor.viewCentre()), list === 'prefabs' ? { x: 0, y: 0 } : {});
+    const object = makeObject(name, visual, w, h, list === 'prefabs' ? { x: 0, y: 0 } : freeSpot(scene, editor.viewCentre(), w, h), list === 'prefabs' ? { x: 0, y: 0 } : {});
     change(addObject(next, scene.id, list, object), `add.${object.id}`, object.id);
   };
 

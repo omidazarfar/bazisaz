@@ -18,12 +18,11 @@ import type {
   Ref,
   Rule,
   Scene,
-  SoundName,
   Target,
   TilesVisual,
   TileStyle,
 } from '../format/types';
-import { EMPTY_TILE, isBuiltinMusic, SOUND_NAMES } from '../format/types';
+import { EMPTY_TILE, isBuiltinMusic } from '../format/types';
 import { bagSlots, drawBag, slotAt } from './bag';
 import { builtinMusic } from './music';
 import { particle } from './particles';
@@ -32,7 +31,7 @@ import { tileTexture, type OpenSides } from './tiles';
 import { validateProject } from '../format/validate';
 import { FALLBACK_FONT } from './fonts';
 import { Physics } from './physics';
-import { pauseMusic, playClip, playSound, preloadClip, resumeMusic, setMusic } from './sound';
+import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './sound';
 import { applyDirection, fillTemplate } from './text';
 
 // Objects far outside the view are not drawn at all, which keeps a big level light on a weak phone.
@@ -151,8 +150,10 @@ interface Entity extends Box {
   /** Images shown instead while moving sideways, and while off the ground. */
   moveFrames: Texture[] | null;
   airFrames: Texture[] | null;
+  hurtFrames: Texture[] | null;
+  hurtPoseUntil?: number;
   /** Which set is showing, for tests. */
-  anim: 'idle' | 'move' | 'air';
+  anim: 'idle' | 'move' | 'air' | 'hurt';
   /** Standing on something, as of the last step of its body. */
   grounded: boolean;
   /** Size multiplier from pulse and the pop, grow and shrink effects. */
@@ -1273,7 +1274,7 @@ export class Game {
     const v = def.visual;
     const textures = (ids?: string[]) =>
       ids?.length ? ids.map((id) => this.textures.get(id)?.texture ?? Texture.EMPTY) : null;
-    const animated = v.kind === 'image' && Boolean(v.frames?.length || v.moveFrames?.length || v.airFrames?.length);
+    const animated = v.kind === 'image' && Boolean(v.frames?.length || v.moveFrames?.length || v.airFrames?.length || v.hurtFrames?.length);
     const byValue = v.kind === 'image' ? v.frameBy : undefined;
     const view = this.createView(def);
     // A repeated picture cannot also be an animation.
@@ -1322,6 +1323,7 @@ export class Game {
       frames,
       moveFrames: frames && !byValue && v.kind === 'image' ? textures(v.moveFrames) : null,
       airFrames: frames && !byValue && v.kind === 'image' ? textures(v.airFrames) : null,
+      hurtFrames: frames && !byValue && v.kind === 'image' ? textures(v.hurtFrames) : null,
       anim: 'idle',
       grounded: false,
       scale: 1,
@@ -1398,7 +1400,7 @@ export class Game {
     e.view = this.createView(e.def, e);
     if (e.image) {
       // A new picture replaces the animation, which was made of the old ones.
-      e.frames = e.moveFrames = e.airFrames = null;
+      e.frames = e.moveFrames = e.airFrames = e.hurtFrames = null;
     }
     if (this.mode.kind === 'play' && !e.def.fixed) e.view.cullable = true;
     if (layer) layer.addChildAt(e.view, layer.getChildIndex(old));
@@ -1965,8 +1967,9 @@ export class Game {
       if (e.frames) {
         // In the air beats moving, which beats standing still.
         const moving = Math.abs(e.x - e.lastX) > 0.01;
-        e.anim = e.airFrames && (body || this.physics?.moves(e)) && !e.grounded ? 'air' : e.moveFrames && moving ? 'move' : 'idle';
-        const set = e.anim === 'air' ? e.airFrames! : e.anim === 'move' ? e.moveFrames! : e.frames;
+        e.anim = e.airFrames && (body?.gravity || this.physics?.moves(e)) && !e.grounded ? 'air' : e.moveFrames && moving ? 'move' : 'idle';
+        if (e.hurtFrames && this.time < (e.hurtPoseUntil ?? 0)) e.anim = 'hurt';
+        const set = e.anim === 'hurt' ? e.hurtFrames! : e.anim === 'air' ? e.airFrames! : e.anim === 'move' ? e.moveFrames! : e.frames;
         const shown = Math.floor(e.age * ((visual.kind === 'image' && visual.fps) || 8));
         // A picture chosen by one of the object's values does not animate: the value says which one shows.
         const chosen = visual.kind === 'image' && visual.frameBy ? clamp(Math.round(e.values.get(visual.frameBy) ?? 0), 0, set.length - 1) : null;
@@ -2818,7 +2821,7 @@ export class Game {
         this.nextScene = this.scene.id;
         break;
       case 'playSound':
-        this.sound(action.sound);
+        this.sound(action.sound, action.volume);
         break;
       case 'showAd':
         if (this.project.ads.enabled) this.options.onShowAd?.();
@@ -2845,6 +2848,7 @@ export class Game {
         for (const e of this.targets(action.target, context)) {
           if (e.def.health === undefined || e.health <= 0 || this.time < (e.hurtUntil ?? 0)) continue;
           e.health -= action.amount;
+          if (action.amount > 0) e.hurtPoseUntil = this.time + 0.22;
           if (e.health <= 0) this.died.push(e);
           else if (e.def.invincible) e.hurtUntil = this.time + e.def.invincible;
           // Knocked away from whatever hit it, and up a little.
@@ -3571,11 +3575,9 @@ export class Game {
   }
 
   /** Plays a built-in effect by name, or a sound the user added by its asset id. */
-  private sound(name: string): void {
+  private sound(name: string, volume?: number): void {
     if (!this.project.sound || !this.soundOn) return;
-    if ((SOUND_NAMES as readonly string[]).includes(name)) return playSound(name as SoundName);
-    const asset = this.project.assets[name];
-    if (asset?.type === 'sound') playClip(asset.src);
+    playEffect(this.project, name, volume);
   }
 
   // ── Input ────────────────────────────────────────────────────────────────

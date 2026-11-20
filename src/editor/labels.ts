@@ -134,6 +134,9 @@ export const BUILTIN_MUSIC_OPTIONS: Option[] = [
   { value: 'music:adventure', label: 'موسیقی آماده: ماجراجویی' },
   { value: 'music:calm', label: 'موسیقی آماده: آرام' },
   { value: 'music:tense', label: 'موسیقی آماده: هیجانی' },
+  { value: 'music:dungeon', label: 'موسیقی آماده: سیاه‌چال' },
+  { value: 'music:orbit', label: 'موسیقی آماده: مدار فضایی' },
+  { value: 'music:forest', label: 'موسیقی آماده: جنگل' },
   { value: 'music:mystery', label: 'موسیقی آماده: رمزآلود' },
 ];
 /** Messages already in use in a scene, so a new rule starts with one that is already being sent or waited for. */
@@ -777,7 +780,7 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
   playSound: {
     title: 'پخش صدا',
     make: () => ({ type: 'playSound', sound: 'coin' }),
-    fields: [{ key: 'sound', label: 'کدام صدا', kind: 'sound' }],
+    fields: [{ key: 'sound', label: 'کدام صدا', kind: 'sound' }, { key: 'volume', kind: 'slider', label: 'بلندی صدا', min: 0, max: 100, step: 1, unit: '٪', fallback: 100 }],
   },
   effect: {
     title: 'جلوه‌ی نرم',

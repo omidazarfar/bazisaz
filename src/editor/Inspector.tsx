@@ -103,7 +103,7 @@ export function Inspector({ editor }: { editor: Editor }) {
   };
 
   /** Adds pictures to one of the object's animations: at rest, moving, or in the air. */
-  const addFrames = async (set: 'frames' | 'moveFrames' | 'airFrames') => {
+  const addFrames = async (set: 'frames' | 'moveFrames' | 'airFrames' | 'hurtFrames') => {
     if (visual.kind !== 'image') return;
     const files = await pickFiles('image/*');
     if (files.length === 0) return;
@@ -320,6 +320,7 @@ export function Inspector({ editor }: { editor: Editor }) {
           ([
             ['frames', 'انیمیشن ایستاده', 1 + (visual.frames?.length ?? 0), '+ عکس‌های بعدی', 'چند عکس از یک حرکت (مثل بال زدن) تا پشت‌سرهم نشان داده شوند. همه هم‌اندازه باشند.'],
             ['moveFrames', 'انیمیشن حرکت', visual.moveFrames?.length ?? 0, '+ عکس‌های دویدن', 'وقتی شیء به چپ یا راست می‌رود، این عکس‌ها نشان داده می‌شوند.'],
+            ['hurtFrames', 'انیمیشن آسیب', visual.hurtFrames?.length ?? 0, '+ عکس‌های آسیب', 'بعد از کم شدن جان، برای لحظه‌ای نمایش داده می‌شود.'],
             ['airFrames', 'انیمیشن پرش', visual.airFrames?.length ?? 0, '+ عکس‌های پرش', 'وقتی شیء روی زمین نیست. «جسم فیزیکی» لازم دارد.'],
           ] as const).map(([set, title, count, button, hint]) => (
             <div key={set} className="control">
@@ -336,7 +337,7 @@ export function Inspector({ editor }: { editor: Editor }) {
               <p className="control-hint">{hint}</p>
             </div>
           ))}
-        {visual.kind === 'image' && Boolean(visual.frames?.length || visual.moveFrames?.length || visual.airFrames?.length) && (
+        {visual.kind === 'image' && Boolean(visual.frames?.length || visual.moveFrames?.length || visual.airFrames?.length || visual.hurtFrames?.length) && (
           <Slider label="سرعت انیمیشن" unit="عکس در ثانیه" min={1} max={30} step={1} value={visual.fps ?? 8} onChange={(fps) => setVisual('fps', { fps })} />
         )}
         {visual.kind === 'image' && Boolean(visual.frames?.length) && (

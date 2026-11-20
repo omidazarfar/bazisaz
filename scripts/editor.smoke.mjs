@@ -421,6 +421,9 @@ const inFx = (body) => page.evaluate((id, body) => {
 await addAction(fxRule, 'playSound');
 const soundOptions = await inFx(`return [...card.querySelectorAll('.action .control select option')].map((o) => o.value)`);
 check('the «پخش صدا» action offers the added sound next to the built-in ones', soundOptions.includes(sound) && soundOptions.includes('coin'));
+await setControl('بلندی صدا', 35, `article[data-rule="${fxRule}"]`);
+await page.click(`article[data-rule="${fxRule}"] button[aria-label="شنیدن نمونه صدا"]`);
+check('sound preview leaves the rule at its chosen volume', (await scene()).rules.find(r => r.id === fxRule).then[0].volume === 35);
 await addAction(fxRule, 'burst');
 await addAction(fxRule, 'shake');
 check('effects can be added to a rule', (await scene()).rules.at(-1).then.map((a) => a.type).join() === 'playSound,burst,shake' && (await page.$('.problem')) === null);
@@ -1012,11 +1015,13 @@ await pick('اضافه کردن رفتار', 'light', '.panel-inspector');
 await click('بازی', '.tabs');
 await setControl('تاریکی صحنه', 0.8);
 await selectByLabel('حال و هوای تصویر', 'old');
-await selectByLabel('موسیقی این صحنه', 'music:calm');
+const availableMusic = await page.$$eval('.panel-inspector select option', options => options.map(o => o.value));
+check('the three new music pieces can be selected for a scene', ['music:dungeon', 'music:orbit', 'music:forest'].every(id => availableMusic.includes(id)));
+await selectByLabel('موسیقی این صحنه', 'music:forest');
 await selectByLabel('پس‌زمینه‌ی نقاشی‌شده', 'snow');
 await tick('درخشش نورها');
 const lit = await scene();
-check('a scene can be made dark, given a look and given ready-made music', lit.darkness === 0.8 && lit.look === 'old' && lit.music === 'music:calm' && (await page.$('.problem')) === null);
+check('a scene can be made dark, given a look and given ready-made music', lit.darkness === 0.8 && lit.look === 'old' && lit.music === 'music:forest' && (await page.$('.problem')) === null);
 check('and given a painted backdrop and bloom', lit.sky === 'snow' && lit.bloom === true && (await gameState(page)).sky === 'snow');
 await click('شیء', '.tabs');
 await click('+ شکل', '.object-list');
@@ -1032,7 +1037,7 @@ await click('بازی', '.tabs');
 await click('امتحان کن');
 await until(page, () => window.__game.getState().time > 0.5);
 g = await gameState(page);
-check('in play: the look, the darkness and the ready-made music are on', g.look === 'old' && Math.abs(g.darkness - 0.8) < 0.01 && g.music === 'music:calm');
+check('in play: the look, the darkness and the ready-made music are on', g.look === 'old' && Math.abs(g.darkness - 0.8) < 0.01 && g.music === 'music:forest');
 await page.screenshot({ path: resolve(shots, 'editor-11-light.png') });
 await click('توقف');
 
@@ -1167,7 +1172,7 @@ for (const role of ['patrol-enemy', 'shooter-enemy', 'boss']) {
 }
 check('the boss has health, a health bar and a rule for when it dies', sc.objects.some((o) => o.health === 12 && o.healthBar) && sc.rules.some((r) => r.when.type === 'dead'));
 await click('امتحان کن');
-check('in the try-out, the boss fires at the player', await until(page, () => window.__game.getState().entities.filter((e) => e.tags.includes('خطر')).length > 1, null, 10000));
+check('in the try-out, the boss fires at the player', await until(page, () => window.__game.getState().entities.filter((e) => e.tags.includes('خطر')).length > 1));
 await click('توقف');
 
 await freshGame();
@@ -1180,7 +1185,7 @@ for (const role of ['jump-player', 'patrol-enemy']) {
 await addPart('sword');
 check('the sword part adds a sword button, a swing made during play, and its rules', (await scene()).prefabs.some((o) => o.tags.includes('ضربه')) && (await page.$('.problem')) === null);
 await click('امتحان کن');
-await until(page, () => window.__game.getState().time > 0.6);
+check('adding a patrol beside the player lets the try-out run past the loss delay', await until(page, () => window.__game.getState().time > 0.6));
 // The enemy is put right in front of the player, who faces right; then the sword button is tapped.
 await page.evaluate(() => {
   const player = window.__game.entities.find((e) => e.def.tags.includes('بازیکن'));
@@ -1194,12 +1199,8 @@ await page.evaluate(() => {
   enemy.y = player.y;
 });
 const swordButton = (await gameState(page)).entities.find((e) => e.tags.includes('دکمه‌ی شمشیر'));
-// Up to three swings, in case a busy computer lets one go by between frames.
-let swordHit = false;
-for (let swing = 0; swing < 3 && !swordHit; swing++) {
-  await tapAt(swordButton);
-  swordHit = await until(page, () => window.__game.getState().entities.find((e) => e.tags.includes('خطر'))?.health < 2, null, 3000);
-}
+await tapAt(swordButton);
+const swordHit = await until(page, () => window.__game.getState().entities.find((e) => e.tags.includes('خطر'))?.health < 2);
 check('in the try-out, the sword hits the enemy in front of the player', swordHit, JSON.stringify((await gameState(page)).entities.filter((e) => e.tags.includes('خطر')).map((e) => e.health)));
 await click('توقف');
 
@@ -1224,6 +1225,27 @@ sc = await scene();
 const followed = sc.objects.filter((o) => o.template);
 check('changing one copy changes them all, and each keeps its own place', followed.every((o) => o.health === 5) && new Set(followed.map((o) => o.x)).size === 3, JSON.stringify(followed.map((o) => [o.health, o.x])));
 check('no errors with templates', errors.length === 0, errors.join(' | '));
+
+await freshGame();
+await openLibrary('عکس‌های آماده');
+check('the three art packs are available', await page.$$eval('.modal [data-sprite]', buttons =>
+  ['torch', 'skeleton', 'chest', 'dungeon-stone', 'space-ship', 'asteroid', 'alien', 'mushroom', 'log', 'fox'].every(id => buttons.some(b => b.dataset.sprite === id))));
+await page.click('.modal [data-sprite="knight"]');
+await until(page, () => !document.querySelector('.modal'));
+const knightArt = (await scene()).objects.at(-1);
+check('a placed knight carries run, jump and hurt pictures', knightArt.visual.moveFrames?.length === 2 && knightArt.visual.airFrames?.length === 1 && knightArt.visual.hurtFrames?.length === 1);
+await openLibrary('راهنمای سبک');
+check('the helper offers five genres', (await page.$$('.modal [data-genre]')).length === 5);
+await page.click('.modal [data-genre="shooter"]');
+await until(page, () => !document.querySelector('.modal'));
+sc = await scene();
+check('shooter helper keeps existing objects and wires a camera, finger controls, laser, score and hearts',
+  sc.objects.some(o => o.id === knightArt.id) && sc.objects.some(o => o.behaviors.some(b => b.type === 'camera') && o.behaviors.some(b => b.type === 'followFinger')) &&
+  sc.prefabs.some(o => o.behaviors.some(b => b.type === 'launch')) && sc.rules.some(r => r.then.some(a => a.name === 'score')) && sc.rules.some(r => r.then.some(a => a.name === 'lives')));
+
+await click('یک قدم به عقب', '.topbar');
+sc = await scene();
+check('one undo removes the helper addition and keeps the original knight', sc.objects.length === 1 && sc.objects[0].id === knightArt.id && sc.prefabs.length === 0);
 
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });

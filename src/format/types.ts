@@ -167,7 +167,7 @@ export const LOOKS = ['none', 'warm', 'cold', 'gray', 'old', 'night', 'dream', '
 export type Look = (typeof LOOKS)[number];
 
 /** Music that comes with the engine, made by the player itself, so a game needs no music file. */
-export const BUILTIN_MUSIC = ['music:happy', 'music:adventure', 'music:calm', 'music:tense', 'music:mystery'] as const;
+export const BUILTIN_MUSIC = ['music:happy', 'music:adventure', 'music:calm', 'music:tense', 'music:mystery', 'music:dungeon', 'music:orbit', 'music:forest'] as const;
 export const isBuiltinMusic = (id: string | null | undefined): boolean => (BUILTIN_MUSIC as readonly string[]).includes(id ?? '');
 
 export interface GameObject {
@@ -325,6 +325,8 @@ export interface ImageVisual {
   moveFrames?: string[];
   /** Pictures shown instead while an object with a body is off the ground, such as a jump pose. */
   airFrames?: string[];
+  /** Shown briefly after damage, before movement poses. */
+  hurtFrames?: string[];
   /** Mirrors the picture when the object moves left, so a character drawn facing right always faces where it is going. */
   flip?: boolean;
   /** Instead of animating, shows the picture whose number is this value of the object: 0 the first, 1 the next. A card shows its back at 0 and its face at 1. */
@@ -951,7 +953,7 @@ export type Action =
   | { type: 'send'; name: string }
   | { type: 'restartScene' }
   /** `sound` is one of the built-in SOUND_NAMES or the id of a sound asset. */
-  | { type: 'playSound'; sound: string }
+  | { type: 'playSound'; sound: string; volume?: number }
   /** A puff of small pieces flying out from an object and fading. */
   | { type: 'burst'; target: Target; color: string; count: number }
   /** Shakes the whole screen for a moment. */

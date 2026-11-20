@@ -32,6 +32,9 @@ const PIECES: Record<string, Piece> = {
   'music:adventure': { bpm: 140, root: 62, minor: true, chords: [0, 5, 2, 6], lead: 'saw', drums: 'full', bed: 'arp', seed: 11 },
   'music:calm': { bpm: 84, root: 65, minor: false, chords: [0, 3, 5, 4], lead: 'triangle', drums: 'soft', bed: 'pad', seed: 5 },
   'music:tense': { bpm: 152, root: 57, minor: true, chords: [0, 0, 5, 4], lead: 'square', drums: 'full', bed: 'arp', seed: 17 },
+  'music:dungeon': { bpm: 76, root: 50, minor: true, chords: [0, 1, 5, 4], lead: 'triangle', drums: 'sparse', bed: 'arp', seed: 31 },
+  'music:orbit': { bpm: 144, root: 64, minor: true, chords: [0, 2, 6, 3], lead: 'sine', drums: 'full', bed: 'arp', seed: 37 },
+  'music:forest': { bpm: 96, root: 67, minor: false, chords: [0, 3, 1, 4], lead: 'triangle', drums: 'soft', bed: 'pad', seed: 41 },
   'music:mystery': { bpm: 90, root: 59, minor: true, chords: [0, 5, 3, 4], lead: 'triangle', drums: 'sparse', bed: 'pad', seed: 23 },
 };
 

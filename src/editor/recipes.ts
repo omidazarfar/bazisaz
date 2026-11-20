@@ -959,6 +959,25 @@ export const RECIPES: Recipe[] = [
     },
   },
   {
+    id: 'player-laser',
+    title: 'شلیک سفینه و هدف',
+    about: 'بازیکن خودکار رو به بالا تیر می‌زند. با زدن سیارک، یک امتیاز می‌گیرد. از هدف برای چیدن مرحله کپی بگیر.',
+    apply: async (p, s, centre) => {
+      const bolt = makeObject('تیر بازیکن', { kind: 'ellipse', color: '#6cf2ff', shade: true }, 12, 44, { x: 0, y: 0 }, {
+        behaviors: [{ type: 'launch', vx: 0, vy: -850 }, { type: 'lifetime', seconds: 2 }],
+      });
+      const target = await picture(p, 'asteroid', 'هدف فضایی', 82, 82, { x: centre.x, y: Math.max(50, centre.y - 280) }, { tags: [DANGER] });
+      const project = addObject(addObject(withVariable(target.project, 'score'), s, 'prefabs', bolt), s, 'objects', target.object);
+      return { project: withRules(project, s,
+        rule({ type: 'eachEvery', target: byTag(PLAYER), seconds: 0.45 }, [{ type: 'spawn', prefab: bolt.id, at: 'first' }]),
+        rule({ type: 'touch', a: byId(bolt.id), b: byTag(DANGER) }, [
+          { type: 'burst', target: 'second', color: '#ffbf50', count: 12 }, { type: 'destroy', target: 'second' },
+          { type: 'destroy', target: 'first' }, { type: 'setVariable', name: 'score', op: 'add', amount: 1 },
+          { type: 'playSound', sound: 'hit', volume: 65 },
+        ])), select: target.object.id };
+    },
+  },
+  {
     id: 'sword',
     title: 'زدن با شمشیر',
     about: 'یک دکمه‌ی شمشیر گوشه‌ی صفحه. با هر لمس، برق ضربه‌ای جلوی بازیکن (به طرفی که نگاه می‌کند) می‌زند؛ دشمن‌هایی که «جان» دارند با هر ضربه جان از دست می‌دهند و عقب پرت می‌شوند، و وقتی جانشان تمام شود منفجر می‌شوند.',

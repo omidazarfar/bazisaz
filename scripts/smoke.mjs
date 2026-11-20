@@ -312,13 +312,23 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   const [tx, ty] = await toPage(page, 500, 520);
   await page.mouse.move(fx, fy);
   await page.mouse.down();
-  // Kept short: a swipe is a slide that ends within 0.6 real seconds, and this browser draws slowly.
-  await page.mouse.move(tx, ty, { steps: 2 });
-  await untilTime(page, (await gameState(page)).time + 0.05);
+  await until(page, () => window.__game.getState().variables.held >= 2);
   s = await gameState(page);
   check('holding: counts up while the screen is held', s.variables.held >= 2, `held ${s.variables.held}`);
   await page.mouse.up();
-  await untilTime(page, (await gameState(page)).time + 0.15);
+
+  // A separate quick gesture, delivered together so renderer or protocol
+  // delays while checking the hold cannot turn the swipe into a long drag.
+  await page.evaluate((fx, fy, tx, ty) => {
+    const canvas = document.querySelector('canvas');
+    const send = (type, x, y, buttons) => canvas.dispatchEvent(new PointerEvent(type, {
+      pointerId: 1, pointerType: 'mouse', clientX: x, clientY: y, buttons, bubbles: true,
+    }));
+    send('pointerdown', fx, fy, 1);
+    send('pointermove', tx, ty, 1);
+    send('pointerup', tx, ty, 0);
+  }, fx, fy, tx, ty);
+  await until(page, () => window.__game.getState().variables.swipes > 0);
   s = await gameState(page);
   check('swipe: a quick slide to the right is recognised', s.variables.swipes === 1, `swipes ${s.variables.swipes}`);
   check('moveBy: the crate moves by the given distance', at('crate').x === 100);
@@ -1413,12 +1423,20 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await sleep(200);
   const stepped = (await gameState(page)).time;
   check('try-out tools: frozen, the game stands still; one step moves it one frame', still === frozenAt && Math.abs(stepped - still - 1 / 60) < 0.002, `${frozenAt} ${still} ${stepped}`);
-  await page.evaluate(() => window.__game.setDebug({ paused: false, speed: 0.25, shapes: true }));
-  const t0 = await page.evaluate(() => ({ game: window.__game.getState().time, wall: performance.now() }));
-  await sleep(1000);
-  const t1 = await page.evaluate(() => ({ game: window.__game.getState().time, wall: performance.now() }));
-  const ratio = (t1.game - t0.game) / ((t1.wall - t0.wall) / 1000);
-  check('try-out tools: slowed to a quarter, the game clock runs at about a quarter speed', ratio > 0.1 && ratio < 0.4, ratio.toFixed(2));
+  // Compare equal frame inputs. Wall time includes headless rendering delays,
+  // and the runtime deliberately caps the amount it simulates on a long frame.
+  const ratio = await page.evaluate(() => {
+    const game = window.__game;
+    const elapsedAt = speed => {
+      game.setDebug({ paused: false, speed, shapes: true });
+      const start = game.getState().time;
+      for (let frame = 0; frame < 12; frame++) game.advance(1 / 60);
+      return game.getState().time - start;
+    };
+    const normal = elapsedAt(1);
+    return elapsedAt(0.25) / normal;
+  });
+  check('try-out tools: quarter speed advances a quarter as far for the same frames', Math.abs(ratio - 0.25) < 1e-6, ratio.toFixed(2));
   check('lab 13: no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
 }
@@ -1582,7 +1600,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         box('chest', 300, 400, 100, 100),
         box('runner', 100, 600, 50, 50),
         box('stray', 40, 40, 50, 50),
-        box('knight', 560, 300, 80, 80, { health: 3, invincible: 1, healthBar: true }),
+        box('knight', 560, 300, 80, 80, { visual: { kind: 'image', asset: 'k', hurtFrames: ['p'] }, health: 3, invincible: 1, healthBar: true }),
         // States: moves right in state 0, down in state 1.
         box('guard', 600, 700, 40, 40, { behaviors: [{ type: 'mover', vx: 100, vy: 0, speedVariable: '', atEdge: 'nothing', onlyIn: [0] }, { type: 'rotate', speed: 90, onlyIn: [1] }] }),
       ],
@@ -1615,7 +1633,9 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   s = await gameState(page);
   check('bag: giving puts things in, after what was there, in the order given', JSON.stringify(s.bag) === '["Gem","Key","Potion"]' && s.variables.Potion === 3, JSON.stringify({ bag: s.bag, v: s.variables }));
   check('bag: a thing given from an object flies from it into the bag', s.flights === 1, `${s.flights} flying`);
+  check('hurt art: damage shows the hurt pose', await until(page, () => window.__game.getState().entities.find(e => e.id === 'knight').anim === 'hurt'));
   await untilTime(page, 1.3);
+  check('hurt art: idle returns after the hit', (await entity(page, 'knight')).anim === 'idle');
   check('bag: and lands there', (await gameState(page)).flights === 0);
   const drawn = await page.evaluate(() => window.__game.entities.find((e) => e.def.id === 'bag').view.children.length);
   check('bag: its places and the things in them are drawn', drawn >= 4, `${drawn} pieces`);
