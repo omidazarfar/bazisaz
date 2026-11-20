@@ -38,6 +38,12 @@ const SOUNDS: Record<SoundName, Layer[]> = {
     .concat([{ wave: 'triangle', from: 600, to: 2400, seconds: 0.35, gain: 0.35 }]),
   bounce: [{ wave: 'sine', from: 180, to: 520, seconds: 0.12, gain: 0.9 }, { wave: 'triangle', from: 360, to: 1040, seconds: 0.08, gain: 0.25 }],
   tick: [note('sine', 1900, 0, 0.025, 0.5), { wave: 'noise', from: 8000, seconds: 0.012, gain: 0.15 }],
+  // Materials being hit: hollow wood, a heavy stone, ringing metal, breaking glass, squeaky rubber.
+  knock: [{ wave: 'triangle', from: 420, to: 260, seconds: 0.09, gain: 0.9 }, { wave: 'noise', from: 2200, to: 600, seconds: 0.05, gain: 0.45 }],
+  clang: [note('square', 820, 0, 0.35, 0.18), note('sine', 1230, 0, 0.5, 0.35), note('sine', 2050, 0, 0.3, 0.2), { wave: 'noise', from: 5000, seconds: 0.03, gain: 0.4 }],
+  thud: [{ wave: 'sine', from: 120, to: 50, seconds: 0.2, gain: 1 }, { wave: 'noise', from: 500, to: 120, seconds: 0.12, gain: 0.7 }],
+  shatter: [{ wave: 'noise', from: 9000, to: 2500, seconds: 0.35, gain: 0.8 }, ...[2600, 3400, 4100, 3000].map((hz, i) => note('sine', hz, i * 0.035, 0.12, 0.25))],
+  squeak: [{ wave: 'sine', from: 700, to: 1300, seconds: 0.1, gain: 0.5 }, { wave: 'triangle', from: 300, to: 160, seconds: 0.1, gain: 0.5 }],
 };
 
 let context: AudioContext | null = null;

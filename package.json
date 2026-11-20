@@ -13,7 +13,8 @@
     "build:player": "tsc --noEmit && vite build",
     "start": "npm run build && cap sync android && node server/index.mjs",
     "server": "node server/index.mjs",
-    "prebuild": "node scripts/clean-stale.mjs"
+    "prebuild": "node scripts/clean-stale.mjs",
+    "bots": "node scripts/bots/all.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.3.0",

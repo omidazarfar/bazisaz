@@ -92,6 +92,7 @@ const groundTag = ({ scene }: Context): string => {
   return ['زمین', 'ground', 'دیوار'].find((tag) => tags.has(tag)) ?? '';
 };
 const moving = (v: Record<string, unknown>) => v.kind !== 'still';
+const custom = (v: Record<string, unknown>) => !v.material || v.material === 'custom';
 /** The colour treatments of a scene's picture, in words. */
 export const LOOK_OPTIONS: Option[] = [
   { value: 'none', label: 'معمولی' },
@@ -162,8 +163,8 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'still', label: 'نه، محکم سر جایش است (زمین، دیوار، میله‌ی چرخان)' },
       ] },
       { key: 'solidTag', label: 'روی این گروه هم بایستد', hint: 'اشیای این گروه فیزیک ندارند، ولی مثل زمین و دیوار جلویش را می‌گیرند؛ مثلاً گروه زمین یا نقشه‌ی خانه‌ای. خالی یعنی فقط به اشیای فیزیکی می‌خورد.', kind: 'tag', showIf: moving },
-      slider('bounce', 'برگشت بعد از برخورد', 0, 1, 0.05, 'صفر یعنی می‌ایستد؛ یک یعنی مثل توپ لاستیکی همان‌قدر بالا برمی‌گردد.'),
-      slider('friction', 'زبری', 0, 1, 0.05, 'صفر یعنی مثل یخ سُر می‌خورد؛ یک یعنی مثل لاستیک می‌چسبد و غلت می‌خورد.'),
+      { ...slider('bounce', 'برگشت بعد از برخورد', 0, 1, 0.05, 'صفر یعنی می‌ایستد؛ یک یعنی مثل توپ لاستیکی همان‌قدر بالا برمی‌گردد.'), showIf: custom },
+      { ...slider('friction', 'زبری', 0, 1, 0.05, 'صفر یعنی مثل یخ سُر می‌خورد؛ یک یعنی مثل لاستیک می‌چسبد و غلت می‌خورد.'), showIf: custom },
       { key: 'edges', label: 'لبه‌های دنیا دیوار باشند', hint: 'وگرنه می‌تواند از دنیا بیرون بیفتد.', kind: 'bool', fallback: false, showIf: moving },
       { key: 'drag', label: 'با انگشت', kind: 'choice', fallback: 'none', showIf: moving, options: [
         { value: 'none', label: 'کاری نمی‌شود کرد' },
@@ -174,7 +175,18 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { key: 'reload', label: 'در تیرکمان منتظر بماند و برگردد', hint: 'روشن: همان‌جا که گذاشتی در هوا منتظر می‌ماند و نمی‌افتد؛ بعد از هر پرتاب، وقتی ایستاد یا از دنیا بیرون رفت، به همان‌جا برمی‌گردد. خاموش: می‌افتد و هر جا ایستاد از همان‌جا دوباره کشیده می‌شود.', kind: 'bool', fallback: true, showIf: (v) => moving(v) && v.drag === 'sling' },
       { ...slider('surfaceSpeed', 'تسمه‌ی نقاله', -600, 600, 10, 'چیزهایی که رویش هستند با این سرعت به راست (یا با عدد منفی به چپ) برده می‌شوند. صفر یعنی معمولی.', 'پیکسل در ثانیه'), fallback: 0, showIf: (v) => v.kind === 'still' },
       { key: 'oneWay', label: 'از زیر بشود ردش شد', hint: 'مثل سکوهای بازی‌های پرشی: چیزها از زیر بالا می‌آیند و فقط از بالا رویش می‌ایستند.', kind: 'bool', fallback: false, showIf: (v) => v.kind === 'still' },
-      { ...slider('weight', 'سنگینی', 0.1, 10, 0.1, 'یک معمولی است. سنگین‌تر بقیه را محکم‌تر هل می‌دهد و سخت‌تر جابه‌جا می‌شود.'), fallback: 1, advanced: true, showIf: moving },
+      { key: 'material', label: 'جنس', hint: 'با یک انتخاب، زبری، برگشت، سنگینی و صدای برخوردش مثل همان جنس واقعی می‌شود. «دلخواه» یعنی خودت تنظیم کنی.', kind: 'choice', fallback: 'custom', options: [
+        { value: 'custom', label: 'دلخواه' },
+        { value: 'wood', label: 'چوب' },
+        { value: 'stone', label: 'سنگ' },
+        { value: 'metal', label: 'فلز' },
+        { value: 'ice', label: 'یخ (لیز)' },
+        { value: 'rubber', label: 'لاستیک (فنری)' },
+        { value: 'glass', label: 'شیشه' },
+      ] },
+      { ...slider('breaks', 'بشکند با ضربه‌ی', 0, 2000, 50, 'اگر محکم‌تر از این بخورد، تکه‌تکه می‌شود و تکه‌ها پخش می‌شوند؛ مثل شیشه یا جعبه‌ی ترد. صفر یعنی هیچ‌وقت نمی‌شکند. حدود ۴۰۰ یعنی با یک ضربه‌ی معمولی.', 'پیکسل در ثانیه'), fallback: 0 },
+      { key: 'passTag', label: 'از این گروه رد شود', hint: 'به اشیای این گروه نمی‌خورد و از میانشان رد می‌شود؛ مثلاً تیرهای خود بازیکن، یا دشمن‌هایی که از هم رد می‌شوند.', kind: 'tag', fallback: '', advanced: true },
+      { ...slider('weight', 'سنگینی', 0.1, 10, 0.1, 'یک معمولی است. سنگین‌تر بقیه را محکم‌تر هل می‌دهد و سخت‌تر جابه‌جا می‌شود.'), fallback: 1, advanced: true, showIf: (v) => moving(v) && custom(v) },
       { key: 'rotates', label: 'بتواند بچرخد و واژگون شود', hint: 'برای شخصیت بازی خاموشش کن تا همیشه سرپا بماند.', kind: 'bool', fallback: true, advanced: true, showIf: moving },
       { key: 'gravity', label: 'جاذبه رویش اثر کند', hint: 'خاموش برای فضا، یا میز بیلیارد که از بالا دیده می‌شود.', kind: 'bool', fallback: true, advanced: true, showIf: moving },
       { ...slider('slowdown', 'کند شدن خودبه‌خود', 0, 1, 0.05, 'مثل هوای غلیظ یا پارچه‌ی میز بیلیارد. صفر یعنی هیچ.'), fallback: 0, advanced: true, showIf: moving },
@@ -245,6 +257,10 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'between', label: 'وسط این دو، مثل حلقه‌های زنجیر یا تخته‌های پل' },
       ] },
       { ...slider('motor', 'موتور', -720, 720, 10, 'خودش می‌چرخد، مثل چرخ ماشین. مثبت یعنی در جهت عقربه‌های ساعت. صفر یعنی موتور ندارد.', 'درجه در ثانیه'), fallback: 0, showIf: (v) => v.kind === 'hinge' || v.kind === 'wheel' },
+      { key: 'drive', label: 'چه کسی موتور را روشن می‌کند', hint: 'بازیکن: مثل پدال گاز ماشین؛ با لمس نیمه‌ی راست صفحه (یا کلید راست) جلو می‌رود و با نیمه‌ی چپ عقب. رها کند، چرخ آزاد می‌چرخد.', kind: 'choice', fallback: 'always', showIf: (v) => (v.kind === 'hinge' || v.kind === 'wheel') && Boolean(v.motor), options: [
+        { value: 'always', label: 'همیشه روشن است' },
+        { value: 'player', label: 'بازیکن، مثل پدال گاز' },
+      ] },
       { ...slider('limit', 'تا کجا بچرخد', 0, 180, 5, 'از هر طرف چند درجه؛ مثل دری که فقط تا یک جا باز می‌شود. صفر یعنی آزاد.', 'درجه'), fallback: 0, showIf: (v) => v.kind === 'hinge' },
       { ...slider('axis', 'جهت ریل', -90, 90, 5, 'صفر یعنی چپ و راست، ۹۰ یعنی بالا و پایین، عددهای وسط یعنی کج.', 'درجه'), fallback: 0, showIf: (v) => v.kind === 'slider' },
       { ...slider('range', 'تا کجا برود', 0, 1500, 10, 'از هر طرف چند پیکسل. با موتور، بین دو سر رفت و برگشت می‌کند. صفر یعنی بی‌انتها.', 'پیکسل'), fallback: 0, showIf: (v) => v.kind === 'slider' },
@@ -269,6 +285,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { key: 'oneWay', label: 'سکوها یک‌طرفه باشند', hint: 'از زیر گروه بالا رد می‌شود و فقط از بالا رویش می‌ایستد؛ مثل سکوهای بازی‌های پرشی.', kind: 'bool', fallback: false, advanced: true },
       { ...slider('friction', 'اصطکاک', 0, 1, 0.05, 'بیشتر یعنی وقتی هلش دادی زودتر می‌ایستد؛ مثل جعبه روی زمین. صفر یعنی مثل یخ سُر می‌خورد. وقتی بازیکن کنترلش می‌کند اثری ندارد.'), fallback: 0, advanced: true },
       { key: 'pushable', label: 'با هل دادن جابه‌جا شود', hint: 'مثل جعبه: اگر بازیکن به آن بخورد و پشتش جا باشد، جلو می‌رود. باید در گروهی باشد که بازیکن از آن رد نمی‌شود.', kind: 'bool', fallback: false, advanced: true },
+      { key: 'bumpTag', label: 'به این گروه بخورد و در آن فرو نرود', hint: 'مثلاً دشمن‌ها به بازیکن و به هم: به هم می‌خورند و آرام همدیگر را کنار می‌زنند، به جای اینکه از هم رد شوند یا روی هم جمع شوند.', kind: 'tag', fallback: '', advanced: true },
       { key: 'roll', label: 'موقع حرکت بچرخد', hint: 'مثل توپی که روی زمین قل می‌خورد. با «برخورد دایره‌ای» بهتر است.', kind: 'bool', fallback: false, advanced: true },
     ],
   },
@@ -357,6 +374,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { ...slider('range', 'فقط از این فاصله نزدیک‌تر', 0, 2000, 10, 'صفر یعنی از هر جای دنیا دنبالش می‌کند. با ۳۰۰، فقط وقتی بازیکن نزدیک‌تر از ۳۰۰ پیکسل بیاید متوجهش می‌شود.'), fallback: 0, advanced: true },
       { key: 'away', label: 'به‌جای دنبال کردن، فرار کند', hint: 'مثل موشی که از گربه دور می‌شود.', kind: 'bool', fallback: false, advanced: true },
       { key: 'avoidTag', label: 'دیوارهای این گروه را دور بزند', hint: 'دشمن به‌جای اینکه مستقیم به دیوار بخورد، راهش را در هزارتو پیدا می‌کند. خالی یعنی مستقیم برود.', kind: 'tag', fallback: '', advanced: true, showIf: (v) => !v.away },
+      { key: 'sight', label: 'فقط وقتی ببیند', hint: 'اگر دیواری بین آن‌ها باشد، بازیکن را نمی‌بیند و دنبالش نمی‌کند؛ تا جایی که آخرین بار دیدش می‌رود، کمی آنجا می‌گردد و بعد بی‌خیال می‌شود. برای بازی‌های مخفی‌کاری. دیوار همان گروه بالا است، یا گروهی که از آن رد نمی‌شود.', kind: 'bool', fallback: false, advanced: true, showIf: (v) => !v.away },
     ],
   },
   steer: {
@@ -945,6 +963,15 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     make: (ctx) => ({ type: 'burst', target: firstRef(ctx), color: '#ffd54a', count: 16 }),
     fields: [{ key: 'target', label: 'از کدام شیء', kind: 'target' }, { key: 'color', label: 'رنگ تکه‌ها', kind: 'color' }, slider('count', 'چند تکه', 4, 40, 1)],
   },
+  slowMotion: {
+    title: 'زمان آهسته',
+    about: 'بازی برای چند لحظه آهسته می‌شود، مثل فیلم‌ها؛ برای ضربه‌ی آخر، انفجار بزرگ یا پرش دیدنی. صفر یعنی یک لحظه کاملاً می‌ایستد («ایست ضربه») تا ضربه محکم حس شود.',
+    make: () => ({ type: 'slowMotion', amount: 0.3, seconds: 1 }),
+    fields: [
+      slider('amount', 'سرعت زمان', 0, 1, 0.05, 'یک یعنی عادی، ۰٫۳ یعنی سه برابر آهسته‌تر، صفر یعنی ایستادن کامل.'),
+      slider('seconds', 'چه مدت', 0.03, 5, 0.01, 'به ثانیه‌ی واقعی. برای «ایست ضربه» حدود ۰٫۰۵ تا ۰٫۱ خوب است.', 'ثانیه'),
+    ],
+  },
   shake: {
     title: 'لرزش صفحه',
     about: 'کل صفحه یک لحظه می‌لرزد؛ برای ضربه و باخت.',
@@ -1107,6 +1134,11 @@ export const SOUND_LABEL: Record<SoundName, string> = {
   powerup: 'قدرت گرفتن',
   bounce: 'برگشتن توپ',
   tick: 'تیک',
+  knock: 'تق چوب',
+  clang: 'دنگ فلز',
+  thud: 'گروپ سنگ',
+  shatter: 'شکستن شیشه',
+  squeak: 'جیر لاستیک',
 };
 
 // ── How the blocks are grouped in the pick lists ───────────────────────────
@@ -1146,7 +1178,7 @@ export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
-  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'shake', 'vibrate', 'setSound'] },
+  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'shake', 'slowMotion', 'vibrate', 'setSound'] },
   { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },
   { title: 'تبلیغ', types: ['showAd', 'showRewardedAd'] },

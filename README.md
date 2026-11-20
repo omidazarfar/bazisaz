@@ -22,6 +22,7 @@ Other commands:
 npm run dev        # editor with live reload at http://localhost:5173/editor.html (no export)
 npm run build      # dist/index.html (the player) and dist-editor/editor.html (the editor)
 npm test           # browser tests of the games and editor, and a server test with Gradle replaced
+npm run bots       # bots play the five genre-helper games from start screen to win (after npm run build)
 ```
 
 `npm test` needs Chrome; set `CHROME_PATH` if it isn't at `/usr/bin/google-chrome`.
@@ -184,7 +185,22 @@ How the runtime steps (`Game.advance`, `Game.update`):
   steep side is a wall, the flat bottom a ceiling.
 - A body that walks into a `pushable` body moves it along if nothing in that
   body's solid group is in the way (so two crates in a row do not move).
+- A body with `bumpTag` is pushed out of anything of that group it overlaps,
+  after everything has moved, along the shorter way out (on hitbox insets, so
+  touch rules still fire). Two bodies give way by half each; nothing is pushed
+  into a wall of its own solid group; speed into the other is dropped.
 - Objects outside the view are not drawn (Pixi's culler), for big levels.
+- `physics.material` (wood, stone, metal, ice, rubber, glass) replaces the
+  object's friction, bounce and weight with the material's (`MATERIALS` in
+  `types.ts`, read through `feel()` in `physics.ts`), and a hit of 140 px/s or
+  more plays the material's sound, as loud as the hit (at most three per
+  step, and each object at most every 0.12 s).
+- `physics.breaks` > 0: a hit at least that hard shatters the object into 2×2
+  (3×2 if long) pieces showing their part of the picture (`ImageVisual.crop`),
+  plain physics with no tags and a 2.5–3.5 s lifetime.
+- `physics.passTag`: the pair never meets in the physics world.
+- The `slowMotion` action scales time for a number of real seconds; 0 is a
+  hit stop. It is counted in real time so a freeze always ends.
 - Real physics steps once per step, after everything else has moved. The
   game's own picture of each object is the truth: before a step, an object
   moved, turned or sped up by anything else (a rule, a jump, a patrol) is put

@@ -58,6 +58,55 @@ other did. **It is the single source of truth for "where are we".**
 - They will test on a real phone themselves later; nothing has been tried on a
   phone yet.
 
+## THE PLAN NOW: a professional engine (agreed by the owner 2026-11-20)
+
+The owner said no to an AI game maker: there is **no money and no API key**.
+They want a **professional, complete game engine**, good enough to show investors:
+"something that has everything, physics, powerful graphics", games **without
+problems**, and **"better contact between objects"** (nothing sinks into, sticks
+to, jitters on or passes through anything it should meet). Also "make it easier
+to work with". Usage is not a concern for now.
+
+Rule for every phase: a feature is done only when a real game uses it, a bot
+plays it through, it has been checked by eye in screenshots, and it has tests
+and a Persian guide entry.
+
+0. **Fix the games (DONE 2026-11-20).** Bots play all five games (`npm run bots`).
+   Fixed: the trophy could be jumped over; spikes under a block; the knight and
+   ship were hurt over and over with no knock-back or blink; skeletons walked
+   through the knight; the ship's hitbox was its whole picture; the shooter's
+   enemy fire was too fast; the puzzle goal was too easy (now 90 points).
+1. **Physics and contact.** Done: `body.bumpTag` (bodies push each other apart
+   instead of overlapping); `physics.material` (wood, stone, metal, ice,
+   rubber, glass, each with its own hit sound); `physics.breaks` (shatters
+   into picture pieces); `physics.passTag`; the `slowMotion` action (0 = hit
+   stop); new art: glass-block, stone-block, steel-beam, tnt. Rock Smash was
+   rebuilt with all of them. Also done: `joint.drive: 'player'` (a motor the
+   player drives like a pedal: right half of the screen or the right arrow is
+   forward, left is back; the "car" part uses it) and `chase.sight` (a chaser
+   only notices what it can see; out of sight it goes to where it last saw
+   it, looks for two seconds and gives up; Dungeon Escape's skeletons use it).
+   Next: polygon/capsule/drawn-terrain shapes; chains/ragdolls/gears; planet
+   gravity and gravity zones; more vehicles (bike, tank, boat).
+2. **Graphics.** Real lights and shadows cast by walls, flickering torches,
+   day/night; rain, snow, fog, wind; a particle editor with 30+ presets;
+   hit-stop, directional shake, impact zoom, flash, floating damage numbers;
+   dissolve, ripple, outline glow, retro/pixel filters; layered maps,
+   animated tiles, autotile edges.
+3. **Character and combat kits.** Wall jump/slide, dash, ladders, crouch,
+   ground pound; top-down 8-way with dodge roll; weapons (gun, spread, bow,
+   homing); ready smart enemies and bosses with attack patterns; a wave maker.
+4. **Professional editor.** Drag-and-drop rule blocks, keyframe animation
+   timeline and cut-out (bone) animation, layers panel, level map, asset
+   manager, sound-effect maker, simple music maker, live edit on phone,
+   version history.
+5. **Game systems.** Branching dialogue, quests, achievements, cutscenes,
+   settings menu, save slots, leaderboard, equipment and crafting.
+6. **Speed and reliability.** 60 fps on mid-range phones; bots in every test run.
+7. **Showcase.** 10 multi-level games and large art packs.
+
+Persian text inside games: asked, not answered yet; games stay English for now.
+
 ## Owner decision, 2026-11-20: whole games in the genre helper
 
 The owner asked to "go through the prepared games, make them 10x better, like really cool games with better features and better graphics". So the genre helper ("راهنمای سبک") now builds **whole, playable games**. This is the owner's own update to the old "no templates or starter games" rule.
@@ -105,6 +154,7 @@ To see them: `node scripts/look/gameplay.mjs <genre>` and `node scripts/look/pla
 | `npm run build` | type-check, then build the player (`dist/`) and the editor (`dist-editor/editor.html`), each a single file |
 | `npm test` | `scripts/smoke.mjs` (runtime labs 1–18), then `scripts/editor.smoke.mjs` (drives the real editor), then `scripts/server.smoke.mjs`; uses puppeteer-core and Chrome |
 | `npx tsc --noEmit -p .` | type-check only |
+| `npm run bots` | builds the five genre-helper games fresh in the editor, then a bot plays each one in the real player from the start screen to "You win" (the shooter: 35 s of waves without dying). Needs `npm run build` first; takes about 10 minutes. Each bot can also run alone: `node scripts/bots/<genre>.mjs [seconds]`; photographs of every life lost go to `scripts/bots/out/` |
 
 Shell is **Windows PowerShell 5.1**: no `&&`. `Set-Content` writes ANSI and
 corrupts Persian, so write files with an editor tool, or with
@@ -184,7 +234,7 @@ look:
 
 ## Current state (keep this up to date)
 
-- Last updated **2026-11-20 by Codex**. Phase D now includes text variables for quest steps and names. Phase E is implemented. The editor
+- Last updated **2026-11-20 by Claude** (see the plan above; phase 0 done). Before that, by Codex: Phase D now includes text variables for quest steps and names. Phase E is implemented. The editor
   library has five genre choices, four animated character sets, three art
   packs, sound preview and volume, and eight built-in music pieces.
 - The sword try-out advances and one swing damages the patrol. A scene-load
@@ -343,6 +393,40 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-20 — Claude (professional-engine plan, phase 0 and the start of phase 1)
+
+- The owner turned down the AI plan; the plan above replaces it.
+- Added `scripts/bots/`: `export.mjs` builds the genre games in the editor and
+  saves them; `platform`, `adventure`, `shooter`, `puzzle` and `physics` bots
+  play them like a person (keys, finger, sword button, slingshot), report every
+  life lost with what was near and a photograph, and stop with a stack trace
+  if the game freezes; `all.mjs` (`npm run bots`) runs them all.
+- New engine feature `BodyBehavior.bumpTag`: after everything moves, bodies
+  that bump into a group are pushed out of it along the shorter way (half each
+  when both have bodies), never into a wall of their solid group, measured on
+  hitbox insets so rules still see them touching. Editor field, sentence,
+  issue-check exemption and runtime tests (lab 11) added.
+- Physics phase 1, first part: materials, breaking, pass-through, slow motion
+  and four new pictures (see the plan). Rock Smash is now a fortress with a
+  barrel on the beam and two hidden aliens; 5 stones. The physics bot computes
+  a lob through the target from where the stone was pulled to, shoots the
+  barrel first and topples a tower onto a hidden alien.
+- Also: player-driven motors (`joint.drive`), line of sight (`chase.sight`).
+  Shooter: no knock-back on hurt (`lifeRules(over, 0)`), enemy shots 260,
+  boss fires every 0.9 s. The shooter bot runs the game at half speed
+  (`setDebug({ speed: 0.5 })`): it only looks every 0.1–0.4 game seconds,
+  which on a busy computer is slower than a person.
+- Tests: after the last engine change the three suites passed: 243 + 233 + 24
+  = **500 PASS, 0 FAIL**. Bots: platform, adventure, puzzle and physics won;
+  the shooter bot lost at full speed. The last changes (shooter knock-back,
+  shot speed, bot at half speed) were type-checked and built, but the full
+  suite and the half-speed shooter bot were stopped twice by low memory on the
+  owner's computer and were **not re-run**. Do that first next session.
+- Games: hurt now knocks back (`damage` with push 650) and the player blinks
+  for 1.3 s (`invincible`); the trophy sits on a podium at the end; skeletons
+  and the knight bump; the ship has `hitboxInset: 26`; alien fire every 2.4 s
+  at 310; the puzzle goal is 90.
 
 ### 2026-11-20 — Claude (whole games)
 - Reviewed Codex's work: the overlap fix, Phase E and text variables. All accepted.

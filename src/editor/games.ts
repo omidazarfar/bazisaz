@@ -151,12 +151,15 @@ async function screens(project: GameProject, levelId: string, look: { name: stri
  * player as "first"; it costs a life, unless the player was hurt a moment ago
  * (a second and a bit of safety); no lives left is game over.
  */
-function lifeRules(overId: string): Rule[] {
+/** Losing lives. `push`: how hard the player is knocked back from what hurt it; 0 in a shooter, where being thrown about is no help. */
+function lifeRules(overId: string, push = 650): Rule[] {
   return [
     {
       ...rule({ type: 'message', name: HURT }, [
         { type: 'setVariable', name: 'hurt', op: 'set', amount: 1 },
         { type: 'setVariable', name: 'lives', op: 'subtract', amount: 1 },
+        // Knocked back from what hurt it, and blinking while it cannot be hurt again (its "invincible" time).
+        ...(push ? [{ type: 'damage' as const, target: 'first' as const, amount: 0, push }] : []),
         { type: 'flash', target: 'first', color: '#ff3b47', seconds: 0.5 },
         { type: 'playSound', sound: 'hit' },
         { type: 'shake', strength: 12 },
@@ -198,9 +201,10 @@ function platformLevel(cols: number, rows: number, coinAsset: string): { tiles: 
   put(at(0.33), at(0.33) + 2, surface - 3, surface - 3, 'c');
   put(at(0.63), at(0.63), surface - 1, surface - 1, 'c');
   put(at(0.66), at(0.66) + 1, surface - 2, surface - 1, 'c');
+  // Stairs up to a podium that runs to the end of the world: the trophy stands on it, so it cannot be jumped over.
   put(at(0.86), at(0.86), surface - 1, surface - 1, 'c');
   put(at(0.88), at(0.88), surface - 2, surface - 1, 'c');
-  put(at(0.9), at(0.9), surface - 3, surface - 1, 'c');
+  put(at(0.9), cols - 1, surface - 3, surface - 1, 'c');
   // Coins: a line to start with, arcs over the gaps, a row on the high ledge.
   put(at(0.06), at(0.06) + 3, surface - 2, surface - 2, 'b');
   for (const [c0, c1] of pits) for (let c = c0 - 1; c <= c1 + 1; c++) grid[surface - (c === c0 - 1 || c === c1 + 1 ? 2 : 3)][c] = 'b';
@@ -281,7 +285,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
       tags: [ENEMY, DANGER], hitboxInset: 10, behaviors: [{ type: 'patrol', axis: 'y', distance: 150, speed: 80 }],
     }));
   }
-  for (const [i, share] of [0.13, 0.57].entries()) {
+  for (const [i, share] of [0.13, 0.645].entries()) {
     objects.push(makeObject(`تیغ ${i + 1}`, { kind: 'image', asset: spikes.asset }, 160, 40, { x: x(share), y: top - 20 }, { tags: [SPIKES], hitboxInset: 8 }));
   }
   for (const [i, [share, up]] of ([[0.34, 5.6], [0.68, 4.4], [0.9, 5]] as const).entries()) {
@@ -297,7 +301,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   for (const [i, share] of [0.44, 0.8].entries()) {
     objects.push(makeObject(`ایست بازرسی ${i + 1}`, { kind: 'image', asset: flag.asset }, 70, 100, { x: x(share), y: top - 50 }, { tags: [CHECK] }));
   }
-  objects.push(makeObject('جام پایان', { kind: 'image', asset: trophy.asset }, 130, 130, { x: x(0.96), y: top - 65 }, {
+  objects.push(makeObject('جام پایان', { kind: 'image', asset: trophy.asset }, 130, 130, { x: x(0.96), y: top - 3 * CELL - 65 }, {
     tags: [GOAL], glow: '#ffd23f', behaviors: [{ type: 'pulse', amount: 0.08, seconds: 1 }, { type: 'particles', preset: 'sparkle', color: '#fff3a8', rate: 8, size: 1.2, speed: 1 }],
   }));
 
@@ -305,7 +309,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   const hero = await character(p, 'hero');
   p = hero.project;
   const player = makeObject('قهرمان', hero.visual, 90, 100, { x: 2 * CELL, y: top - 50 }, {
-    tags: [PLAYER], shadow: true,
+    tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
     behaviors: [
       { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
       { type: 'jumper', jumpSpeed: 1150, maxJumps: 2, on: 'tap', buttonTag: '' },
@@ -460,9 +464,11 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
     makeObject(name, { kind: 'image', asset: bones.asset }, size, size, centre, {
       tags: [DANGER], health, healthBar: true, invincible: 0.3, hitboxInset: 10,
       behaviors: [
-        { type: 'body', gravity: false, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
+        // Skeletons bump into each other and into the knight instead of walking through.
+        { type: 'body', gravity: false, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false, bumpTag: DANGER },
         { type: 'patrol', axis: 'x', distance: 180, speed: 70, onlyIn: [0] },
-        { type: 'chase', targetTag: PLAYER, speed: size > 100 ? 95 : 125, avoidTag: GROUND, onlyIn: [1] },
+        // They must see the knight: behind a pillar or round a corner it can lose them.
+        { type: 'chase', targetTag: PLAYER, speed: size > 100 ? 95 : 125, avoidTag: GROUND, sight: true, onlyIn: [1] },
       ],
     });
   objects.push(
@@ -493,9 +499,9 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
   const knight = await character(p, 'knight');
   p = knight.project;
   const player = makeObject('شوالیه', knight.visual, 90, 100, at(0, 0.5, 0.55), {
-    tags: [PLAYER], shadow: true,
+    tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
     behaviors: [
-      { type: 'body', gravity: false, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
+      { type: 'body', gravity: false, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false, bumpTag: DANGER },
       { type: 'steer', speed: 330, control: 'stick', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false },
       { type: 'light', radius: 300, color: '#fff3d6', flicker: false },
       { type: 'camera', lock: 'free', smooth: 0.2, roomTag: ROOM },
@@ -574,7 +580,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
     x: 0, y: 0, glow: '#6cf2ff', behaviors: [{ type: 'launch', vx: 0, vy: -950 }, { type: 'lifetime', seconds: 1.4 }],
   });
   const enemyShot = makeObject('گلوله‌ی دشمن', { kind: 'ellipse', color: '#ff4d6d', shade: true }, 24, 24, { x: 0, y: 0 }, {
-    x: 0, y: 0, tags: [SHOT], round: true, glow: '#ff4d6d', behaviors: [{ type: 'launch', vx: 0, vy: 0, toward: 'group', targetTag: PLAYER, speed: 380 }, { type: 'lifetime', seconds: 4 }],
+    x: 0, y: 0, tags: [SHOT], round: true, glow: '#ff4d6d', behaviors: [{ type: 'launch', vx: 0, vy: 0, toward: 'group', targetTag: PLAYER, speed: 260 }, { type: 'lifetime', seconds: 4 }],
   });
   const heal = makeObject('قلب', image('heart'), 64, 58, { x: 0, y: 0 }, { x: 0, y: 0, tags: [HEAL], glow: '#ff6b8a', behaviors: [{ type: 'mover', vx: 0, vy: 170, speedVariable: '', atEdge: 'remove' }, { type: 'pulse', amount: 0.12, seconds: 0.6 }] });
   const bonus = makeObject('ستاره', image('star'), 66, 66, { x: 0, y: 0 }, { x: 0, y: 0, tags: [BONUS], glow: '#ffd23f', behaviors: [{ type: 'mover', vx: 0, vy: 190, speedVariable: '', atEdge: 'remove' }, { type: 'rotate', speed: 120 }] });
@@ -595,7 +601,8 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
     behaviors: [{ type: 'patrol', axis: 'x', distance: Math.max(100, W - 340), speed: 170, onlyIn: [1] }, { type: 'wave', axis: 'y', distance: 40, seconds: 2, onlyIn: [1] }],
   });
   const ship = makeObject('سفینه', image('space-ship'), 104, 110, { x: W / 2, y: H * 0.78 }, {
-    tags: [PLAYER], glow: '#6cf2ff',
+    // A forgiving hitbox: only the body of the ship counts, not its wing tips and flame (as in every good shooter).
+    tags: [PLAYER], glow: '#6cf2ff', health: 1000, invincible: 1.3, hitboxInset: 26,
     behaviors: [{ type: 'followFinger', speed: 1300, axis: 'both' }, { type: 'camera', lock: 'free', smooth: 0 }, { type: 'particles', preset: 'fire', color: '#6cf2ff', rate: 18, size: 0.7, speed: 1.2 }],
   });
   p = updateScene(p, sceneId, (s) => ({ ...s, prefabs: [...s.prefabs, ...prefabs] }));
@@ -613,8 +620,8 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
       { type: 'setVariable', name: 'score', op: 'add', amount: 5 }, { type: 'destroy', target: 'first' },
     ]),
     // Aliens shoot at the ship from time to time; the boss, once awake, much more often.
-    rule({ type: 'eachEvery', target: byId(alien.id), seconds: 1.8 }, [{ type: 'spawn', prefab: enemyShot.id, at: 'first' }]),
-    rule({ type: 'eachEvery', target: awake, seconds: 0.7 }, [{ type: 'spawn', prefab: enemyShot.id, at: 'first' }, { type: 'playSound', sound: 'laser', volume: 30 }]),
+    rule({ type: 'eachEvery', target: byId(alien.id), seconds: 2.4 }, [{ type: 'spawn', prefab: enemyShot.id, at: 'first' }]),
+    rule({ type: 'eachEvery', target: awake, seconds: 0.9 }, [{ type: 'spawn', prefab: enemyShot.id, at: 'first' }, { type: 'playSound', sound: 'laser', volume: 30 }]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY) }, [{ type: 'send', name: HURT }, { type: 'damage', target: 'second', amount: 2 }]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(SHOT) }, [{ type: 'destroy', target: 'second' }, { type: 'send', name: HURT }]),
     // Gifts: a heart gives back a life (or points if all are there), a star is worth twenty.
@@ -630,7 +637,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
       { type: 'shake', strength: 10 },
     ]),
     rule({ type: 'dead', target: byTag(BOSS) }, [{ type: 'playSound', sound: 'win' }, { type: 'setVariable', name: 'score', op: 'add', amount: 100 }, { type: 'wait', seconds: 1.4 }, { type: 'goToScene', scene: screen.win }]),
-    ...lifeRules(screen.over),
+    ...lifeRules(screen.over, 0),
   );
   p = await banner(p, sceneId, 'Blast them all!');
   p = await part(p, sceneId, 'score');
@@ -647,7 +654,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
 
 export async function buildPuzzle(project: GameProject, sceneId: string): Promise<GameResult> {
   const { width: W } = project.meta;
-  const GOAL_POINTS = 60;
+  const GOAL_POINTS = 90;
   const MOVES = 20;
   const CELL = 120;
   let p = withNumber(withNumber(withVariable(project, 'score'), 'moves', MOVES), 'picked', 0);
@@ -699,36 +706,59 @@ export async function buildPuzzle(project: GameProject, sceneId: string): Promis
 export async function buildPhysics(project: GameProject, sceneId: string): Promise<GameResult> {
   const { width: W, height: H } = project.meta;
   const TARGET = 'هدف';
-  const SHOTS = 4;
+  const SHOTS = 5;
   let p = withNumber(withVariable(project, 'score'), 'shots', SHOTS);
   p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(s.width, W), height: Math.max(s.height, H), gravity: 2400, sky: 'sunset', music: 'music:happy', bloom: true }));
   const pics: Record<string, string> = {};
-  for (const id of ['ground', 'slingshot', 'rock', 'crate', 'plank', 'alien']) {
+  for (const id of ['ground', 'slingshot', 'rock', 'crate', 'alien', 'glass-block', 'stone-block', 'steel-beam', 'tnt']) {
     const made = await art(p, id);
     p = made.project;
     pics[id] = made.asset;
   }
+  const TNT = 'انفجاری';
   const top = H - 150;
   const objects: GameObject[] = [
     makeObject('زمین', { kind: 'image', asset: pics.ground, repeat: 'x' }, W, 150, { x: W / 2, y: H - 75 }, { tags: [GROUND], locked: true }),
   ];
-  // The slingshot, and the rock waiting in its fork; it comes back after each throw.
-  const from = { x: Math.round(W * 0.18), y: top - 192 };
+  // The slingshot, and the stone waiting in its fork; it comes back after each throw.
+  const from = { x: Math.round(W * 0.16), y: top - 192 };
   objects.push(makeObject('تیرکمان', { kind: 'image', asset: pics.slingshot }, 150, 240, { x: from.x, y: top - 120 }, { locked: true }));
   const rock = makeObject('سنگ', { kind: 'image', asset: pics.rock }, 70, 70, from, {
-    tags: [THROWN], round: true, behaviors: [physics({ drag: 'sling', power: 8, reload: true, weight: 2, friction: 0.8 })],
+    tags: [THROWN], round: true, behaviors: [physics({ drag: 'sling', power: 8, reload: true, material: 'stone', weight: 2 })],
   });
-  // Two columns of crates bridged by a plank, with green aliens standing on top.
+  // A fortress of real materials: stone at the foot of two towers, wooden crates above, a glass column in the
+  // middle that shatters, a steel beam across the top, and an explosive barrel tucked inside.
   const C = 80;
-  const columns = [W * 0.6, W * 0.86];
-  for (const [ci, cx] of columns.entries()) {
-    for (let row = 0; row < 3; row++) objects.push(makeObject(`جعبه ${ci * 3 + row + 1}`, { kind: 'image', asset: pics.crate }, C, C, { x: cx, y: top - C * row - C / 2 }, { tags: [CRATE], behaviors: [physics()] }));
+  const x = (share: number) => Math.round(W * share);
+  const block = (name: string, pic: string, cx: number, row: number, material: 'wood' | 'stone' | 'glass') =>
+    makeObject(name, { kind: 'image', asset: pics[pic] }, C, C, { x: cx, y: top - C * row - C / 2 }, {
+      tags: [CRATE], behaviors: [physics({ material, ...(material === 'glass' ? { breaks: 380 } : {}) })],
+    });
+  for (const [i, cx] of [x(0.5), x(0.92)].entries()) {
+    objects.push(block(`سنگ پایه ${i + 1}`, 'stone-block', cx, 0, 'stone'), block(`جعبه ${i * 2 + 1}`, 'crate', cx, 1, 'wood'), block(`جعبه ${i * 2 + 2}`, 'crate', cx, 2, 'wood'));
   }
-  const span = columns[1] - columns[0] + C;
-  objects.push(makeObject('تخته', { kind: 'image', asset: pics.plank }, span, 28, { x: (columns[0] + columns[1]) / 2, y: top - 3 * C - 14 }, { tags: [CRATE], behaviors: [physics({ weight: 0.8 })] }));
-  const alienAt = (name: string, x: number) =>
-    makeObject(name, { kind: 'image', asset: pics.alien }, 66, 66, { x, y: top - 3 * C - 28 - 33 }, { tags: [TARGET], round: true, behaviors: [physics({ weight: 0.5 })] });
-  objects.push(alienAt('موجود ۱', columns[0]), alienAt('موجود ۲', (columns[0] + columns[1]) / 2), alienAt('موجود ۳', columns[1]), rock);
+  objects.push(...[0, 1, 2].map((row) => block(`شیشه ${row + 1}`, 'glass-block', x(0.71), row, 'glass')));
+  const span = x(0.92) - x(0.5) + C + 20;
+  objects.push(makeObject('تیرآهن', { kind: 'image', asset: pics['steel-beam'] }, span, 34, { x: (x(0.5) + x(0.92)) / 2, y: top - 3 * C - 17 }, {
+    tags: [CRATE], behaviors: [physics({ material: 'metal', weight: 1.5 })],
+  }));
+  // The barrel stands on the beam, in the middle: the shot to aim for, since its blast throws out the hidden aliens.
+  const onBeamFloor = top - 3 * C - 34;
+  objects.push(makeObject('بشکه‌ی انفجاری', { kind: 'image', asset: pics.tnt }, 62, 76, { x: x(0.71), y: onBeamFloor - 38 }, {
+    tags: [TNT, CRATE], behaviors: [physics({ material: 'metal', weight: 1 })],
+  }));
+  const alienAt = (name: string, ax: number, ay: number) =>
+    makeObject(name, { kind: 'image', asset: pics.alien }, 62, 62, { x: ax, y: ay }, { tags: [TARGET], round: true, behaviors: [physics({ weight: 0.5, material: 'rubber' })] });
+  const onBeam = top - 3 * C - 34 - 31;
+  objects.push(
+    alienAt('موجود ۱', x(0.5), onBeam), alienAt('موجود ۲', x(0.92), onBeam),
+    // Two hide inside, each side of the glass, on low stone steps (on the ground they would be out at once).
+    ...[Math.round((x(0.5) + x(0.71)) / 2), Math.round((x(0.71) + x(0.92)) / 2)].flatMap((hx, i) => [
+      makeObject(`پله‌ی سنگی ${i + 1}`, { kind: 'image', asset: pics['stone-block'] }, 64, 30, { x: hx, y: top - 15 }, { tags: [CRATE], behaviors: [physics({ material: 'stone' })] }),
+      alienAt(`موجود ${i + 3}`, hx, top - 30 - 31),
+    ]),
+    rock,
+  );
   p = addAll(p, sceneId, objects);
   const screen = await screens(p, sceneId, { name: 'ROCK SMASH', hero: 'alien', sky: 'sunset', music: 'music:happy' });
   p = screen.project;
@@ -738,16 +768,30 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
     { type: 'setVariable', name: 'score', op: 'add', amount: 30 },
     { type: 'playSound', sound: 'pop' },
     { type: 'shake', strength: 5 },
+    // A tiny freeze on every pop, so it lands with weight.
+    { type: 'slowMotion', amount: 0, seconds: 0.06 },
+  ];
+  const boom: Action[] = [
+    { type: 'blast', at: 'first', strength: 3200, radius: 460 },
+    { type: 'burst', target: 'first', color: '#ff9f1c', count: 40 },
+    { type: 'playSound', sound: 'boom' },
+    { type: 'shake', strength: 18 },
+    { type: 'destroy', target: 'first' },
+    { type: 'slowMotion', amount: 0.35, seconds: 0.6 },
   ];
   p = withRules(p, sceneId,
     rule({ type: 'start' }, [{ type: 'setVariable', name: 'shots', op: 'set', amount: SHOTS }]),
     rule({ type: 'thrown', target: byTag(THROWN) }, [{ type: 'setVariable', name: 'shots', op: 'subtract', amount: 1 }, { type: 'playSound', sound: 'jump' }]),
-    // An alien is out when the rock or a falling crate hits it hard, or when it tumbles to the ground.
+    // The barrel goes off when the stone or anything falling hits it hard.
+    rule({ type: 'hit', a: byTag(TNT), b: byTag(THROWN), speed: 200 }, boom),
+    rule({ type: 'hit', a: byTag(TNT), b: byTag(CRATE), speed: 260 }, boom),
+    // An alien is out when the stone or a falling block hits it hard, or when it tumbles to the ground.
     rule({ type: 'hit', a: byTag(TARGET), b: byTag(THROWN), speed: 150 }, pop),
-    rule({ type: 'hit', a: byTag(TARGET), b: byTag(CRATE), speed: 320 }, pop),
+    rule({ type: 'hit', a: byTag(TARGET), b: byTag(CRATE), speed: 300 }, pop),
     rule({ type: 'touch', a: byTag(TARGET), b: byTag(GROUND) }, pop),
-    // All out: twenty points for every rock left. Out of rocks with aliens standing: over, once things have settled.
+    // All out: points for every stone left, and the last moment in slow motion. Out of stones with aliens standing: over, once things have settled.
     rule({ type: 'noneLeft', target: byTag(TARGET) }, [
+      { type: 'slowMotion', amount: 0.3, seconds: 1.2 },
       { type: 'setVariable', name: 'score', op: 'add', amount: { variable: 'shots' } },
       { type: 'playSound', sound: 'win' }, { type: 'wait', seconds: 1.5 }, { type: 'goToScene', scene: screen.win },
     ]),
@@ -761,7 +805,7 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
   return {
     project: p,
     select: rock.id,
-    note: `بازی فیزیکی کامل ساخته شد: تیرکمان با ${SHOTS} سنگ، دو برج جعبه با تخته، و سه موجود فضایی روی آن. سنگ را عقب بکش و رها کن؛ موجودها با ضربه‌ی محکم یا افتادن روی زمین از بین می‌روند.`,
+    note: `بازی فیزیکی کامل ساخته شد: تیرکمان با ${SHOTS} سنگ و یک قلعه از جنس‌های واقعی: پایه‌ی سنگی، جعبه‌ی چوبی، ستون شیشه‌ای که می‌شکند، تیرآهن روی آن و یک بشکه‌ی انفجاری وسطش. چهار موجود فضایی، دوتا پنهان در داخل که فقط انفجار بشکه بیرونشان می‌اندازد. سنگ را عقب بکش و رها کن.`,
   };
 }
 

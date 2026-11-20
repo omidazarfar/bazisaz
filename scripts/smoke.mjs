@@ -998,6 +998,9 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         box('wall', 0, 240, 600, 40, { tags: ['wall'] }),
         box('smart', 40, 120, 30, 30, { behaviors: [free, { type: 'chase', targetTag: 'goal', speed: 400, axis: 'both', avoidTag: 'wall' }] }),
         box('dumb', 120, 120, 30, 30, { behaviors: [free, { type: 'chase', targetTag: 'goal', speed: 400, axis: 'both' }] }),
+        // Two that must see the target: one with the wall between them, one with a clear view.
+        box('guard', 400, 120, 30, 30, { behaviors: [free, { type: 'chase', targetTag: 'goal', speed: 400, axis: 'both', avoidTag: 'wall', sight: true }] }),
+        box('seer', 650, 405, 30, 30, { behaviors: [free, { type: 'chase', targetTag: 'goal', speed: 150, axis: 'both', avoidTag: 'wall', sight: true }] }),
         box('target', 45, 405, 30, 30, { tags: ['goal'] }),
         box('scout', 100, 600, 40, 40, { tags: ['scout'] }),
         box('runner', 600, 600, 40, 40, { tags: ['runner'], behaviors: [{ type: 'mover', vx: -400, vy: 0, speedVariable: '', atEdge: 'nothing' }] }),
@@ -1044,6 +1047,11 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   s = await gameState(page);
   check('finding the way: a chaser goes around the wall, through the gap, to its target', reached, JSON.stringify(s.entities.find((e) => e.id === 'smart')));
   check('without it, a chaser stays stuck behind the wall', s.entities.find((e) => e.id === 'dumb').y + 30 <= 240);
+  {
+    const [guard, seer] = ['guard', 'seer'].map((id) => s.entities.find((e) => e.id === id));
+    check('sight: a chaser that must see does not notice a target behind a wall', Math.hypot(guard.x - 400, guard.y - 120) < 2, `${guard.x.toFixed(0)},${guard.y.toFixed(0)}`);
+    check('sight: with a clear view it comes after the target', seer.x < 500, `${seer.x.toFixed(0)},${seer.y.toFixed(0)}`);
+  }
   check('lab 10: no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
 }
@@ -1066,7 +1074,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
     app: { appId: 'com.example.labeleven', versionCode: 1, versionName: '1.0', icon: null },
     ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
     sound: false, assets: {},
-    variables: [{ name: 'coins', initial: 0, saved: false }],
+    variables: [{ name: 'coins', initial: 0, saved: false }, { name: 'bumped', initial: 0, saved: false }],
     startScene: 'level',
     scenes: [{
       id: 'level', name: 'level', width: 720, height: 1280, background: null, music: null, gravity: 2000,
@@ -1089,8 +1097,12 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         box('crate', 300, 920, 80, 80, { tags: ['wall'], behaviors: [body({ solidTag: 'wall', pushable: true })] }),
         box('puck', 50, 300, 40, 40, { behaviors: [{ type: 'body', gravity: false, solidTag: '', bounce: 0, edges: 'stop', oneWay: false, friction: 0.5 }, { type: 'launch', vx: 600, vy: 0 }] }),
         box('ball', 50, 500, 40, 40, { round: true, behaviors: [{ type: 'body', gravity: false, solidTag: '', bounce: 0, edges: 'stop', oneWay: false, roll: true }, { type: 'launch', vx: 200, vy: 0 }] }),
+        // Two that bump into each other, and two that pass through each other.
+        ...[['m1', 100, 300], ['m2', 400, -300]].map(([id, x, vx]) => box(id, x, 100, 50, 50, { tags: ['mob'], hitboxInset: 5, behaviors: [{ type: 'body', gravity: false, solidTag: 'wall', bounce: 0, edges: 'stop', oneWay: false, bumpTag: 'mob' }, { type: 'mover', vx, vy: 0, speedVariable: '', atEdge: 'nothing' }] })),
+        ...[['g1', 100, 300], ['g2', 400, -300]].map(([id, x, vx]) => box(id, x, 180, 50, 50, { tags: ['ghost'], behaviors: [{ type: 'body', gravity: false, solidTag: '', bounce: 0, edges: 'stop', oneWay: false }, { type: 'launch', vx, vy: 0 }] })),
       ],
-      prefabs: [], rules: [],
+      prefabs: [],
+      rules: [{ id: 'r-bump', when: { type: 'touch', a: { by: 'tag', tag: 'mob' }, b: { by: 'tag', tag: 'mob' } }, condition: null, then: [{ type: 'setVariable', name: 'bumped', op: 'set', amount: 1 }] }],
     }],
   };
   let { page, errors } = await openPage(browser, url, { project });
@@ -1126,6 +1138,14 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   const crate = s.entities.find((e) => e.id === 'crate');
   const pusher = s.entities.find((e) => e.id === 'pusher');
   check('push: a crate goes ahead of whatever walks into it, until a wall stops it', pushed && Math.abs(pusher.x + pusher.width - crate.x) < 1, `crate ${crate.x}, pusher ${pusher.x}`);
+  {
+    const [m1, m2] = ['m1', 'm2'].map((id) => s.entities.find((e) => e.id === id));
+    const [g1, g2] = ['g1', 'g2'].map((id) => s.entities.find((e) => e.id === id));
+    // Pressed together by their movers, the collision boxes (inset by 5) meet face to face: 40 apart, never inside each other.
+    check('bump: two that bump into each other meet face to face instead of passing through', Math.abs(m2.x - m1.x - 40) < 1.5 && m1.y === 100 && m2.y === 100, `m1 ${m1.x.toFixed(1)}, m2 ${m2.x.toFixed(1)}`);
+    check('bump: meeting still counts as touching for rules', s.variables.bumped === 1, `bumped ${s.variables.bumped}`);
+    check('bump: without it they pass through each other', g1.x > g2.x, `g1 ${g1.x.toFixed(0)}, g2 ${g2.x.toFixed(0)}`);
+  }
   check('lab 11 (push): no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
 }
@@ -1174,6 +1194,25 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         box('car', 300, 950, 220, 70, { tags: ['car'], behaviors: [physics({ friction: 0.4 })] }),
         ...[-70, 70].map((dx, i) => box(`w${i}`, 410 + dx - 35, 985 - 35 + 35, 70, 70, { visual: { kind: 'ellipse', color: '#263238' }, round: true, behaviors: [physics({ friction: 1 }), { type: 'joint', kind: 'hinge', targetTag: 'car', at: 'self', motor: 360 }] })),
       ], [], 3000),
+      scene('matter', [
+        floor(),
+        // Two blocks slid along the floor: ice keeps going, stone stops soon.
+        box('ice', 20, 1040, 60, 60, { behaviors: [physics({ material: 'ice', rotates: false }), { type: 'launch', vx: 700, vy: 0 }] }),
+        // The stone one slides on a shelf of its own, out of the ice block's way.
+        box('shelf', 0, 700, 380, 20, { tags: ['ground'] }),
+        box('stone', 20, 640, 60, 60, { behaviors: [physics({ material: 'stone', rotates: false }), { type: 'launch', vx: 700, vy: 0 }] }),
+        // Two balls dropped from the same height: rubber bounces high, stone hardly at all.
+        box('rubber', 420, 300, 50, 50, { round: true, behaviors: [physics({ material: 'rubber' })] }),
+        box('rock', 520, 300, 50, 50, { round: true, behaviors: [physics({ material: 'stone' })] }),
+        // A glass pane on two posts, and a heavy weight dropped onto it.
+        box('postA', 600, 1000, 20, 100, { tags: ['ground'] }),
+        box('postB', 690, 1000, 20, 100, { tags: ['ground'] }),
+        box('pane', 600, 980, 110, 20, { tags: ['glass'], behaviors: [physics({ material: 'glass', breaks: 300 })] }),
+        box('weight', 625, 600, 60, 60, { behaviors: [physics({ material: 'metal' })] }),
+        // A ghost that passes through crates and lands on the floor under one.
+        box('crate', 300, 620, 80, 80, { tags: ['crate'], behaviors: [physics()] }),
+        box('ghost', 310, 300, 60, 60, { behaviors: [physics({ passTag: 'crate', rotates: false })] }),
+      ], [{ id: 'r-slow', when: { type: 'after', seconds: 0.3 }, condition: null, then: [{ type: 'slowMotion', amount: 0, seconds: 1.5 }] }]),
       scene('sling', [
         floor(),
         box('post', 140, 900, 40, 200, { tags: ['ground'] }),
@@ -1234,6 +1273,44 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   const wheels = s.entities.filter((e) => e.id.startsWith('w'));
   check('joint: wheels on hinges with motors drive a car along the ground', car.x - start > 200 && wheels.every((w) => Math.abs(w.x + 35 - (car.x + 110)) < 90), `travelled ${(car.x - start).toFixed(0)}`);
   check('lab 12 (car): no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+
+  ({ page, errors } = await open('matter'));
+  await untilTime(page, 0.3);
+  {
+    // Frozen by "slow motion" at 0: the game's clock does not move for a while.
+    const frozenAt = (await gameState(page)).time;
+    await sleep(400);
+    const later = (await gameState(page)).time;
+    check('slow motion at 0 holds the game still for a moment (a hit stop)', later - frozenAt < 0.02, `${frozenAt.toFixed(3)} → ${later.toFixed(3)}`);
+  }
+  // The highest each ball gets after it has first come down to the floor.
+  const peak = { rubber: 9999, rock: 9999 };
+  const down = { rubber: false, rock: false };
+  // The most pieces of the pane seen at once (they fade out after a few seconds).
+  let pieces = 0;
+  for (let i = 0; i < 400; i++) {
+    const st = await gameState(page);
+    pieces = Math.max(pieces, st.entities.filter((e) => e.id.startsWith('pane~')).length);
+    for (const id of ['rubber', 'rock']) {
+      const b = st.entities.find((e) => e.id === id);
+      if (b.y + 50 > 1070) down[id] = true;
+      else if (down[id]) peak[id] = Math.min(peak[id], b.y);
+    }
+    if (st.time > 3.2) break;
+    await sleep(25);
+  }
+  const bounced = down.rubber;
+  s = await gameState(page);
+  const [ice, stone] = ['ice', 'stone'].map((id) => s.entities.find((e) => e.id === id));
+  check('material: ice slides much further than stone given the same push', ice.x > stone.x + 150, `ice ${ice.x.toFixed(0)}, stone ${stone.x.toFixed(0)}`);
+  check('material: a rubber ball bounces high, a stone one hardly', bounced && peak.rubber < 900 && (peak.rock === 9999 || peak.rubber < peak.rock - 150), `rubber up to ${peak.rubber.toFixed(0)}, stone up to ${peak.rock.toFixed(0)}`);
+  // A long pane breaks into three by two.
+  check('breaks: a glass pane hit hard shatters into pieces that fly apart', !s.entities.some((e) => e.id === 'pane') && pieces === 6 && !s.entities.some((e) => e.tags.includes('glass')), `${pieces} pieces`);
+  const ghost = s.entities.find((e) => e.id === 'ghost');
+  check('pass: something set to pass through crates falls through one onto the shelf under it', Math.abs(ghost.y + 60 - 700) < 3, `bottom ${(ghost.y + 60).toFixed(1)}`);
+  check('lab 12 (matter): no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.screenshot({ path: resolve(shots, '12-physics-matter.png') });
   await page.close();
 
   ({ page, errors } = await open('sling'));

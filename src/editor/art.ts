@@ -577,6 +577,43 @@ export const ART_SPRITES: Sprite[] = [
     ),
   },
   {
+    id: 'glass-block', name: 'شیشه', category: 'ground', width: 100, height: 100,
+    body: draw((k) =>
+      `<rect x="4" y="4" width="92" height="92" rx="6" fill="${k.lin('#bfefff', 0.15, 0.2)}" fill-opacity="0.72" ${ol('#3d8fb8', 4)}/>` +
+      `<rect x="12" y="12" width="76" height="76" rx="3" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3"/>` +
+      `<path d="M20 70 70 20M34 80 80 34" stroke="#ffffff" stroke-opacity="0.7" stroke-width="6" stroke-linecap="round"/>` +
+      `<path d="M16 22l8-8" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>`,
+    ),
+  },
+  {
+    id: 'stone-block', name: 'سنگ چهارگوش', category: 'ground', width: 100, height: 100,
+    body: draw((k) =>
+      `<rect x="3" y="3" width="94" height="94" rx="7" fill="${k.lin('#9aa3ad', 0.3, 0.35)}" ${ol('#454b52', 4)}/>` +
+      `<path d="M5 36h90M5 66h90M38 5v31M70 36v30M30 66v29M76 66v29" stroke="#5c636b" stroke-width="3"/>` +
+      `<path d="M10 10h22v6H10zM44 41h20v5H44zM12 71h12v5H12zM50 71h20v5H50z" fill="#ffffff" fill-opacity="0.25"/>` +
+      `<circle cx="80" cy="20" r="3" fill="#5c636b"/><circle cx="20" cy="52" r="2.5" fill="#5c636b"/>`,
+    ),
+  },
+  {
+    id: 'steel-beam', name: 'تیرآهن', category: 'ground', width: 300, height: 40,
+    body: draw((k) =>
+      `<rect x="3" y="3" width="294" height="34" rx="5" fill="${k.lin('#b8c4cf', 0.35, 0.3)}" ${ol('#3d4752', 4)}/>` +
+      `<rect x="8" y="16" width="284" height="8" fill="#7d8a97"/>` +
+      `<g fill="#e6edf3" stroke="#3d4752" stroke-width="2">${[22, 70, 118, 166, 214, 262, 278].slice(0, 6).map((x) => `<circle cx="${x}" cy="11" r="3.5"/><circle cx="${x + 18}" cy="29" r="3.5"/>`).join('')}</g>` +
+      `<rect x="8" y="6" width="284" height="3" rx="1.5" fill="#ffffff" fill-opacity="0.5"/>`,
+    ),
+  },
+  {
+    id: 'tnt', name: 'بشکه‌ی انفجاری', category: 'ground', width: 90, height: 110,
+    body: draw((k) =>
+      `<rect x="6" y="6" width="78" height="98" rx="14" fill="${k.lin('#e8442e', 0.3, 0.35)}" ${ol('#6e1208', 4)}/>` +
+      `<path d="M6 30h78M6 80h78" stroke="#6e1208" stroke-width="5"/>` +
+      `<rect x="16" y="40" width="58" height="30" rx="5" fill="#ffd23f" stroke="#6e1208" stroke-width="3"/>` +
+      `<text x="45" y="63" font-family="Arial Black, Arial" font-weight="900" font-size="21" text-anchor="middle" fill="#6e1208">TNT</text>` +
+      `<rect x="14" y="10" width="10" height="88" rx="5" fill="#ffffff" fill-opacity="0.25"/>`,
+    ),
+  },
+  {
     id: 'cloud-step', name: 'سکوی ابری', category: 'ground', width: 200, height: 70,
     body: draw((k) =>
       `<path d="M34 64q-28 0-28-22t26-20q8-18 30-16 14-8 30 2 22-10 38 8 34-4 34 24 0 24-28 24z" fill="${k.grad([[0, '#ffffff'], [0.6, '#f2f8ff'], [1, '#b9d4ef']])}" stroke="#8fb3d9" stroke-width="3.5" stroke-linejoin="round"/>` +

@@ -1,4 +1,4 @@
-import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
+import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
 import { AdvancedBloomFilter, DropShadowFilter, GlowFilter } from 'pixi-filters';
 import type {
   Action,
@@ -22,7 +22,7 @@ import type {
   TilesVisual,
   TileStyle,
 } from '../format/types';
-import { EMPTY_TILE, isBuiltinMusic } from '../format/types';
+import { EMPTY_TILE, isBuiltinMusic, MATERIALS } from '../format/types';
 import { bagSlots, drawBag, slotAt } from './bag';
 import { builtinMusic } from './music';
 import { particle } from './particles';
@@ -30,7 +30,7 @@ import { SkyView } from './sky';
 import { tileTexture, type OpenSides } from './tiles';
 import { validateProject } from '../format/validate';
 import { FALLBACK_FONT } from './fonts';
-import { Physics } from './physics';
+import { feel, Physics } from './physics';
 import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './sound';
 import { applyDirection, fillTemplate } from './text';
 
@@ -210,6 +210,8 @@ interface Entity extends Box {
   /** The way around walls a chaser is following, as points to pass in turn, and when it next looks again. */
   path: Point[];
   pathIn: number;
+  /** A chaser that needs to see: where it last saw its target, and when. */
+  lastSeen?: { x: number; y: number; at: number } | null;
   /** Seconds until the particles behavior lets out its next particle. */
   emitIn: number;
   /** Its own lasting effects: a soft shadow, a glow. A flash goes on top of these while it lasts. */
@@ -526,6 +528,12 @@ export class Game {
   private cameraTravel = 0;
   private shakeLeft = 0;
   private shakeStrength = 0;
+  /** Slow motion: how fast time runs, and for how many more real seconds. */
+  private slowScale = 1;
+  private slowLeft = 0;
+  /** When each object last made its material's sound, so a rattling pile does not buzz. */
+  private lastKnock = new WeakMap<Entity, number>();
+  private knocksThisStep = 0;
   /** Actions held back by a "wait", with the moment they are due. */
   private waiting: { at: number; actions: Action[]; context: Context }[] = [];
   /** Messages sent by rules: those on their way, and those the rules are reading this step. */
@@ -634,6 +642,16 @@ export class Game {
       total = 1 / 60;
     }
     if (this.fade) this.stepFade(total);
+    if (this.slowLeft > 0 && !this.paused) {
+      // Counted in real time, so a freeze (0) still ends.
+      this.slowLeft -= Math.min(elapsed, MAX_FRAME);
+      total *= this.slowScale;
+      if (this.slowLeft <= 0) this.slowScale = 1;
+      if (total <= 0) {
+        this.drawShade();
+        return this.drawDebug();
+      }
+    }
     const steps = Math.max(1, Math.ceil(total / MAX_STEP));
     for (let i = 0; i < steps; i++) this.update(total / steps);
     if (this.physics) this.drawPhysics();
@@ -1166,6 +1184,8 @@ export class Game {
     this.paused = false;
     this.cameraTravel = 0;
     this.shakeLeft = 0;
+    this.slowLeft = 0;
+    this.slowScale = 1;
     this.app.stage.position.set(0, 0);
     // Music belongs to the game being played, never to the frozen picture in the editor.
     this.playMusic();
@@ -1491,9 +1511,10 @@ export class Game {
           if (look?.color) tiling.tint = look.color;
           return tiling;
         }
-        const sprite = new Sprite(texture);
+        const shown = v.crop && texture !== Texture.EMPTY ? cropped(texture, v.crop) : texture;
+        const sprite = new Sprite(shown);
         // Pivot is in the texture's own pixels, before the sprite is scaled to the object's size.
-        sprite.pivot.set(texture.width / 2, texture.height / 2);
+        sprite.pivot.set(shown.width / 2, shown.height / 2);
         if (look?.color) sprite.tint = look.color;
         return sprite;
       }
@@ -1998,6 +2019,7 @@ export class Game {
       e.lastX = e.x;
     }
 
+    this.separateBodies();
     // New objects draw just above the spawner that made them.
     for (const { entity, above } of spawned) this.insertAbove(entity, above);
     if (this.physics) this.stepPhysics(dt);
@@ -2099,6 +2121,68 @@ export class Game {
     this.swipes = [];
     this.keyTap = false;
     this.changeScene();
+  }
+
+  /**
+   * Bodies that bump into a group (`bumpTag`) are pushed out of whatever of that group they overlap,
+   * along the shorter way out. When the other has a body too, each gives way by half; nothing is pushed
+   * into a wall of its own solid group, so the other gives way by all of it instead. Speed into the other is
+   * dropped, so neither keeps pressing and jittering. A few rounds settle a crowd.
+   */
+  private separateBodies(): void {
+    const bumpers = this.entities.filter((e) => e.alive && e.visible && this.bodyOf(e)?.bumpTag);
+    if (!bumpers.length) return;
+    const free = (e: Entity, dx: number, dy: number) => {
+      const solid = this.bodyOf(e)?.solidTag;
+      if (!solid) return true;
+      const [x, y] = [e.x + dx, e.y + dy];
+      return !this.entities.some((s) => s !== e && s.alive && s.visible && !s.def.slope && s.def.tags.includes(solid) &&
+        x < s.x + s.width - 0.01 && x + e.width > s.x + 0.01 && y < s.y + s.height - 0.01 && y + e.height > s.y + 0.01);
+    };
+    for (let round = 0; round < 3; round++) {
+      let moved = false;
+      for (const e of bumpers) {
+        const tag = this.bodyOf(e)!.bumpTag!;
+        for (const o of this.entities) {
+          if (o === e || !o.alive || !o.visible || !o.def.tags.includes(tag)) continue;
+          // Measured on the collision boxes (inside any hitbox inset), so that once apart they still just touch.
+          const ie = e.def.hitboxInset ?? 0;
+          const io = o.def.hitboxInset ?? 0;
+          const overlapX = Math.min(e.x + e.width - ie, o.x + o.width - io) - Math.max(e.x + ie, o.x + io);
+          const overlapY = Math.min(e.y + e.height - ie, o.y + o.height - io) - Math.max(e.y + ie, o.y + io);
+          if (overlapX <= 0.01 || overlapY <= 0.01) continue;
+          const alongX = overlapX < overlapY;
+          const sign = alongX ? (e.x + e.width / 2 < o.x + o.width / 2 ? -1 : 1) : (e.y + e.height / 2 < o.y + o.height / 2 ? -1 : 1);
+          const depth = alongX ? overlapX : overlapY;
+          const otherMoves = !!this.bodyOf(o) && !o.def.fixed;
+          let mine = otherMoves ? depth / 2 : depth;
+          let theirs = depth - mine;
+          const step = (n: number) => (alongX ? [sign * n, 0] : [0, sign * n]) as [number, number];
+          if (!free(e, ...step(mine))) [mine, theirs] = [0, otherMoves ? depth : 0];
+          else if (theirs && !free(o, ...step(-theirs))) [mine, theirs] = [depth, 0];
+          if (mine && !free(e, ...step(mine))) mine = 0;
+          if (!mine && !theirs) continue;
+          const [ex, ey] = step(mine);
+          const [ox, oy] = step(-theirs);
+          e.x += ex; e.y += ey;
+          o.x += ox; o.y += oy;
+          // Stop pressing into each other.
+          if (alongX) {
+            if (Math.sign(e.vx) === -sign) e.vx = 0;
+            if (otherMoves && Math.sign(o.vx) === sign) o.vx = 0;
+          } else {
+            if (Math.sign(e.vy) === -sign) e.vy = 0;
+            if (otherMoves && Math.sign(o.vy) === sign) o.vy = 0;
+          }
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+  }
+
+  private bodyOf(e: Entity): BodyBehavior | undefined {
+    return e.def.behaviors.find((b): b is BodyBehavior => b.type === 'body');
   }
 
   /** Moves an object with a body one step, stopping it at objects of its solid group and, if asked, at the world's edges. */
@@ -2271,8 +2355,13 @@ export class Game {
     for (const p of this.pointers.values()) {
       if (p.drag?.held) physics.aim(p.drag.entity, this.inSpaceOf(p.drag.entity, p));
     }
+    // The pedal of anything the player drives: the right arrow or a touch on the right half of the screen is forward, the left backward.
+    let pedal = (this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('ArrowLeft') ? 1 : 0);
+    for (const p of this.pointers.values()) if (!p.drag && !this.onControl({ x: p.startX, y: p.startY })) pedal += p.x > this.project.meta.width / 2 ? 1 : -1;
+    physics.throttle = Math.sign(pedal);
     const falling = new Map(this.entities.map((e) => [e, e.vy]));
     physics.step(this.entities, dt, this.gravity);
+    this.impacts(physics.hits);
     for (const e of this.entities) {
       const standing = physics.standing(e);
       if (standing === undefined) continue;
@@ -2292,6 +2381,71 @@ export class Game {
         if (jumper && e.airTime > COYOTE && e.jumpsLeft === jumper.maxJumps) e.jumpsLeft = jumper.maxJumps - 1;
       }
     }
+  }
+
+  /**
+   * What hits do by themselves: an object of a material makes its sound, as loud as the hit was hard,
+   * and something breakable hit hard enough shatters.
+   */
+  private impacts(hits: { a: Entity; b: Entity; speed: number }[]): void {
+    this.knocksThisStep = 0;
+    for (const hit of hits) {
+      for (const e of [hit.a, hit.b]) {
+        const p = e.def.behaviors.find((b): b is PhysicsBehavior => b.type === 'physics');
+        if (!p || !e.alive) continue;
+        if (p.breaks && p.breaks > 0 && hit.speed >= p.breaks) {
+          this.shatter(e, p);
+          continue;
+        }
+        if (!p.material || p.material === 'custom' || hit.speed < 140 || this.knocksThisStep >= 3) continue;
+        if (this.time - (this.lastKnock.get(e) ?? -1) < 0.12) continue;
+        this.lastKnock.set(e, this.time);
+        this.knocksThisStep += 1;
+        playEffect(this.project, MATERIALS[p.material].sound, Math.min(100, 15 + hit.speed / 14));
+      }
+    }
+  }
+
+  /**
+   * Breaks an object into four pieces (six if it is long), each showing its part of the picture, flying
+   * apart with the speed it had. The pieces are plain physics, fade out and are gone in a few seconds;
+   * they belong to no group, so they never count as the object.
+   */
+  private shatter(e: Entity, p: PhysicsBehavior): void {
+    e.alive = false;
+    const v = e.def.visual;
+    const long = e.width > e.height * 1.6 ? [3, 2] : e.height > e.width * 1.6 ? [2, 3] : [2, 2];
+    const [cols, rows] = long;
+    const [w, h] = [e.width / cols, e.height / rows];
+    const centre = { x: e.x + e.width / 2, y: e.y + e.height / 2 };
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const visual: GameObject['visual'] = v.kind === 'image'
+          ? { kind: 'image', asset: e.image ?? v.asset, crop: { x: c / cols, y: r / rows, w: 1 / cols, h: 1 / rows } }
+          : v.kind === 'rect' || v.kind === 'ellipse' ? { ...v, kind: 'rect', radius: 0 } : { kind: 'rect', color: '#9e9e9e' };
+        const piece: GameObject = {
+          ...e.def, id: `${e.def.id}~${r}${c}`, name: e.def.name, tags: [], width: w, height: h, rotation: 0, round: false,
+          health: undefined, healthBar: false, glow: undefined, visual, rules: undefined,
+          behaviors: [
+            { ...p, kind: 'moving', breaks: 0, drag: 'none', rotates: true, weight: feel(p).weight * 0.6, material: p.material, passTag: '' },
+            { type: 'lifetime', seconds: 2.5 + Math.random() },
+          ],
+        } as GameObject;
+        const x = e.x + c * w;
+        const y = e.y + r * h;
+        const piece_ = this.createEntity(piece, x, y);
+        const away = { x: x + w / 2 - centre.x, y: y + h / 2 - centre.y };
+        const reach = Math.hypot(away.x, away.y) || 1;
+        piece_.vx = e.vx + (away.x / reach) * (120 + Math.random() * 160);
+        piece_.vy = e.vy + (away.y / reach) * (120 + Math.random() * 160) - 120;
+        piece_.angle = e.angle;
+        piece_.spawned = true;
+        this.insertAbove(piece_, e);
+      }
+    }
+    const color = v.kind === 'rect' || v.kind === 'ellipse' ? v.color : '#d8c8a8';
+    this.burst(e, color, 14);
+    playEffect(this.project, p.material === 'glass' || p.material === 'ice' ? 'shatter' : p.material === 'metal' ? 'clang' : 'boom', p.material === 'glass' ? 80 : 45);
   }
 
   /**
@@ -3091,6 +3245,10 @@ export class Game {
         this.shakeLeft = SHAKE_SECONDS;
         this.shakeStrength = action.strength;
         break;
+      case 'slowMotion':
+        this.slowScale = clamp(action.amount, 0, 1);
+        this.slowLeft = Math.max(0, action.seconds);
+        break;
     }
   }
 
@@ -3525,6 +3683,20 @@ export class Game {
       e.path = [];
       return null;
     }
+    if (b.sight) {
+      const walls = b.avoidTag || this.bodyOf(e)?.solidTag || '';
+      if (walls && this.blocksView(me, goal, walls, e, target)) {
+        // Out of sight: on to where it was last seen, a short look round there, then nothing.
+        const last = e.lastSeen;
+        if (!last || this.time - last.at > 2 + Math.hypot(last.x - me.x, last.y - me.y) / Math.max(1, b.speed)) {
+          e.lastSeen = null;
+          e.path = [];
+          return null;
+        }
+        goal.x = last.x;
+        goal.y = last.y;
+      } else e.lastSeen = { x: goal.x, y: goal.y, at: this.time };
+    }
     // Running away, or with no walls named, it goes straight.
     if (!b.avoidTag || b.away) return goal;
     e.pathIn -= dt;
@@ -3542,6 +3714,28 @@ export class Game {
       else break;
     }
     return e.path[0] ?? goal;
+  }
+
+  /** Whether anything of a group (other than the two looking at each other) lies across the straight line between two points. */
+  private blocksView(from: Point, to: Point, tag: string, ...except: Entity[]): boolean {
+    return this.entities.some((w) => {
+      if (!w.alive || !w.visible || except.includes(w) || !w.def.tags.includes(tag)) return false;
+      // The line against the box, by clipping the line's span to the box on each axis in turn.
+      let [t0, t1] = [0, 1];
+      const d = { x: to.x - from.x, y: to.y - from.y };
+      for (const [p, dp, lo, hi] of [[from.x, d.x, w.x, w.x + w.width], [from.y, d.y, w.y, w.y + w.height]] as const) {
+        if (Math.abs(dp) < 1e-9) {
+          if (p < lo || p > hi) return false;
+          continue;
+        }
+        let [a, b] = [(lo - p) / dp, (hi - p) / dp];
+        if (a > b) [a, b] = [b, a];
+        t0 = Math.max(t0, a);
+        t1 = Math.min(t1, b);
+        if (t0 > t1) return false;
+      }
+      return true;
+    });
   }
 
   /**
@@ -4237,6 +4431,20 @@ function assertPlayable(project: GameProject): void {
 }
 
 /** Makes a shape turn around its centre instead of its top-left corner. */
+/** Part of a picture, as fractions of it. Kept per picture and part, so pieces share their textures. */
+const crops = new Map<string, Texture>();
+function cropped(texture: Texture, crop: { x: number; y: number; w: number; h: number }): Texture {
+  const key = `${texture.uid}:${crop.x}:${crop.y}:${crop.w}:${crop.h}`;
+  let made = crops.get(key);
+  if (!made) {
+    const f = texture.frame;
+    const frame = new Rectangle(f.x + crop.x * f.width, f.y + crop.y * f.height, Math.max(1, crop.w * f.width), Math.max(1, crop.h * f.height));
+    made = new Texture({ source: texture.source, frame });
+    crops.set(key, made);
+  }
+  return made;
+}
+
 function centred<T extends Container>(view: T, def: GameObject): T {
   view.pivot.set(def.width / 2, def.height / 2);
   return view;

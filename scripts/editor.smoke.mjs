@@ -869,14 +869,19 @@ await freshGame();
 await addPart('car');
 sc = await scene();
 const carBody = sc.objects.find((o) => o.tags.includes('ماشین'));
-check('the car part adds a body and two wheels joined to it on springy axles with motors', carBody && sc.objects.filter((o) => o.behaviors.some((b) => b.type === 'joint' && b.kind === 'wheel' && b.motor > 0)).length === 2 && (await page.$('.chip-warn')) === null);
+check('the car part adds a body and two wheels joined to it on springy axles with motors the player drives', carBody && sc.objects.filter((o) => o.behaviors.some((b) => b.type === 'joint' && b.kind === 'wheel' && b.motor > 0 && b.drive === 'player')).length === 2 && (await page.$('.chip-warn')) === null);
 await click('امتحان کن');
-await until(page, () => window.__game.getState().time > 0.5);
+await until(page, () => window.__game.getState().time > 1);
 const carFrom = (await gameState(page)).entities.find((e) => e.id === carBody.id).x;
 // Watched on the game's own clock, so a busy computer does not make the car look slow.
-await until(page, () => window.__game.getState().time > 3.5, null, 30000);
+await until(page, () => window.__game.getState().time > 2.5, null, 30000);
+const carParked = (await gameState(page)).entities.find((e) => e.id === carBody.id).x;
+check('in the try-out the car waits while nobody presses the pedal', Math.abs(carParked - carFrom) < 30, `${carFrom.toFixed(0)} → ${carParked.toFixed(0)}`);
+await page.keyboard.down('ArrowRight');
+await until(page, () => window.__game.getState().time > 5, null, 30000);
+await page.keyboard.up('ArrowRight');
 const carTo = (await gameState(page)).entities.find((e) => e.id === carBody.id).x;
-check('and in the try-out the car drives itself along', carTo > carFrom + 120, `${carFrom.toFixed(0)} → ${carTo.toFixed(0)}`);
+check('and drives along while the pedal (the right arrow) is held', carTo > carParked + 120, `${carParked.toFixed(0)} → ${carTo.toFixed(0)}`);
 await click('توقف');
 
 // ── More physics parts: a rope bridge, a pool, a rope to cut ───────────────

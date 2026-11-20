@@ -335,6 +335,8 @@ export interface ImageVisual {
   frameBy?: string;
   /** Plays the animation through once and holds its last picture, like an explosion. */
   once?: boolean;
+  /** Shows only this part of the picture, as fractions of it (0 to 1): a piece of something broken, one picture of a sheet. */
+  crop?: { x: number; y: number; w: number; h: number };
   /** Repeats the picture to fill the object instead of stretching it: sideways (fitted to the height) or downward (fitted to the width). */
   repeat?: 'x' | 'y';
 }
@@ -468,6 +470,16 @@ export interface PhysicsBehavior {
   surfaceSpeed?: number;
   /** A still object only: moving things pass up through it from below and land on it from above, like a jump-through platform. */
   oneWay?: boolean;
+  /**
+   * What it is made of. Anything but "custom" sets its grip, bounce and weight
+   * the way that material really is (ice slides, rubber bounces, metal is
+   * heavy) and gives it the sound of that material when it hits something.
+   */
+  material?: Material;
+  /** Shatters into pieces when it is hit at least this hard (pixels per second). 0 never breaks. */
+  breaks?: number;
+  /** Passes through the objects of this group without meeting them: a player's own shots, enemies that walk through each other. Empty for none. */
+  passTag?: string;
 }
 
 /**
@@ -514,6 +526,12 @@ export interface JointBehavior {
   range?: number;
   /** How much it can hold before it snaps, in times this object's own weight; 0 never snaps. */
   strength?: number;
+  /**
+   * Hinge and wheel: who runs the motor. always: it never stops. player: only
+   * while the player holds the right of the screen or the right arrow (forward),
+   * or the left (backward), like a car's pedal; let go and it rolls freely.
+   */
+  drive?: 'always' | 'player';
 }
 
 /** Gives the object weight and makes it stop at objects of one group. */
@@ -539,6 +557,13 @@ export interface BodyBehavior {
   pushable?: boolean;
   /** Turns as it moves sideways, like a rolling ball. Best with "round". */
   roll?: boolean;
+  /**
+   * Bumps into objects of this group instead of passing through them: the two
+   * are pushed apart, each by its share (half each when both have a body, all of
+   * it when the other has none), and never into a wall. Crowds of enemies
+   * that do not pile up, a player that monsters cannot walk through. Empty for none.
+   */
+  bumpTag?: string;
 }
 
 /** Jumps. Needs a body, or it would never come down. */
@@ -606,6 +631,13 @@ export interface ChaseBehavior {
   away?: boolean;
   /** Finds a way around the objects of this group (walls) instead of heading straight at the target; empty for straight. */
   avoidTag?: string;
+  /**
+   * Only notices the target while it can see it: nothing of the wall group
+   * (`avoidTag`, or else the group its body cannot pass through) lies on the
+   * straight line between them. Out of sight, it goes to where it last saw the
+   * target, looks there for two seconds, and gives up.
+   */
+  sight?: boolean;
 }
 
 /** Moves in any direction under the player's control, for games seen from above. With a body, walls stop it. */
@@ -966,6 +998,8 @@ export type Action =
   | { type: 'burst'; target: Target; color: string; count: number }
   /** Shakes the whole screen for a moment. */
   | { type: 'shake'; strength: number }
+  /** Time runs slower for a while (real seconds): 0.3 is a third of the speed; 0 freezes the game for a moment, a "hit stop". */
+  | { type: 'slowMotion'; amount: number; seconds: number }
   /**
    * A short, smooth change of looks. pop: swells and settles. grow: appears
    * from nothing. shrink: dwindles away and is removed. fadeIn / fadeOut:
@@ -1042,5 +1076,17 @@ export type Action =
   /** Goes back to the saved progress, if there is any; otherwise goes to `scene`, as for a new game. */
   | { type: 'loadGame'; scene: string };
 
-export const SOUND_NAMES = ['jump', 'coin', 'hit', 'win', 'lose', 'click', 'pop', 'laser', 'boom', 'powerup', 'bounce', 'tick'] as const;
+export const SOUND_NAMES = ['jump', 'coin', 'hit', 'win', 'lose', 'click', 'pop', 'laser', 'boom', 'powerup', 'bounce', 'tick', 'knock', 'clang', 'thud', 'shatter', 'squeak'] as const;
+
+export type Material = 'custom' | 'wood' | 'stone' | 'metal' | 'ice' | 'rubber' | 'glass';
+
+/** How each material behaves, and the sound it makes when it is hit. */
+export const MATERIALS: Record<Exclude<Material, 'custom'>, { friction: number; bounce: number; weight: number; sound: SoundName }> = {
+  wood: { friction: 0.6, bounce: 0.15, weight: 0.8, sound: 'knock' },
+  stone: { friction: 0.8, bounce: 0.05, weight: 2.5, sound: 'thud' },
+  metal: { friction: 0.35, bounce: 0.1, weight: 4, sound: 'clang' },
+  ice: { friction: 0.02, bounce: 0.05, weight: 0.9, sound: 'tick' },
+  rubber: { friction: 0.95, bounce: 0.8, weight: 0.6, sound: 'squeak' },
+  glass: { friction: 0.3, bounce: 0.1, weight: 1.2, sound: 'tick' },
+};
 export type SoundName = (typeof SOUND_NAMES)[number];

@@ -782,8 +782,8 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'car',
-    title: 'ماشین با چرخ‌های موتوری',
-    about: 'یک ماشین که دو چرخش با کمک‌فنر به بدنه وصل‌اند و موتور دارند، پس خودش روی زمین و تپه‌ها جلو می‌رود و روی دست‌انداز بالا و پایین می‌شود. دوربین دنبالش می‌آید.',
+    title: 'ماشین قابل رانندگی',
+    about: 'یک ماشین که دو چرخش با کمک‌فنر به بدنه وصل‌اند. بازیکن با لمس نیمه‌ی راست صفحه (یا کلید راست) گاز می‌دهد و با نیمه‌ی چپ عقب می‌رود؛ روی تپه و دست‌انداز بالا و پایین می‌شود و ممکن است چپ کند. دوربین دنبالش می‌آید.',
     apply: async (p, s, centre) => {
       const CAR = 'ماشین';
       const ground = await withGround(p, s, centre);
@@ -796,12 +796,12 @@ export const RECIPES: Recipe[] = [
       // The wheels sit in the arches of the body.
       const wheel = (name: string, dx: number) => makeObject(name, { kind: 'image', asset: tire.asset }, 70, 70, { x: centre.x + dx, y: y + 35 }, {
         tags: ['چرخ'], round: true,
-        behaviors: [physics({ friction: 1, bounce: 0.05 }), { type: 'joint', kind: 'wheel', targetTag: CAR, at: 'self', motor: 360 }],
+        behaviors: [physics({ friction: 1, bounce: 0.05 }), { type: 'joint', kind: 'wheel', targetTag: CAR, at: 'self', motor: 600, drive: 'player' }],
       });
       return {
         project: addAll(tire.project, s, [body, wheel('چرخ عقب', -58), wheel('چرخ جلو', 64)]),
         select: body.id,
-        note: 'سرعت موتور را در رفتار «اتصال» هر چرخ عوض کن؛ منفی یعنی عقب. برای جاده‌ی طولانی، دنیای صحنه را پهن‌تر کن؛ زمینی که ساخته شد به پهنای دنیاست.',
+        note: 'نیمه‌ی راست صفحه گاز است و نیمه‌ی چپ دنده‌عقب. قدرت موتور در رفتار «اتصال» هر چرخ است؛ اگر «همیشه روشن» کنی، خودش می‌رود. برای جاده‌ی طولانی، دنیای صحنه را پهن‌تر کن.',
       };
     },
   },

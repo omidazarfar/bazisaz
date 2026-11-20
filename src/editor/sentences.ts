@@ -86,6 +86,8 @@ function amountText(amount: Amount, who: (target: Place) => string = () => 'شی
   return 'random' in amount ? `عددی تصادفی از ${fa(amount.random[0])} تا ${fa(amount.random[1])}` : `مقدار ${amount.variable}`;
 }
 
+const MATERIAL_LABEL: Record<string, string> = { wood: 'چوب', stone: 'سنگ', metal: 'فلز', ice: 'یخ', rubber: 'لاستیک', glass: 'شیشه' };
+
 export function actionSentence(project: GameProject, scene: Scene, a: Action, subjects: Subjects): string {
   const who = (target: Place) =>
     target === 'tap' ? 'جایی که لمس شد' : target === 'first' ? (subjects.first ?? 'همان شیء') : target === 'second' ? (subjects.second ?? 'همان شیء دوم') : describeRef(scene, target);
@@ -146,6 +148,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     }
     case 'burst': return `از ${who(a.target)} جرقه بپران`;
     case 'shake': return 'صفحه را بلرزان';
+    case 'slowMotion': return a.amount <= 0 ? `بازی را ${fa(a.seconds)} ثانیه نگه دار (ایست ضربه)` : `زمان را ${fa(a.seconds)} ثانیه آهسته کن`;
     case 'effect': return `${who(a.target)}: ${ACTIONS.effect.fields.flatMap((f) => (f.kind === 'choice' ? f.options : [])).find((o) => o.value === a.kind)?.label ?? ''}`;
     case 'damage': return `از جان ${who(a.target)} ${fa(a.amount)} تا کم کن`;
     case 'pause': return 'بازی را نگه دار';
@@ -180,6 +183,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       if (b.solidTag) parts.push(`از ${group(b.solidTag)} رد نمی‌شود`);
       if (b.bounce > 0) parts.push('بعد از برخورد برمی‌گردد');
       if (b.pushable) parts.push('با هل دادن جابه‌جا می‌شود');
+      if (b.bumpTag) parts.push(`به ${group(b.bumpTag)} می‌خورد و در آن فرو نمی‌رود`);
       return parts.join('، ');
     }
     case 'jumper': {
@@ -198,7 +202,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
     case 'patrol': return b.axis === 'x' ? 'به چپ و راست رفت و برگشت می‌کند' : 'بالا و پایین رفت و برگشت می‌کند';
     case 'chase': {
       const what = b.away ? `از ${group(b.targetTag)} فرار می‌کند` : `دنبال ${group(b.targetTag)} می‌رود`;
-      return `${what}${b.range ? `، وقتی نزدیک‌تر از ${fa(b.range)} پیکسل باشد` : ''}${b.avoidTag && !b.away ? `، و دیوارهای ${group(b.avoidTag)} را دور می‌زند` : ''}`;
+      return `${what}${b.range ? `، وقتی نزدیک‌تر از ${fa(b.range)} پیکسل باشد` : ''}${b.avoidTag && !b.away ? `، و دیوارهای ${group(b.avoidTag)} را دور می‌زند` : ''}${b.sight && !b.away ? '، فقط وقتی ببیندش' : ''}`;
     }
     case 'route': return `روی نشانه‌های ${group(b.tag)} راه می‌رود`;
     case 'rotate': return 'دور خودش می‌چرخد';
@@ -233,6 +237,9 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       }
       const parts = [b.gravity === false ? 'در فضا شناور است و با ضربه حرکت می‌کند' : 'مثل دنیای واقعی می‌افتد و غلت می‌خورد'];
       if (b.solidTag) parts.push(`روی ${group(b.solidTag)} می‌ایستد`);
+      if (b.material && b.material !== 'custom') parts.push(`جنسش ${MATERIAL_LABEL[b.material]} است`);
+      if (b.breaks) parts.push('با ضربه‌ی محکم می‌شکند');
+      if (b.passTag) parts.push(`از ${group(b.passTag)} رد می‌شود`);
       if (b.bounce >= 0.5) parts.push('بعد از برخورد بالا می‌پرد');
       if (!b.rotates) parts.push('همیشه سرپا می‌ماند');
       if (b.drag === 'grab') parts.push('بازیکن می‌تواند برش دارد و جابه‌جایش کند');
@@ -244,7 +251,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       if (b.kind === 'rope') return `با طناب به نزدیک‌ترین ${to} بسته شده`;
       if (b.kind === 'spring') return `با فنر به نزدیک‌ترین ${to} وصل است`;
       if (b.kind === 'weld') return `به نزدیک‌ترین ${to} جوش خورده`;
-      if (b.kind === 'wheel') return `چرخی است با کمک‌فنر، وصل به نزدیک‌ترین ${to}${b.motor ? '، با موتور' : ''}`;
+      if (b.kind === 'wheel') return `چرخی است با کمک‌فنر، وصل به نزدیک‌ترین ${to}${b.motor ? '، با موتور' : ''}${b.motor && b.drive === 'player' ? ' که بازیکن مثل پدال گاز روشنش می‌کند' : ''}`;
       if (b.kind === 'slider') return `روی ریلی کنار نزدیک‌ترین ${to} می‌لغزد${b.motor && b.range ? '، و خودش رفت و برگشت می‌کند' : ''}`;
       if (b.at === 'between') return `با لولا به نزدیک‌ترین ${to} وصل است، مثل حلقه‌ی زنجیر`;
       const pin = b.at === 'other' ? `دور وسط نزدیک‌ترین ${to} می‌چرخد، مثل آونگ` : `با لولا به نزدیک‌ترین ${to} وصل است و دور وسط خودش می‌چرخد، مثل چرخ`;

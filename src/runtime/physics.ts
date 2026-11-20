@@ -2,7 +2,7 @@ import {
   Box, Chain, Circle, DistanceJoint, MouseJoint, Polygon, PrismaticJoint, RevoluteJoint, RopeJoint, WeldJoint, WheelJoint, World,
   type Body, type Contact, type Joint,
 } from 'planck';
-import type { FieldBehavior, GameObject, JointBehavior, PhysicsBehavior } from '../format/types';
+import { MATERIALS, type FieldBehavior, type GameObject, type JointBehavior, type PhysicsBehavior } from '../format/types';
 
 /**
  * Real physics for the objects that ask for it, worked out by planck (a port
@@ -209,6 +209,7 @@ export class Physics<T extends Thing> {
     for (const { thing, field } of fields) this.push(thing, field, dt);
     for (const rec of this.recs.values()) if (rec.role === 'moving' && !rec.held && !rec.ready && rec.body.isAwake()) this.resistRolling(rec, dt);
     this.driveSliders();
+    this.drivePedals();
 
     this.world.setGravity({ x: 0, y: this.gravity });
     this.world.step(dt, 8, 3);
@@ -508,9 +509,9 @@ export class Physics<T extends Thing> {
       : new Box(hw, hh);
     const fixture = body.createFixture({
       shape,
-      density: physics ? Math.max(0.01, physics.weight) : 1,
-      friction: physics ? physics.friction : 0.6,
-      restitution: physics ? physics.bounce : 0,
+      density: physics ? Math.max(0.01, feel(physics).weight) : 1,
+      friction: physics ? feel(physics).friction : 0.6,
+      restitution: physics ? feel(physics).bounce : 0,
     });
     fixture.shouldCollide = (that) => this.allowed(rec, that.getBody().getUserData());
     rec.width = t.width;
@@ -647,7 +648,7 @@ export class Physics<T extends Thing> {
     let touching = false;
     for (let edge = body.getContactList(); edge && !touching; edge = edge.next) touching = edge.contact.isTouching() && edge.contact.isEnabled();
     if (!touching) return;
-    const grip = 0.6 + (rec.physics?.friction ?? 0.6);
+    const grip = 0.6 + (rec.physics ? feel(rec.physics).friction : 0.6);
     body.setAngularVelocity(body.getAngularVelocity() * Math.exp(-grip * 1.2 * dt));
     if (rec.thing.def.round || rec.thing.def.visual.kind === 'ellipse') {
       const v = body.getLinearVelocity();
@@ -704,7 +705,7 @@ export class Physics<T extends Thing> {
         // How much of it is under the surface; that much is held up, more so the lighter it is for its size.
         const sunk = clamp((t.y + t.height - box.y) / t.height, 0, 1);
         if (sunk <= 0) continue;
-        const weight = Math.max(0.1, rec.physics?.weight ?? 1);
+        const weight = Math.max(0.1, rec.physics ? feel(rec.physics).weight : 1);
         const lift = this.gravity * sunk * b.strength * 1.5 / weight;
         body.applyForceToCenter({ x: 0, y: -lift * mass }, true);
         // Water slows whatever moves in it; up and down most, so something light settles at the surface instead of bobbing out of it.
@@ -716,6 +717,21 @@ export class Physics<T extends Thing> {
   }
 
   /** A slider with a motor and a range goes back and forth between the ends of its range. */
+  /** The player's pedal for motors driven by the player: 1 forward, -1 backward, 0 rolling freely. */
+  throttle = 0;
+
+  /** Motors the player drives follow the pedal; let go, a wheel rolls on by itself. */
+  private drivePedals(): void {
+    for (const j of this.joints) {
+      if (j.behavior.drive !== 'player' || (j.behavior.kind !== 'hinge' && j.behavior.kind !== 'wheel')) continue;
+      const joint = j.joint as RevoluteJoint | WheelJoint;
+      joint.enableMotor(this.throttle !== 0);
+      joint.setMotorSpeed((((j.behavior.motor ?? 0) * Math.PI) / 180) * this.throttle);
+      // A parked car falls asleep; pressing the pedal wakes it.
+      if (this.throttle !== 0) joint.getBodyB().setAwake(true);
+    }
+  }
+
   private driveSliders(): void {
     for (const j of this.joints) {
       if (j.behavior.kind !== 'slider' || !j.behavior.motor || !j.behavior.range) continue;
@@ -789,7 +805,7 @@ export class Physics<T extends Thing> {
         const limit = ((b.limit ?? 0) * Math.PI) / 180;
         return this.world.createJoint(
           new RevoluteJoint(
-            { enableMotor: motor !== 0, motorSpeed: (motor * Math.PI) / 180, maxMotorTorque: mass * 60, enableLimit: limit > 0, lowerAngle: -limit, upperAngle: limit },
+            { enableMotor: motor !== 0 && b.drive !== 'player', motorSpeed: (motor * Math.PI) / 180, maxMotorTorque: mass * 60, enableLimit: limit > 0, lowerAngle: -limit, upperAngle: limit },
             theirs.body, mine.body, pin,
           ),
         );
@@ -797,7 +813,7 @@ export class Physics<T extends Thing> {
       case 'wheel':
         return this.world.createJoint(
           new WheelJoint(
-            { enableMotor: motor !== 0, motorSpeed: (motor * Math.PI) / 180, maxMotorTorque: mass * 60, frequencyHz: 4, dampingRatio: 0.7 },
+            { enableMotor: motor !== 0 && b.drive !== 'player', motorSpeed: (motor * Math.PI) / 180, maxMotorTorque: mass * 60, frequencyHz: 4, dampingRatio: 0.7 },
             theirs.body, mine.body, a, { x: 0, y: 1 },
           ),
         );
@@ -837,6 +853,9 @@ export class Physics<T extends Thing> {
     }
     if (!isRec<T>(a) || !isRec<T>(b)) return false;
     if (a.ignore?.has(b.body) || b.ignore?.has(a.body)) return false;
+    // A group it passes through, such as the player's own shots.
+    if (a.physics?.passTag && b.thing.def.tags.includes(a.physics.passTag)) return false;
+    if (b.physics?.passTag && a.thing.def.tags.includes(b.physics.passTag)) return false;
     if (a.role === 'moving' && b.role === 'moving') return true;
     const [mover, other] = a.role === 'moving' ? [a, b] : [b, a];
     if (mover.role !== 'moving') return false;
@@ -887,6 +906,11 @@ export class Physics<T extends Thing> {
     const speed = Math.abs((vb.x - va.x) * manifold.normal.x + (vb.y - va.y) * manifold.normal.y) * M;
     this.hits.push({ a: ra.thing, b: rb.thing, speed });
   }
+}
+
+/** Grip, bounce and weight: the material's when it has one, otherwise its own. */
+export function feel(p: PhysicsBehavior): { friction: number; bounce: number; weight: number } {
+  return p.material && p.material !== 'custom' ? MATERIALS[p.material] : p;
 }
 
 function clamp(value: number, min: number, max: number): number {
