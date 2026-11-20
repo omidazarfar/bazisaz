@@ -58,6 +58,21 @@ other did. **It is the single source of truth for "where are we".**
 - They will test on a real phone themselves later; nothing has been tried on a
   phone yet.
 
+## Owner decision, 2026-11-20: whole games in the genre helper
+
+The owner asked to "go through the prepared games, make them 10x better, like really cool games with better features and better graphics". So the genre helper ("راهنمای سبک") now builds **whole, playable games**. This is the owner's own update to the old "no templates or starter games" rule.
+
+The games are in `src/editor/games.ts`:
+- `buildPlatformer` — Sky Quest
+- `buildAdventure` — Dungeon Escape
+- `buildShooter` — Star Raiders
+- `buildPuzzle` — Gem Crush
+- `buildPhysics` — Rock Smash
+
+Each builds into the user's current scene, in one undo step. Each adds three scenes: Start (the game opens there), You win and Game over. They are made only of ordinary editable objects, rules and parts. Keep it that way: no hidden logic, everything visible and changeable.
+
+To see them: `node scripts/look/gameplay.mjs <genre>` and `node scripts/look/platformer.mjs <genre> <shares>`.
+
 ## Rules from CLAUDE.md (apply to Codex too)
 
 - Games are in **English**; the editor is in **Persian** (right to left).
@@ -328,6 +343,21 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-20 — Claude (whole games)
+- Reviewed Codex's work: the overlap fix, Phase E and text variables. All accepted.
+- Owner asked for "10x better" prepared games. The genre helper now builds five whole games; see "Owner decision" above.
+- Engine: the touch trigger has `from: 'above' | 'side'`, for stomping enemies. It is judged by how each object moved this frame, not its speed: a bounce rule changes the speed during the same frame.
+- Fixed a flaky lab-2 test (burst and shake) by waiting for the frame.
+- Tests:
+  - editor checks for the platformer (structure and stomp) and the dungeon (structure and chase state)
+  - Codex's shooter check still passes with the new shooter
+  - 488 PASS before the last visual tweaks (wave density, banner size, badge positions, puzzle badge order)
+- Not yet done:
+  - sound by ear
+  - a real phone
+  - a second level per game
+  - difficulty tuning by real players
 
 ### 2026-11-20 — Codex (quest text)
 - Added named text variables, exact-match triggers and text assignment across the format, validation, runtime, Persian editor, live debugger and guides. Existing v2 projects can omit the text list.

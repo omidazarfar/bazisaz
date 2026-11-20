@@ -363,7 +363,9 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
 /** A banner at the start of a level that says what to do, then fades. */
 async function banner(project: GameProject, sceneId: string, text: string): Promise<GameProject> {
   const { width: W, height: H } = project.meta;
-  const words = makeObject('نوشته‌ی هدف', { kind: 'text', text, color: '#ffd23f', size: 58, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: W / 2, y: H * 0.3 }, { fixed: true });
+  // Long enough words get smaller letters, so the banner always fits across the screen.
+  const size = Math.min(58, Math.floor((W * 1.7) / text.length));
+  const words = makeObject('نوشته‌ی هدف', { kind: 'text', text, color: '#ffd23f', size, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: W / 2, y: H * 0.3 }, { fixed: true });
   return withRules(addAll(project, sceneId, [words]), sceneId, rule({ type: 'start' }, [
     { type: 'show', target: byId(words.id) },
     { type: 'effect', target: byId(words.id), kind: 'pop', seconds: 0.5 },
@@ -581,7 +583,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
   // Waves come from above the screen until the boss arrives (the maker's state 1 stops it).
   const waves = makeObject('سازنده‌ی دشمن', { kind: 'rect', color: '#000000' }, 40, 40, { x: 0, y: 0 }, {
     x: 60, y: -20, visible: false, locked: true,
-    behaviors: [{ type: 'spawner', prefabs: [rock.id, rock.id, alien.id, saucer.id], minInterval: 0.6, maxInterval: 1.4, spreadX: W - 200, spreadY: 0, everyDistance: 0, onlyIn: [0] }],
+    behaviors: [{ type: 'spawner', prefabs: [rock.id, rock.id, alien.id, saucer.id], minInterval: 0.45, maxInterval: 1.0, spreadX: W - 200, spreadY: 0, everyDistance: 0, onlyIn: [0] }],
   });
   const gifts = makeObject('سازنده‌ی جایزه', { kind: 'rect', color: '#000000' }, 40, 40, { x: 0, y: 0 }, {
     x: 60, y: -20, visible: false, locked: true,
@@ -656,7 +658,15 @@ export async function buildPuzzle(project: GameProject, sceneId: string): Promis
   const left = Math.max(0, Math.floor((W - CELL * cols) / 2 / CELL)) * CELL;
   const top = Math.max(1, Math.round(330 / CELL)) * CELL;
   const frame = await picture(p, 'panel', 'قاب صفحه', cols * CELL + 36, rows * CELL + 36, { x: left + (cols * CELL) / 2, y: top + (rows * CELL) / 2 }, { locked: true, opacity: 0.92 });
-  p = addAll(frame.project, sceneId, [frame.object]);
+  // The score and the moves left in glassy badges, and a bar filling toward the goal.
+  const points = await badge(frame.project, 'coin', 'امتیاز', '{score}', { x: W * 0.25, y: 80 }, { w: 220, h: 80 });
+  const moves = await badge(points.project, 'clock', 'حرکت‌ها', '{moves}', { x: W * 0.6, y: 80 }, { w: 220, h: 80 });
+  p = moves.project;
+  const bar = makeObject('نوار هدف', { kind: 'bar', variable: 'score', max: GOAL_POINTS, color: '#ffd23f', back: '#1b2140' }, W - 160, 30, { x: W / 2, y: 175 }, { fixed: true });
+  const goal = label('نوشته‌ی هدف', `Goal: ${GOAL_POINTS}`, 36, W / 2, 205);
+  p = addAll(p, sceneId, [...points.objects, ...moves.objects, bar, goal]);
+  // The badges go in first: the match-three part adds its own score text only if there is none yet.
+  p = addAll(p, sceneId, [frame.object]);
   p = await part(p, sceneId, 'match3');
   // A move is spent each time a second piece is tapped to swap. This rule goes first, before the part's own swap rule clears "picked".
   const spend: Rule = {
@@ -664,13 +674,6 @@ export async function buildPuzzle(project: GameProject, sceneId: string): Promis
     condition: { name: 'picked', op: '==', value: 1 },
   };
   p = updateScene(p, sceneId, (s) => ({ ...s, rules: [spend, ...s.rules] }));
-  // The score and the moves left in glassy badges, and a bar filling toward the goal.
-  const points = await badge(p, 'coin', 'امتیاز', '{score}', { x: W * 0.28, y: 80 }, { w: 220, h: 80 });
-  const moves = await badge(points.project, 'clock', 'حرکت‌ها', '{moves}', { x: W * 0.72, y: 80 }, { w: 220, h: 80 });
-  p = moves.project;
-  const bar = makeObject('نوار هدف', { kind: 'bar', variable: 'score', max: GOAL_POINTS, color: '#ffd23f', back: '#1b2140' }, W - 160, 30, { x: W / 2, y: 175 }, { fixed: true });
-  const goal = label('نوشته‌ی هدف', `Goal: ${GOAL_POINTS}`, 36, W / 2, 205);
-  p = addAll(p, sceneId, [...points.objects, ...moves.objects, bar, goal]);
   const screen = await screens(p, sceneId, { name: 'GEM CRUSH', hero: 'gem', sky: 'underwater', music: 'music:calm' });
   p = screen.project;
   p = withRules(p, sceneId,
@@ -750,8 +753,8 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
     ]),
     rule({ type: 'variable', name: 'shots', op: '<=', value: 0 }, [{ type: 'wait', seconds: 5 }, { type: 'playSound', sound: 'lose' }, { type: 'goToScene', scene: screen.over }]),
   );
-  const rocks = await badge(p, 'rock', 'سنگ‌ها', '{shots}', { x: W * 0.72, y: 80 }, { w: 200, h: 80 });
-  const points = await badge(rocks.project, 'coin', 'امتیاز', '{score}', { x: W * 0.28, y: 80 }, { w: 220, h: 80 });
+  const rocks = await badge(p, 'rock', 'سنگ‌ها', '{shots}', { x: W * 0.6, y: 80 }, { w: 200, h: 80 });
+  const points = await badge(rocks.project, 'coin', 'امتیاز', '{score}', { x: W * 0.25, y: 80 }, { w: 220, h: 80 });
   p = addAll(points.project, sceneId, [...rocks.objects, ...points.objects]);
   p = await banner(p, sceneId, 'Pull back the rock and let go!');
   p = await part(p, sceneId, 'pause-menu');
