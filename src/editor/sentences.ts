@@ -53,7 +53,7 @@ export function triggerSentence(scene: Scene, w: Trigger): string {
     case 'holding': return 'تا وقتی صفحه لمس است';
     case 'swipe': return `وقتی صفحه به ${way[w.direction]} کشیده می‌شود`;
     case 'tapObject': return `وقتی روی ${describeRef(scene, w.target)} زده می‌شود`;
-    case 'touch': return `وقتی ${describeRef(scene, w.a)} به ${describeRef(scene, w.b)} می‌خورد`;
+    case 'touch': return `وقتی ${describeRef(scene, w.a)} ${w.from === 'above' ? 'از بالا روی' : 'به'} ${describeRef(scene, w.b)} ${w.from === 'above' ? 'می‌افتد' : w.from === 'side' ? 'از پهلو می‌خورد' : 'می‌خورد'}`;
     case 'every': return `هر ${fa(w.seconds)} ثانیه`;
     case 'after': return `${fa(w.seconds)} ثانیه بعد از شروع صحنه`;
     case 'offscreen': return `وقتی ${describeRef(scene, w.target)} از صفحه بیرون می‌رود`;

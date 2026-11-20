@@ -798,8 +798,12 @@ export type Trigger =
   | { type: 'start' }
   | { type: 'tap' }
   | { type: 'tapObject'; target: Ref }
-  /** Fires once when an object of `a` starts touching an object of `b`. */
-  | { type: 'touch'; a: Ref; b: Ref }
+  /**
+   * Fires once when an object of `a` starts touching an object of `b`. With
+   * `from`, only a touch from that side counts: "above" is `a` coming down
+   * onto `b`'s top (jumping on an enemy); "side" is any other touch.
+   */
+  | { type: 'touch'; a: Ref; b: Ref; from?: 'above' | 'side' }
   | { type: 'every'; seconds: number }
   /** Fires once, `seconds` after the scene starts. */
   | { type: 'after'; seconds: number }

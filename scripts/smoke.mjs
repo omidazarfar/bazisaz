@@ -409,6 +409,8 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('wrap: leaving the right edge brings it back on the left', Math.min(...samples.map((p) => p.wrap)) < 600 && samples.every((p) => p.wrap <= 720.5));
 
   await clickGame(page, 650, 1100);
+  // The tap is handled on the next frame, which a busy computer may draw a moment later.
+  await until(page, () => window.__game.getState().particles > 0 && window.__game.getState().shaking, null, 5000);
   let s = await gameState(page);
   check('burst and shake: tapping throws out pieces and shakes the screen', s.particles > 0 && s.shaking, `particles ${s.particles}, shaking ${s.shaking}`);
   await page.screenshot({ path: resolve(shots, '7-lab3.png') });

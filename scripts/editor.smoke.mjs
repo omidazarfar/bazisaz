@@ -1247,6 +1247,66 @@ await click('یک قدم به عقب', '.topbar');
 sc = await scene();
 check('one undo removes the helper addition and keeps the original knight', sc.objects.length === 1 && sc.objects[0].id === knightArt.id && sc.prefabs.length === 0);
 
+// ── The genre helper's platformer: a whole game, played ───────────────────
+await freshGame();
+await openLibrary('راهنمای سبک');
+await page.click('.modal [data-genre="platform"]');
+await until(page, () => !document.querySelector('.modal'), null, 30000);
+ed = await editor();
+check('the platformer is a whole game: a start screen, a win and a game-over screen, opening on the start',
+  ['Start', 'You win', 'Game over'].every((n) => ed.project.scenes.some((x) => x.name === n)) && ed.project.scenes.find((x) => x.id === ed.project.startScene)?.name === 'Start' && (await page.$('.problem')) === null);
+sc = await scene();
+check('its level has a painted map, enemies, gems, checkpoints, a goal and a moving platform',
+  sc.objects.some((o) => o.visual.kind === 'tiles') && sc.objects.filter((o) => o.tags.includes('دشمن')).length >= 4 && sc.objects.some((o) => o.tags.includes('الماس')) &&
+  sc.objects.filter((o) => o.tags.includes('ایست بازرسی')).length === 2 && sc.objects.some((o) => o.tags.includes('پایان')) && sc.objects.some((o) => o.behaviors.some((b) => b.type === 'patrol') && o.tags.includes('زمین')));
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 0.8, null, 60000);
+const playButton = (await gameState(page)).entities.find((e) => e.width === 220 && e.height === 220);
+await tapAt(playButton);
+await until(page, (start) => window.__game.getState().scene !== start && window.__game.getState().time > 0.6, (await gameState(page)).scene, 60000);
+// Drop the hero onto a slime: it is squashed, the hero bounces, and no life is lost.
+const slimesBefore = (await gameState(page)).entities.filter((e) => e.tags.includes('دشمن')).length;
+await page.evaluate(() => {
+  const g = window.__game;
+  const slime = g.entities.find((e) => e.def.tags.includes('دشمن') && e.def.name.startsWith('لجن'));
+  const hero = g.entities.find((e) => e.def.tags.includes('بازیکن'));
+  slime.def = { ...slime.def, behaviors: [] };
+  hero.x = slime.x + (slime.width - hero.width) / 2;
+  hero.y = slime.y - 240;
+  hero.vx = 0;
+  hero.vy = 0;
+});
+check('jumping on an enemy squashes it and scores, without losing a life',
+  await until(page, (n) => window.__game.getState().entities.filter((e) => e.tags.includes('دشمن')).length < n && window.__game.getState().variables.score >= 5, slimesBefore, 20000) &&
+  (await gameState(page)).variables.lives === 3, JSON.stringify((await gameState(page)).variables));
+await click('توقف');
+
+// ── The genre helper's dungeon: rooms, darkness, skeletons that notice you ─
+await freshGame();
+await openLibrary('راهنمای سبک');
+await page.click('.modal [data-genre="adventure"]');
+await until(page, () => !document.querySelector('.modal'), null, 30000);
+sc = await scene();
+check('the dungeon has four rooms in the dark, torches, a locked door, a key to carry and skeletons with states',
+  sc.objects.filter((o) => o.tags.includes('اتاق')).length === 4 && (sc.darkness ?? 0) > 0 && sc.objects.some((o) => o.behaviors.some((b) => b.type === 'light' && b.flicker)) &&
+  sc.objects.some((o) => o.tags.includes('در قفل')) && (await editor()).project.variables.some((v) => v.name === 'Key' && v.item) &&
+  sc.objects.some((o) => o.behaviors.some((b) => b.type === 'chase' && b.onlyIn?.includes(1))) && (await page.$('.problem')) === null);
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 0.8, null, 60000);
+await tapAt((await gameState(page)).entities.find((e) => e.width === 220 && e.height === 220));
+await until(page, (start) => window.__game.getState().scene !== start && window.__game.getState().time > 0.6, (await gameState(page)).scene, 60000);
+// Put the knight next to a skeleton: it changes to its chasing state.
+const skeletonId = await page.evaluate(() => {
+  const g = window.__game;
+  const bones = g.entities.find((e) => e.def.name === 'اسکلت ۱');
+  const knight = g.entities.find((e) => e.def.tags.includes('بازیکن'));
+  knight.x = bones.x - 260;
+  knight.y = bones.y;
+  return bones.def.id;
+});
+check('a skeleton that sees the knight starts chasing it', await until(page, (id) => window.__game.getState().entities.find((e) => e.id === id)?.values.state === 1, skeletonId, 20000));
+await click('توقف');
+
 // ── A quest label authored in the editor ───────────────────────────────────
 await freshGame();
 await click('بازی', '.tabs');

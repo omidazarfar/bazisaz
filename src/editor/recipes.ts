@@ -25,19 +25,19 @@ export interface RecipeResult {
 }
 
 const INK = '#1b3a4b';
-const rule = (when: Rule['when'], then: Action[]): Rule => ({ id: newId('rule'), when, condition: null, then });
-const withRules = (project: GameProject, sceneId: string, ...rules: Rule[]) => updateScene(project, sceneId, (s) => ({ ...s, rules: [...s.rules, ...rules] }));
-const byId = (id: string) => ({ by: 'id' as const, id });
-const byTag = (tag: string) => ({ by: 'tag' as const, tag });
+export const rule = (when: Rule['when'], then: Action[]): Rule => ({ id: newId('rule'), when, condition: null, then });
+export const withRules = (project: GameProject, sceneId: string, ...rules: Rule[]) => updateScene(project, sceneId, (s) => ({ ...s, rules: [...s.rules, ...rules] }));
+export const byId = (id: string) => ({ by: 'id' as const, id });
+export const byTag = (tag: string) => ({ by: 'tag' as const, tag });
 
 /** White letters with a dark line around them and a soft shadow under them: readable on any background. */
-const label = (name: string, text: string, size: number, x: number, y: number, extra: Partial<GameObject> = {}): GameObject =>
+export const label = (name: string, text: string, size: number, x: number, y: number, extra: Partial<GameObject> = {}): GameObject =>
   makeObject(name, { kind: 'text', text, color: '#ffffff', size, weight: 'bold', outline: INK, shadow: true }, 0, 0, { x, y }, { fixed: true, ...extra });
 /** A big golden heading, for the name of the game and the titles of menus. */
-const title = (name: string, text: string, size: number, x: number, y: number): GameObject =>
+export const title = (name: string, text: string, size: number, x: number, y: number): GameObject =>
   makeObject(name, { kind: 'text', text, color: '#ffd23f', size, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x, y }, { behaviors: [{ type: 'pulse', amount: 0.04, seconds: 1.6 }] });
 
-async function picture(project: GameProject, sprite: string, name: string, width: number, height: number, centre: { x: number; y: number }, extra: Partial<GameObject> = {}) {
+export async function picture(project: GameProject, sprite: string, name: string, width: number, height: number, centre: { x: number; y: number }, extra: Partial<GameObject> = {}) {
   const placed = await useSprite(project, sprite);
   const object = makeObject(name, { kind: 'image', asset: placed.asset }, width, height, centre, extra);
   return { project: placed.project, object };
@@ -48,7 +48,7 @@ async function picture(project: GameProject, sprite: string, name: string, width
  * gold edge, an icon at its left (a coin, a clock), the number beside it. All
  * three stay put when the camera moves; the text is what gets selected.
  */
-async function badge(project: GameProject, icon: string, name: string, text: string, at: { x: number; y: number }, size: { w: number; h: number }) {
+export async function badge(project: GameProject, icon: string, name: string, text: string, at: { x: number; y: number }, size: { w: number; h: number }) {
   const frame = await picture(project, 'hud', `قاب ${name}`, size.w, size.h, at, { fixed: true });
   const mark = await picture(frame.project, icon, `نشان ${name}`, size.h * 0.78, size.h * 0.78, { x: at.x - size.w / 2 + size.h * 0.5, y: at.y }, { fixed: true });
   const font = Math.round(size.h * 0.6);
@@ -57,7 +57,7 @@ async function badge(project: GameProject, icon: string, name: string, text: str
 }
 
 /** A thing to carry shown with a picture: the game's own if it has one already, otherwise a new one named after `base`. */
-function withItem(project: GameProject, asset: string, base: string): { project: GameProject; item: string } {
+export function withItem(project: GameProject, asset: string, base: string): { project: GameProject; item: string } {
   const have = project.variables.find((v) => v.item?.asset === asset)?.name;
   if (have) return { project, item: have };
   let item = base;
@@ -66,7 +66,7 @@ function withItem(project: GameProject, asset: string, base: string): { project:
 }
 
 /** A bag across the top of the screen, if the scene has none yet. */
-const bagIfNone = (project: GameProject, sceneId: string): GameObject[] =>
+export const bagIfNone = (project: GameProject, sceneId: string): GameObject[] =>
   getScene(project, sceneId).objects.some((o) => o.visual.kind === 'bag')
     ? []
     : [makeObject('کوله‌پشتی', { kind: 'bag', slots: 5 }, Math.min(450, project.meta.width - 40), 90, { x: project.meta.width / 2, y: 215 }, { fixed: true })];
@@ -106,7 +106,7 @@ async function crateTower(project: GameProject, x: number, top: number, rows: nu
   return { project: placed.project, crates };
 }
 
-const addAll = (project: GameProject, sceneId: string, objects: GameObject[]) => objects.reduce((p, o) => addObject(p, sceneId, 'objects', o), project);
+export const addAll = (project: GameProject, sceneId: string, objects: GameObject[]) => objects.reduce((p, o) => addObject(p, sceneId, 'objects', o), project);
 
 export const RECIPES: Recipe[] = [
   {

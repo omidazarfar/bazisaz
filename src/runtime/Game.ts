@@ -2497,7 +2497,15 @@ export class Game {
             if (first === second || !(overlaps(first, second) || this.physics?.touches(first, second))) continue;
             const key = `${this.uids.get(first)}|${this.uids.get(second)}`;
             now.add(key);
-            if (!before.has(key)) hits.push({ first, second });
+            if (before.has(key)) continue;
+            if (w.from) {
+              // Coming down onto its top: last frame the first one's feet were above the upper part of the second,
+              // and this frame it moved down toward it. Measured by how they moved, not by their speeds, which an
+              // earlier rule this frame may already have changed (a bounce off the very enemy being landed on).
+              const above = first.prevY + first.height <= second.prevY + second.height * 0.45 && first.y - first.prevY >= second.y - second.prevY;
+              if ((w.from === 'above') !== above) continue;
+            }
+            hits.push({ first, second });
           }
         }
         this.touching.set(rule.id, now);

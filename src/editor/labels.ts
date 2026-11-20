@@ -517,7 +517,15 @@ export const TRIGGERS: { [K in Trigger['type']]: Block<Extract<Trigger, { type: 
   touch: {
     title: 'دو شیء به هم می‌خورند',
     make: (ctx) => ({ type: 'touch', a: firstRef(ctx), b: firstRef(ctx) }),
-    fields: [{ key: 'a', label: 'اولی', kind: 'ref' }, { key: 'b', label: 'دومی', kind: 'ref' }],
+    fields: [
+      { key: 'a', label: 'اولی', kind: 'ref' },
+      { key: 'b', label: 'دومی', kind: 'ref' },
+      { key: 'from', label: 'از کدام طرف', hint: '«از بالا» یعنی اولی از بالا روی دومی بیفتد؛ مثل پریدن روی سر دشمن. «از پهلو» یعنی هر برخورد دیگری؛ مثل وقتی دشمن به بازیکن می‌رسد.', kind: 'choice', fallback: '', advanced: true, options: [
+        { value: '', label: 'از هر طرف' },
+        { value: 'above', label: 'از بالا' },
+        { value: 'side', label: 'از پهلو' },
+      ] },
+    ],
   },
   thrown: {
     title: 'یک شیء پرتاب می‌شود',

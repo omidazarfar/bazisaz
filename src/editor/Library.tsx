@@ -7,6 +7,7 @@ import { Dialog } from './Pick';
 import { PixelEditor } from './PixelEditor';
 import { PLAYER, PRESETS } from './presets';
 import { SheetCutter } from './SheetCutter';
+import { GAMES } from './games';
 import { RECIPES } from './recipes';
 import { SPRITE_CATEGORIES, SPRITES, spriteUrl, useSprite, type Sprite } from './sprites';
 import { addObject, freeSpot, makeObject, newId, newTileMap, updateObject, type ObjectList as ListName } from './state';
@@ -88,11 +89,11 @@ function CardIcon({ sprite: id }: { sprite?: string }) {
 const ROUND_SPRITES = new Set(['coin', 'ball', 'rock', 'tire', 'peg', 'bomb', 'spikeball']);
 
 const genres = [
-  { id: 'platform', title: 'سکوبازی', role: 'jump-player', sprite: 'hero', parts: ['controls', 'checkpoints'], about: 'راه رفتن و پرش با سه دکمه و دو پرچم برای برگشت به مسیر.' },
-  { id: 'adventure', title: 'ماجراجویی از بالا', role: 'steer-player', sprite: 'knight', parts: ['key-door'], about: 'شوالیه را با دسته‌ی لمسی حرکت بده؛ کلید را بردار و در را باز کن.' },
-  { id: 'shooter', title: 'تیراندازی', role: 'finger-player', sprite: 'space-ship', parts: ['player-laser'], about: 'سفینه دنبال انگشت می‌آید و رو به بالا تیر می‌زند. با زدن سیارک امتیاز می‌گیری؛ از آن کپی بگیر تا مرحله را بچینی.' },
-  { id: 'puzzle', title: 'معمایی', role: 'finger-player', sprite: 'cat', parts: ['key-door'], about: 'گربه را با انگشت به کلید برسان؛ از کلید برای باز کردن در استفاده کن.' },
-  { id: 'physics', title: 'فیزیکی', role: 'sling-stone', sprite: 'rock', parts: ['tower'], about: 'سنگ را عقب بکش و رها کن تا به برج جعبه‌ها بخورد.' },
+  { id: 'platform', title: 'سکوبازی: Sky Quest', role: 'jump-player', sprite: 'hero', parts: ['controls', 'checkpoints'], about: 'یک بازی کامل: مرحله‌ای چندصفحه‌ای با سکه و الماس، لجن و خفاش (روی سرشان بپر!)، تیغ، چاله، سکوی متحرک، ایست بازرسی و جام پایان؛ با صفحه‌ی شروع، برد و باخت.' },
+  { id: 'adventure', title: 'ماجراجویی: Dungeon Escape', role: 'steer-player', sprite: 'knight', parts: ['key-door'], about: 'یک بازی کامل: چهار اتاق سیاه‌چال در تاریکی با مشعل، اسکلت‌هایی که وقتی شوالیه را ببینند دنبالش می‌کنند، شمشیر، کلید، در قفل و صندوق گنج.' },
+  { id: 'shooter', title: 'تیراندازی: Star Raiders', role: 'finger-player', sprite: 'space-ship', parts: ['player-laser'], about: 'یک بازی کامل: سفینه‌ای که خودش شلیک می‌کند، موج‌های سیارک، موجود فضایی و بشقاب‌پرنده، قلب و ستاره‌ی جایزه، و غول آخر با ۱۵۰ امتیاز.' },
+  { id: 'puzzle', title: 'معمایی: Gem Crush', role: 'finger-player', sprite: 'gem', parts: ['key-door'], about: 'یک بازی کامل: سه‌تایی جور کن با ۲۰ حرکت برای رسیدن به ۶۰ امتیاز، نوار پیشرفت، و صفحه‌ی برد و باخت.' },
+  { id: 'physics', title: 'فیزیکی: Rock Smash', role: 'sling-stone', sprite: 'rock', parts: ['tower'], about: 'یک بازی کامل: تیرکمان با چهار سنگ، دو برج جعبه و تخته، و سه موجود فضایی که باید بیفتند.' },
 ];
 
 type Tab = 'genre' | 'pictures' | 'basic' | 'roles' | 'parts';
@@ -172,6 +173,14 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
     });
 
   const addGenre = (genre: typeof genres[number]) => run(async () => {
+    // A genre with a whole game builds it; the others add their few starting pieces.
+    const game = GAMES[genre.id];
+    if (game) {
+      const built = await game(project, scene.id);
+      if (change(built.project, `genre.${newId('x')}`, built.select)) props.onNote(built.note);
+      onClose();
+      return;
+    }
     const sprite = SPRITES.find(s => s.id === genre.sprite)!;
     const made = await spriteVisual(project, sprite);
     const player = makeObject(sprite.name, made.visual, sprite.width, sprite.height,
