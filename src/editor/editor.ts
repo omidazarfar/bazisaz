@@ -14,7 +14,7 @@ export interface Editor {
    * drag becomes one undo step. `select` optionally changes the selection in
    * the same step (after adding or deleting objects).
    */
-  change: (project: GameProject, key: string, select?: string | string[] | null) => void;
+  change: (project: GameProject, key: string, select?: string | string[] | null) => boolean;
   /** Selects one object, or nothing. With `add`, the object joins the selection, or leaves it if it was in it. */
   select: (id: string | null, add?: boolean) => void;
   selectMany: (ids: string[], add?: boolean) => void;

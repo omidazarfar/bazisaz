@@ -245,6 +245,7 @@ several objects, snapping to other objects or a grid, and locked objects.
 
 ## Where the project stands (20 November 2026)
 
+- Games can store named text for player names and quest objectives. A text object displays `{quest}`; a rule can set it or react when it equals a particular string. Text follows the game across scenes and participates in save/continue.
 - The library includes dungeon, space and forest art and four characters with
   idle, run, jump and hurt poses. The genre helper adds editable roles,
   controls and parts to the current scene in one undo step. Sound actions

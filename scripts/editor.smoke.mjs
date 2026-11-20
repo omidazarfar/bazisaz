@@ -1247,6 +1247,27 @@ await click('یک قدم به عقب', '.topbar');
 sc = await scene();
 check('one undo removes the helper addition and keeps the original knight', sc.objects.length === 1 && sc.objects[0].id === knightArt.id && sc.prefabs.length === 0);
 
+// ── A quest label authored in the editor ───────────────────────────────────
+await freshGame();
+await click('بازی', '.tabs');
+await page.select('select[aria-label="نوع مقدار تازه"]', 'text');
+await page.type('input[aria-label="نام مقدار تازه"]', 'quest');
+await page.keyboard.press('Enter');
+await setControl('متن اول بازی', 'Find the key');
+await click('+ متن', '.object-list');
+await setControl('متن', '{quest}');
+await click('قانون‌ها', '.tabs');
+await addAction(await newRule('tap'), 'setTextVariable');
+await setControl('چه متنی', 'Open the gate', 'article.rule');
+await click('امتحان کن');
+check('quest: the editor renders the starting text', await until(page, () => window.__game.getState().time > 0.6 && window.__game.getState().entities.some(e => e.text === 'Find the key')));
+await page.mouse.click(...(await toPage(page, 200, 300)));
+check('quest: tapping updates the label and live debugger', await until(page, () =>
+  window.__game.getState().entities.some(e => e.text === 'Open the gate') &&
+  document.querySelector('.debug-values [data-variable="quest"] dd')?.textContent === 'Open the gate'));
+await page.screenshot({ path: resolve(shots, 'editor-quest.png') });
+await click('توقف');
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

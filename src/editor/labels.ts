@@ -37,6 +37,7 @@ export type Field = {
   | { kind: 'target' }
   /** Like target, plus "where the screen was touched". */
   | { kind: 'place' }
+  | { kind: 'textVariable' }
   | { kind: 'variable'; optional?: boolean }
   /** One of the things the player can carry in a bag. */
   | { kind: 'item' }
@@ -79,6 +80,7 @@ const slider = (key: string, label: string, min: number, max: number, step: numb
   ({ key, label, hint, unit, kind: 'slider', min, max, step });
 const firstRef = ({ scene }: Context): Ref =>
   scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: '' };
+const hasTexts = ({ project }: Context) => Boolean(project.textVariables?.length);
 const hasVariables = ({ project }: Context) => project.variables.length > 0;
 const hasItems = ({ project }: Context) => project.variables.some((v) => v.item);
 const firstItem = ({ project }: Context) => project.variables.find((v) => v.item)?.name ?? '';
@@ -565,6 +567,12 @@ export const TRIGGERS: { [K in Trigger['type']]: Block<Extract<Trigger, { type: 
     make: (ctx) => ({ type: 'offscreen', target: firstRef(ctx) }),
     fields: [{ key: 'target', label: 'کدام شیء', kind: 'ref' }],
   },
+  textEquals: {
+    title: 'یک مقدار متنی برابر می‌شود با…',
+    available: hasTexts,
+    fields: [{ key: 'name', label: 'کدام مقدار متنی', kind: 'textVariable' }, { key: 'text', label: 'چه متنی', kind: 'text' }],
+    make: ({ project }) => ({ type: 'textEquals', name: project.textVariables?.[0]?.name ?? '', text: 'Open the gate' }),
+  },
   variable: {
     title: 'یک مقدار به حدی می‌رسد',
     available: hasVariables,
@@ -701,6 +709,12 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
       { key: 'item', label: 'کدام وسیله', kind: 'item' },
       { key: 'amount', label: 'چند تا', kind: 'number' },
     ],
+  },
+  setTextVariable: {
+    title: 'تغییر مقدار متنی',
+    available: hasTexts,
+    fields: [{ key: 'name', label: 'کدام مقدار متنی', kind: 'textVariable' }, { key: 'text', label: 'چه متنی', kind: 'text' }],
+    make: ({ project }) => ({ type: 'setTextVariable', name: project.textVariables?.[0]?.name ?? '', text: 'Open the gate' }),
   },
   setVariable: {
     title: 'تغییر یک مقدار',
@@ -1113,12 +1127,12 @@ export const TRIGGER_GROUPS: BlockGroup<Trigger['type']>[] = [
   { title: 'فیزیک واقعی', types: ['hit', 'thrown', 'rest', 'snap'] },
   { title: 'زمان', types: ['start', 'every', 'eachEvery', 'after'] },
   { title: 'جورچین و منطق', types: ['message', 'value', 'line'] },
-  { title: 'مقدارها و تبلیغ', types: ['variable', 'reward'] },
+  { title: 'مقدارها و تبلیغ', types: ['variable', 'textEquals', 'reward'] },
   { title: 'کوله‌پشتی', types: ['useItem', 'useItemOn'] },
 ];
 
 export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
-  { title: 'امتیاز و مقدارها', types: ['setVariable', 'resetVariables'] },
+  { title: 'امتیاز و مقدارها', types: ['setVariable', 'setTextVariable', 'resetVariables'] },
   { title: 'کوله‌پشتی', types: ['give', 'take'] },
   { title: 'اشیا', types: ['destroy', 'spawn', 'show', 'hide', 'damage'] },
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
@@ -1171,6 +1185,7 @@ const NEEDS_VARIABLE = 'اول در برگه‌ی «بازی» یک مقدار �
 /** Why a block cannot be used right now, in words that say what to do about it; null if it can. */
 export function whyNot(block: { available?: (ctx: Context) => boolean }, ctx: Context): string | null {
   if (!block.available || block.available(ctx)) return null;
+  if (block.available === hasTexts) return 'اول در برگه‌ی «بازی» یک مقدار از نوع «متن» بساز.';
   return block.available === hasPrefabs ? NEEDS_PREFAB : NEEDS_VARIABLE;
 }
 

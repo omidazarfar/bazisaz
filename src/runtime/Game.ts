@@ -91,7 +91,7 @@ export interface Box {
 
 /** What the editor's try-out tools can see of a running game. */
 export interface DebugInfo {
-  variables: Record<string, number>;
+  variables: Record<string, number | string>;
   /** Rules whose trigger happened lately, newest last: whether their conditions let the actions run, and how many times in a row. */
   log: { scene: string; rule: string; time: number; ran: boolean; count: number }[];
   time: number;
@@ -333,7 +333,7 @@ export interface GameState {
   scene: string;
   /** Seconds since the current scene started. */
   time: number;
-  variables: Record<string, number>;
+  variables: Record<string, number | string>;
   selection: string | null;
   /** Everything selected in edit mode; `selection` is the last of these. */
   selected: string[];
@@ -502,6 +502,7 @@ export class Game {
   private editView: { scene: string; x: number; y: number } | null = null;
 
   private entities: Entity[] = [];
+  private readonly textVariables = new Map<string, string>();
   private readonly variables = new Map<string, number>();
   private readonly camera: Point = { x: 0, y: 0 };
   private time = 0;
@@ -794,7 +795,7 @@ export class Game {
 
   getDebug(): DebugInfo {
     return {
-      variables: Object.fromEntries(this.variables),
+      variables: Object.fromEntries([...this.variables, ...this.textVariables]),
       log: this.ruleLog.map((entry) => ({ ...entry })),
       time: this.time,
       fps: Math.round(this.fps),
@@ -1002,7 +1003,7 @@ export class Game {
       mode: this.mode.kind,
       scene: this.scene.id,
       time: this.time,
-      variables: Object.fromEntries(this.variables),
+      variables: Object.fromEntries([...this.variables, ...this.textVariables]),
       selection: this.selection,
       selected: [...this.selected],
       zoom: this.zoom,
@@ -1079,6 +1080,19 @@ export class Game {
 
   /** Puts variables back to their starting values. Saved ones keep what is stored on the device unless `includeSaved`. */
   private resetVariables(includeSaved: boolean): void {
+    if (includeSaved) {
+      this.variables.clear();
+      this.textVariables.clear();
+    }
+    for (const v of this.project.textVariables ?? []) {
+      if (v.saved && !includeSaved) continue;
+      let text = v.initial;
+      if (v.saved) {
+        try { text = localStorage.getItem(this.savedKey('#text.' + v.name)) ?? text; } catch { /* Storage unavailable. */ }
+      }
+      this.textVariables.set(v.name, text);
+    }
+    this.valuesChanged = true;
     for (const v of this.project.variables) {
       if (v.saved && !includeSaved) continue;
       this.variables.set(v.name, v.saved ? this.readSaved(v.name, v.initial) : v.initial);
@@ -2561,6 +2575,8 @@ export class Game {
         const targets = new Set(this.matching(w.target));
         return left.filter((e) => targets.has(e)).map((first) => ({ first }));
       }
+      case 'textEquals':
+        return this.becameTrue(rule.id, this.textVariables.get(w.name) === w.text, false) ? [{}] : [];
       case 'variable':
         return this.becameTrue(rule.id, this.compare(w.name, w.op, w.value), false) ? [{}] : [];
       case 'dead': {
@@ -2597,6 +2613,9 @@ export class Game {
   private perform(action: Exclude<Action, { type: 'wait' }>, context: Context): void {
     const { width: W, height: H } = this.project.meta;
     switch (action.type) {
+      case 'setTextVariable':
+        this.setTextVariable(action.name, action.text);
+        break;
       case 'setVariable': {
         const old = this.variables.get(action.name) ?? 0;
         const amount = this.amount(action.amount, context);
@@ -2659,13 +2678,13 @@ export class Game {
         break;
       case 'saveGame':
         try {
-          localStorage.setItem(this.savedKey('#game'), JSON.stringify({ scene: this.scene.id, values: Object.fromEntries(this.variables) }));
+          localStorage.setItem(this.savedKey('#game'), JSON.stringify({ scene: this.scene.id, values: Object.fromEntries([...this.variables, ...this.textVariables]) }));
         } catch {
           // Progress simply isn't kept on this device.
         }
         break;
       case 'loadGame': {
-        let saved: { scene?: string; values?: Record<string, number> } | null = null;
+        let saved: { scene?: string; values?: Record<string, unknown> } | null = null;
         try {
           saved = JSON.parse(localStorage.getItem(this.savedKey('#game')) ?? 'null');
         } catch {
@@ -2675,6 +2694,10 @@ export class Game {
           for (const v of this.project.variables) {
             const value = saved.values?.[v.name];
             if (typeof value === 'number') this.setValueOf(v.name, value);
+          }
+          for (const v of this.project.textVariables ?? []) {
+            const value = saved.values?.[v.name];
+            this.setTextVariable(v.name, typeof value === 'string' ? value : v.initial);
           }
           this.nextScene = saved.scene;
         } else if (this.project.scenes.some((s) => s.id === action.scene)) this.nextScene = action.scene;
@@ -3307,6 +3330,12 @@ export class Game {
   // ── The player's bag ─────────────────────────────────────────────────────
 
   /** Sets a game variable, keeping it on the device if it is a saved one. */
+  private setTextVariable(name: string, value: string): void {
+    this.textVariables.set(name, value);
+    this.valuesChanged = true;
+    if (this.project.textVariables?.find(v => v.name === name)?.saved) this.writeSaved('#text.' + name, value);
+  }
+
   private setValueOf(name: string, value: number): void {
     this.variables.set(name, value);
     if (this.project.variables.find((v) => v.name === name)?.saved) this.writeSaved(name, value);
@@ -4128,7 +4157,7 @@ export class Game {
       }
       if (e.def.visual.kind !== 'text') continue;
       // While editing, the text shows what was typed, placeholders included.
-      const filled = this.mode.kind === 'edit' ? e.def.visual.text : fillTemplate(e.text ?? e.def.visual.text, this.variables, e.values);
+      const filled = this.mode.kind === 'edit' ? e.def.visual.text : fillTemplate(e.text ?? e.def.visual.text, this.variables, e.values, this.textVariables);
       (e.view as Text).text = applyDirection(filled);
     }
   }
@@ -4166,7 +4195,7 @@ export class Game {
     }
   }
 
-  private writeSaved(name: string, value: number): void {
+  private writeSaved(name: string, value: number | string): void {
     try {
       localStorage.setItem(this.savedKey(name), String(value));
     } catch {

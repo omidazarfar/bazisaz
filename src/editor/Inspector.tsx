@@ -281,7 +281,7 @@ export function Inspector({ editor }: { editor: Editor }) {
               label="متن"
               value={visual.text}
               onChange={(text) => setVisual('text', { text })}
-              hint={project.variables.length > 0 ? <>برای نشان دادن یک مقدار، نامش را داخل آکولاد بنویس؛ مثلاً <bdi dir="ltr">{`{${project.variables[0].name}}`}</bdi></> : undefined}
+              hint={(project.variables.length || project.textVariables?.length) ? <>برای نشان دادن یک مقدار، نامش را داخل آکولاد بنویس؛ مثلاً <bdi dir="ltr">{`{${project.variables[0]?.name ?? project.textVariables?.[0]?.name}}`}</bdi></> : undefined}
             />
             <Slider label="اندازه‌ی متن" min={16} max={200} step={1} value={visual.size} onChange={(size) => setVisual('size', { size })} />
             <Choice label="ضخامت" value={visual.weight ?? 'normal'} options={[{ value: 'normal', label: 'معمولی' }, { value: 'bold', label: 'ضخیم' }]} onChange={(weight) => setVisual('weight', { weight })} />

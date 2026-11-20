@@ -26,6 +26,8 @@ export interface GameProject {
   /** Images and sounds used by the game, keyed by asset id. */
   assets: Record<string, Asset>;
   variables: Variable[];
+  /** Named text shared by scenes; shown with {name}, like a score. */
+  textVariables?: { name: string; initial: string; saved: boolean }[];
   scenes: Scene[];
   /** Id of the scene the game opens with. */
   startScene: string;
@@ -804,6 +806,7 @@ export type Trigger =
   /** Fires when an object that was on screen has completely left it. */
   | { type: 'offscreen'; target: Ref }
   /** Fires at the moment the comparison becomes true. */
+  | { type: 'textEquals'; name: string; text: string }
   | { type: 'variable'; name: string; op: Comparison; value: number }
   /** Fires when a finger slides across the screen in a direction. */
   | { type: 'swipe'; direction: 'left' | 'right' | 'up' | 'down' }
@@ -898,6 +901,7 @@ export type Action =
   /** Shows another picture: the id of an image asset. Any animation stops. */
   | { type: 'setImage'; target: Target; asset: string }
   /** Changes what a text says; {variable} names work as in the editor. */
+  | { type: 'setTextVariable'; name: string; text: string }
   | { type: 'setText'; target: Target; text: string }
   /** Changes an object's size, and so the room it takes up, keeping its middle where it is. */
   | { type: 'resize'; target: Target; width: number; height: number }

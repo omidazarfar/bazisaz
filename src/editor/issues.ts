@@ -30,7 +30,7 @@ export interface Issue {
 
 export function findIssues(project: GameProject): Issue[] {
   const issues: Issue[] = [];
-  const variables = new Set(project.variables.map((v) => v.name));
+  const variables = new Set([...project.variables, ...(project.textVariables ?? [])].map(v => v.name));
   const reached = new Set([project.startScene]);
   let showsAd = false;
 

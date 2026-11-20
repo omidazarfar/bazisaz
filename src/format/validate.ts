@@ -29,6 +29,23 @@ export function validateProject(project: GameProject): string[] {
     if (variables.has(v.name)) say(`Variable "${v.name}" is defined more than once.`);
     variables.add(v.name);
   }
+  const texts = new Set<string>();
+  if (project.textVariables !== undefined && !Array.isArray(project.textVariables)) {
+    say('textVariables must be a list.');
+    return problems;
+  }
+  for (const v of project.textVariables ?? []) {
+    if (!v || typeof v.name !== 'string' || !VARIABLE_NAME.test(v.name) || typeof v.initial !== 'string' || typeof v.saved !== 'boolean') {
+      say('A text variable needs a valid name, initial text and a save setting.');
+      continue;
+    }
+    if (variables.has(v.name) || texts.has(v.name)) say(`Variable "${v.name}" is defined more than once.`);
+    texts.add(v.name);
+  }
+  const checkText = (name: string, text: string, where: string) => {
+    if (!texts.has(name)) say(`${where} uses missing text variable "${name}".`);
+    if (typeof text !== 'string') say(`${where} needs a text value.`);
+  };
   const needVariable = (name: string, where: string) => {
     if (!variables.has(name)) say(`${where} uses missing variable "${name}".`);
   };
@@ -116,6 +133,7 @@ export function validateProject(project: GameProject): string[] {
       const w = rule.when;
       if ('target' in w) checkRef(w.target, name);
       if (w.type === 'touch' || w.type === 'near' || w.type === 'hit') [w.a, w.b].forEach((r) => checkRef(r, name));
+      if (w.type === 'textEquals') checkText(w.name, w.text, where);
       if (w.type === 'variable') needVariable(w.name, `${where}: ${name}`);
       if (w.type === 'useItem' || w.type === 'useItemOn') needItem(w.item, `${where}: ${name}`);
       if ((w.type === 'every' || w.type === 'after' || w.type === 'eachEvery') && !(w.seconds > 0)) {
@@ -138,6 +156,7 @@ export function validateProject(project: GameProject): string[] {
           checkRef(a.at, name);
           if (!prefabIds.has(a.prefab)) say(`${where}: ${name} creates missing prefab "${a.prefab}".`);
         }
+        if (a.type === 'setTextVariable') checkText(a.name, a.text, where);
         if (a.type === 'setVariable') {
           needVariable(a.name, `${where}: ${name}`);
           if (typeof a.amount === 'object' && 'variable' in a.amount) needVariable(a.amount.variable, `${where}: ${name}`);

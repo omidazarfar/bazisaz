@@ -14,11 +14,11 @@ export function formatTime(seconds: number): string {
  * is left as typed. {name:time} shows the value as minutes and seconds, and
  * {name:int} drops what follows the decimal point.
  */
-export function fillTemplate(template: string, values: ReadonlyMap<string, number>, own?: ReadonlyMap<string, number>): string {
+export function fillTemplate(template: string, values: ReadonlyMap<string, number>, own?: ReadonlyMap<string, number>, texts?: ReadonlyMap<string, string>): string {
   return template.replace(/\{([A-Za-z_][A-Za-z0-9_]*)(?::(time|int))?\}/g, (whole, name: string, format?: string) => {
     // A value of the object itself comes before a game variable of the same name.
     const value = own?.get(name) ?? values.get(name);
-    if (value === undefined) return whole;
+    if (value === undefined) return format ? whole : texts?.get(name) ?? whole;
     if (format === 'time') return formatTime(value);
     if (format === 'int') return String(Math.trunc(value));
     return formatValue(value);

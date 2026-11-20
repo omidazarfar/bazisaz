@@ -57,6 +57,7 @@ export function triggerSentence(scene: Scene, w: Trigger): string {
     case 'every': return `هر ${fa(w.seconds)} ثانیه`;
     case 'after': return `${fa(w.seconds)} ثانیه بعد از شروع صحنه`;
     case 'offscreen': return `وقتی ${describeRef(scene, w.target)} از صفحه بیرون می‌رود`;
+    case 'textEquals': return `وقتی متن ${w.name} برابر «${w.text}» می‌شود`;
     case 'variable': return `وقتی ${w.name} ${OP_WORD[w.op]} ${fa(w.value)} می‌شود`;
     case 'value': return `وقتی ${w.name} در ${describeRef(scene, w.target)} ${OP_WORD[w.op]} ${fa(w.value)} می‌شود`;
     case 'line': return `وقتی ${fa(w.length)} تا از ${describeRef(scene, w.target)}${w.name ? ` با ${w.name} یکسان` : ''} در یک خط ردیف می‌شوند`;
@@ -100,6 +101,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'settle': return a.target.by === 'tag' ? `مهره‌های گروه «${a.target.tag}» را پایین بریز و جای خالی را پر کن` : 'صفحه را پر کن';
     case 'slideAll': return `همه‌ی مهره‌های ${a.target.by === 'tag' ? `گروه «${a.target.tag}»` : describeRef(scene, a.target)} را به ${{ left: 'چپ', right: 'راست', up: 'بالا', down: 'پایین' }[a.direction]} سُر بده`;
     case 'step': return `${who(a.target)} را یک خانه به ${{ left: 'چپ', right: 'راست', up: 'بالا', down: 'پایین' }[a.direction]} ببر`;
+    case 'setTextVariable': return `متن ${a.name} را به «${a.text}» تغییر بده`;
     case 'setVariable': {
       const n = amountText(a.amount, who);
       if (a.op === 'add') return `${a.name} را ${n} تا زیاد کن`;

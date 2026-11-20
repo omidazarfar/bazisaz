@@ -244,6 +244,8 @@ function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
                 onChange={(s) => set(s === '' ? undefined : decode(s))}
               />
             );
+          case 'textVariable':
+            return <Select {...common} value={String(v)} options={(project.textVariables ?? []).map(x => ({ value: x.name, label: x.name }))} onChange={set} />;
           case 'variable':
             return (
               <Select {...common} value={v as string} options={[...(field.optional ? [{ value: '', label: 'هیچ' }] : []), ...variableOptions]} onChange={set} />

@@ -169,12 +169,12 @@ look:
 
 ## Current state (keep this up to date)
 
-- Last updated **2026-11-20 by Codex**. Phase E is implemented. The editor
+- Last updated **2026-11-20 by Codex**. Phase D now includes text variables for quest steps and names. Phase E is implemented. The editor
   library has five genre choices, four animated character sets, three art
   packs, sound preview and volume, and eight built-in music pieces.
 - The sword try-out advances and one swing damages the patrol. A scene-load
   trace established that the loss rule kept restarting the test scene.
-- `npm run build` passed. The complete `npm test` run passed all three suites with **479 PASS, 0 FAIL**.
+- `npm run build` passed. The complete `npm test` run passed all three suites with **483 PASS, 0 FAIL**.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
   - After 3 s below 28 fps it calls `Game.lighten()`, which drops bloom,
@@ -204,7 +204,7 @@ already overlapping pair, move the patrol clear of the player's start.
 ### Remaining roadmap work
 
 Owner phone feedback comes first when available. The remaining scoped items
-are text variables and one-shot per-object timers (D), edge-turning and
+are one-shot per-object timers (D), edge-turning and
 jumping enemies and an aimed-projectile part (B), then deferred autotiling
 (A). The AI helper still waits for the hosting decision.
 
@@ -280,8 +280,7 @@ say so in the log.
   with a small badge in the object list.
 
 **Phase D: logic for bigger games**
-- [ ] **Text variables** (names, quest steps) or **lists of numbers**.
-  Start with a value that can hold a short text, shown with `{name}`.
+- [x] **Text variables** (names and quest steps). Add one in the Game tab, display it with `{name}`, update it with `setTextVariable` and react with `textEquals`. Saved text survives reopening; save/continue includes all text. Numeric lists were an alternative proposal.
 - [x] DONE 2026-11-19 (Claude): `StateGate.onlyIn` on every behavior; `Game.applyState` swaps `e.def` for the state's behaviors (`e.base` keeps the full one); body/physics/joint are never switched off; Inspector field under each behavior; lab 17 check. **Object states.** A value `state` plus behaviors that are on only in
   some states (`Behavior.onlyIn?: number[]`). For example, an enemy has
   patrol in state 0 and chase in state 1. This one is very powerful and cheap
@@ -329,6 +328,11 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-20 — Codex (quest text)
+- Added named text variables, exact-match triggers and text assignment across the format, validation, runtime, Persian editor, live debugger and guides. Existing v2 projects can omit the text list.
+- Extended lab 18 for save/continue and matching. The editor smoke creates a quest, shows its starting text, taps to advance it and captures `test-output/editor-quest.png`. Focused browser checks passed, then the full suite passed in one run (232 runtime, 227 editor, 24 server). Phone testing remains open.
+- Next Phase D item is the once-per-object timer.
 
 ### 2026-11-20 — Codex
 - Traced the apparent try-out freeze to repeated scene restarts on initial player–patrol overlap. Fixed sized placement in `state.ts`, `Library.tsx` and `ObjectList.tsx`. The editor test checks clock progress and damage from one real button press.

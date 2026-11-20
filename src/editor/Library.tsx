@@ -185,16 +185,15 @@ export function Library(props: { editor: Editor; list: ListName; onClose: () => 
       const part = RECIPES.find(r => r.id === id)!;
       next = (await part.apply(next, scene.id, editor.viewCentre())).project;
     }
-    change(next, `genre.${newId('x')}`, player.id);
-    props.onNote(genre.about);
+    if (change(next, `genre.${newId('x')}`, player.id)) props.onNote(genre.about);
     onClose();
   });
 
   const addPart = (id: string) =>
     run(async () => {
       const result = await RECIPES.find((r) => r.id === id)!.apply(project, scene.id, editor.viewCentre());
-      change(result.project, `part.${id}.${newId('x')}`, result.select);
-      if (result.note) props.onNote(result.note);
+      const added = change(result.project, `part.${id}.${newId('x')}`, result.select);
+      if (added && result.note) props.onNote(result.note);
       onClose();
     });
 

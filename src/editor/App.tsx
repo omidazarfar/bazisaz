@@ -71,10 +71,17 @@ export function App({ saved }: { saved: GameProject | null }) {
     selected,
     selection,
     change: (next, key, select) => {
+      // Ready-made parts may introduce numeric names such as score or lives.
+      const conflict = next.textVariables?.find(t => next.variables.some(n => n.name === t.name));
+      if (conflict) {
+        setNotice(`این تغییر به مقدار عددی «${conflict.name}» نیاز دارد. این نام را قبلاً برای متن انتخاب کرده‌ای.`);
+        return false;
+      }
       // Copies of a template are kept in step with it, whichever panel made the change.
       dispatch({ type: 'change', project: syncTemplates(project, next), key, select });
       // Something was just added and selected: show its settings, whichever tab was open.
       if (typeof select === 'string' || (Array.isArray(select) && select.length > 0)) setTab('object');
+      return true;
     },
     select: (id, add) => {
       const ids = id === null ? [] : !add ? [id] : selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];

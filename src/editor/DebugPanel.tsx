@@ -19,7 +19,7 @@ const SPEEDS = [
 export function DebugPanel({ game, project, onOpenRule }: { game: RefObject<Game | null>; project: GameProject; onOpenRule: (sceneId: string, ruleId: string) => void }) {
   const [info, setInfo] = useState<DebugInfo | null>(null);
   const [changed, setChanged] = useState<Set<string>>(new Set());
-  const before = useRef<Record<string, number>>({});
+  const before = useRef<Record<string, number | string>>({});
 
   useEffect(() => {
     const read = () => {
@@ -44,7 +44,7 @@ export function DebugPanel({ game, project, onOpenRule }: { game: RefObject<Game
 
   if (!info) return null;
   const sceneOf = (id: string) => project.scenes.find((s) => s.id === id);
-  const names = project.variables.map((v) => v.name);
+  const names = Object.keys(info.variables);
 
   return (
     <div className="debug" aria-label="نمایشگر بازی">
@@ -81,7 +81,7 @@ export function DebugPanel({ game, project, onOpenRule }: { game: RefObject<Game
             {names.map((name) => (
               <div key={name} className={changed.has(name) ? 'debug-value debug-changed' : 'debug-value'} data-variable={name}>
                 <dt><bdi dir="ltr">{name}</bdi></dt>
-                <dd>{fa(Math.round((info.variables[name] ?? 0) * 100) / 100)}</dd>
+                <dd>{typeof info.variables[name] === 'number' ? fa(info.variables[name]) : <bdi>{info.variables[name]}</bdi>}</dd>
               </div>
             ))}
           </dl>

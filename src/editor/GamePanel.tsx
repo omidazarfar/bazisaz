@@ -24,10 +24,13 @@ export function GamePanel({ editor }: { editor: Editor }) {
   const { project, scene, change } = editor;
   const { meta, app, ads } = project;
   const [newVariable, setNewVariable] = useState('');
+  const [variableKind, setVariableKind] = useState('number');
+  const texts = project.textVariables ?? [];
+  const allVariables = [...project.variables, ...texts];
   const variableError =
     newVariable === '' ? null
     : !/^[A-Za-z_][A-Za-z0-9_]*$/.test(newVariable) ? 'نام باید با حروف انگلیسی باشد، بدون فاصله؛ مثل lives'
-    : project.variables.some((v) => v.name === newVariable) ? 'این نام قبلاً استفاده شده است.'
+    : allVariables.some((v) => v.name === newVariable) ? 'این نام قبلاً استفاده شده است.'
     : null;
 
   const setMeta = (patch: Partial<typeof meta>, key: string) => change({ ...project, meta: { ...meta, ...patch } }, `meta.${key}`);
@@ -51,7 +54,10 @@ export function GamePanel({ editor }: { editor: Editor }) {
 
   const addVariable = () => {
     if (variableError || newVariable === '') return;
-    change({ ...project, variables: [...project.variables, { name: newVariable, initial: 0, saved: false }] }, `variable.add.${newVariable}`);
+    const next = variableKind === 'text'
+      ? { ...project, textVariables: [...texts, { name: newVariable, initial: '', saved: false }] }
+      : { ...project, variables: [...project.variables, { name: newVariable, initial: 0, saved: false }] };
+    change(next, `variable.add.${newVariable}`);
     setNewVariable('');
   };
   const setVariable = (name: string, patch: { initial?: number; saved?: boolean; item?: { asset: string } }, key: string) =>
@@ -65,7 +71,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
   const itemError =
     itemName === '' ? null
     : !NAME.test(itemName) ? 'نام باید با حروف انگلیسی باشد، بدون فاصله؛ مثل Key'
-    : project.variables.some((v) => v.name === itemName) ? 'این نام قبلاً استفاده شده است.'
+    : allVariables.some((v) => v.name === itemName) ? 'این نام قبلاً استفاده شده است.'
     : null;
   const pickItemPicture = async (picture: { sprite: string } | { src: string }) => {
     const target = picking;
@@ -87,7 +93,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
     // Without a name of its own, the thing is named after its picture, made unique if need be.
     const base = itemName || ('sprite' in picture ? nameFromSprite(picture.sprite) : 'Thing');
     let name = base;
-    for (let n = 2; next.variables.some((v) => v.name === name); n++) name = `${base}${n}`;
+    for (let n = 2; [...next.variables, ...(next.textVariables ?? [])].some((v) => v.name === name); n++) name = `${base}${n}`;
     change({ ...next, variables: [...next.variables, { name, initial: 0, saved: false, item: { asset } }] }, `item.add.${name}`);
     setItemName('');
   };
@@ -293,7 +299,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
         )}
       </Section>
 
-      <Section title="مقدارها" about="عددهایی که بازی نگه می‌دارد، مثل امتیاز یا جان. قانون‌ها آن‌ها را تغییر می‌دهند و متن‌ها نشانشان می‌دهند.">
+      <Section title="مقدارها" about="عدد برای امتیاز و جان، یا متن برای نام و هدف مأموریت بساز. برای نمایش مقدار در بازی، نامش را داخل آکولاد بنویس؛ مثل {quest}.">
         {project.variables.filter((v) => !v.item).map((v) => {
           const used = isVariableUsed(project, v.name);
           return (
@@ -315,8 +321,27 @@ export function GamePanel({ editor }: { editor: Editor }) {
             </div>
           );
         })}
+        {texts.map(v => {
+          const used = isVariableUsed(project, v.name);
+          const edit = (patch: { initial?: string; saved?: boolean }, field: string) =>
+            change({ ...project, textVariables: texts.map(t => t.name === v.name ? { ...t, ...patch } : t) }, `text.${v.name}.${field}`);
+          return <div className="variable" key={v.name}>
+            <div className="variable-head">
+              <bdi dir="ltr" className="variable-name">{v.name}</bdi>
+              <button type="button" className="link link-danger" disabled={used}
+                onClick={() => change({ ...project, textVariables: texts.filter(t => t.name !== v.name) }, `text.remove.${v.name}`)}>
+                {used ? 'در حال استفاده' : 'حذف'}
+              </button>
+            </div>
+            <TextField label="متن اول بازی" dir="ltr" value={v.initial} onChange={initial => edit({ initial }, 'initial')} />
+            <Check label="روی گوشی بماند" value={v.saved} onChange={saved => edit({ saved }, 'saved')} />
+          </div>;
+        })}
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); addVariable(); }}>
-          <input type="text" dir="ltr" aria-label="نام مقدار تازه" placeholder="lives" value={newVariable} onChange={(e) => setNewVariable(e.target.value.trim())} />
+          <select aria-label="نوع مقدار تازه" value={variableKind} onChange={e => setVariableKind(e.target.value)}>
+            <option value="number">عدد</option><option value="text">متن</option>
+          </select>
+          <input type="text" dir="ltr" aria-label="نام مقدار تازه" placeholder={variableKind === 'text' ? 'quest' : 'lives'} value={newVariable} onChange={(e) => setNewVariable(e.target.value.trim())} />
           <button type="submit" className="chip" disabled={Boolean(variableError) || newVariable === ''}>مقدار تازه</button>
         </form>
         {variableError && <p className="field-error">{variableError}</p>}
