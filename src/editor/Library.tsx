@@ -92,8 +92,8 @@ const genres = [
   { id: 'platform', title: 'سکوبازی: Sky Quest', role: 'jump-player', sprite: 'hero', parts: ['controls', 'checkpoints'], about: 'یک بازی کامل: مرحله‌ای چندصفحه‌ای با سکه و الماس، لجن و خفاش (روی سرشان بپر!)، تیغ، چاله، سکوی متحرک، ایست بازرسی و جام پایان؛ با صفحه‌ی شروع، برد و باخت.' },
   { id: 'adventure', title: 'ماجراجویی: Dungeon Escape', role: 'steer-player', sprite: 'knight', parts: ['key-door'], about: 'یک بازی کامل: چهار اتاق سیاه‌چال در تاریکی با مشعل، اسکلت‌هایی که وقتی شوالیه را ببینند دنبالش می‌کنند، شمشیر، کلید، در قفل و صندوق گنج.' },
   { id: 'shooter', title: 'تیراندازی: Star Raiders', role: 'finger-player', sprite: 'space-ship', parts: ['player-laser'], about: 'یک بازی کامل: سفینه‌ای که خودش شلیک می‌کند، موج‌های سیارک، موجود فضایی و بشقاب‌پرنده، قلب و ستاره‌ی جایزه، و غول آخر با ۱۵۰ امتیاز.' },
-  { id: 'puzzle', title: 'معمایی: Gem Crush', role: 'finger-player', sprite: 'gem', parts: ['key-door'], about: 'یک بازی کامل: سه‌تایی جور کن با ۲۰ حرکت برای رسیدن به ۶۰ امتیاز، نوار پیشرفت، و صفحه‌ی برد و باخت.' },
-  { id: 'physics', title: 'فیزیکی: Rock Smash', role: 'sling-stone', sprite: 'rock', parts: ['tower'], about: 'یک بازی کامل: تیرکمان با چهار سنگ، دو برج جعبه و تخته، و سه موجود فضایی که باید بیفتند.' },
+  { id: 'puzzle', title: 'معمایی: Gem Crush', role: 'finger-player', sprite: 'gem', parts: ['key-door'], about: 'یک بازی کامل: سه‌تایی جور کن با ۲۰ حرکت برای رسیدن به ۹۰ امتیاز، نوار پیشرفت، و صفحه‌ی برد و باخت.' },
+  { id: 'physics', title: 'فیزیکی: Rock Smash', role: 'sling-stone', sprite: 'rock', parts: ['tower'], about: 'یک بازی کامل: تیرکمان با پنج سنگ و قلعه‌ای از سنگ، چوب، شیشه‌ی شکستنی و تیرآهن، با بشکه‌ی انفجاری وسطش و چهار موجود فضایی که دوتایشان پنهان‌اند.' },
 ];
 
 type Tab = 'genre' | 'pictures' | 'basic' | 'roles' | 'parts';
