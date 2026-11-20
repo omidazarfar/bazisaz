@@ -198,6 +198,8 @@ What was checked:
 - The geometry looks right: the slash spawns ahead of the player and overlaps the enemy.
 - An earlier debug print showed **no slash entity at all**, 60 ms after the tap.
 
+Already ruled out (by Claude): `tappable` is set to `visible` every step (Game.ts, end of `update`), and `startBagDrag` returns false when there is no bag, so neither swallows the tap.
+
 So first suspect: the tap on the fixed sword button does not fire the `tapObject` rule. Look at `tappable`, `onControl`, and the jump-player's tap jump. Next suspect: `spawn` with `at: byTag(PLAYER)` and `ahead`.
 
 Debug with `node scripts/look/sworddebug.mjs`. It still hangs while adding the first role (waiting for the library to close). Compare with how `editor.smoke.mjs` adds roles (`openLibrary` with the Persian tab name), then print the rule log (`getDebug().log`) after the tap.
@@ -336,6 +338,25 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-20 — Claude (end of session, owner switching to Codex)
+- Did the "complex games" roadmap, Phases A to D. Each phase was committed and pushed separately; see the ticks above.
+  - A1: checkpoint/respawn actions, part `checkpoints`
+  - A2: `goToScene.arriveAt`/`bring`, i.e. doors with an arrival point
+  - A3: `saveGame`/`loadGame`, Continue on the start screen
+  - A5: `camera.roomTag`
+  - B1: invincibility, health bars, knockback
+  - B2: roles `patrol-enemy`, `shooter-enemy`, `boss`
+  - B3: `spawn.ahead`, part `sword`
+  - C: templates with live copies (`syncTemplates`)
+  - D: behavior `onlyIn` states
+- Tests: lab 17 and lab 18 grew; the editor suite has checks for parts, roles, templates and the sword.
+- **Open: one failing editor test (the sword).** See FIRST above. Everything else passes.
+- Left for Codex:
+  1. Fix the sword test.
+  2. Phase E: art packs and character sets, a sound preview button, more music, the genre helper.
+  3. The remaining small items: a jumping enemy, an edge-turning walker, text variables, a once-per-object timer, autotile.
+- `npm test` takes over 10 minutes now; run it in the background.
 
 ### 2026-11-19 (night) — Claude
 - Asked: do next steps 1, 2 and 3 (weekly budget was at 86%).
