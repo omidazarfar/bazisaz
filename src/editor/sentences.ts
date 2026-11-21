@@ -147,7 +147,9 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
       return `صدای «${own?.type === 'sound' ? own.name : (SOUND_LABEL[a.sound as keyof typeof SOUND_LABEL] ?? a.sound)}» را پخش کن${a.volume !== undefined && a.volume !== 100 ? ` با بلندی ${fa(a.volume)}٪` : ''}`;
     }
     case 'burst': return `از ${who(a.target)} جرقه بپران`;
-    case 'shake': return 'صفحه را بلرزان';
+    case 'shake': return a.axis === 'side' ? 'صفحه را چپ و راست بلرزان' : a.axis === 'up' ? 'صفحه را بالا و پایین بلرزان' : 'صفحه را بلرزان';
+    case 'zoomPunch': return 'دوربین را یک لحظه جلو بپران';
+    case 'shockwave': return `از ${who(a.at)} موج انفجار بفرست`;
     case 'floatText': return `بالای ${who(a.target)} بنویس «${a.text}» و بپرانش`;
     case 'slowMotion': return a.amount <= 0 ? `بازی را ${fa(a.seconds)} ثانیه نگه دار (ایست ضربه)` : `زمان را ${fa(a.seconds)} ثانیه آهسته کن`;
     case 'effect': return `${who(a.target)}: ${ACTIONS.effect.fields.flatMap((f) => (f.kind === 'choice' ? f.options : [])).find((o) => o.value === a.kind)?.label ?? ''}`;
@@ -222,8 +224,8 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
     case 'pulse': return 'آرام بزرگ و کوچک می‌شود';
     case 'trail': return 'پشت سرش رد رنگی می‌گذارد';
     case 'particles': {
-      const kinds: Record<typeof b.preset, string> = { fire: 'آتش', smoke: 'دود', rain: 'باران', snow: 'برف', sparkle: 'برق و ستاره', bubbles: 'حباب', confetti: 'کاغذ رنگی', embers: 'جرقه‌ی آتش', leaves: 'برگ پاییزی', dust: 'گرد و خاک', magic: 'ذره‌های جادویی', hearts: 'قلب', steam: 'بخار', electric: 'جرقه‌ی برق', portal: 'ذره‌های چرخان', waterfall: 'آبشار', fireflies: 'کرم شب‌تاب', stars: 'ستاره', drip: 'چکه' };
-      return b.preset === 'rain' || b.preset === 'snow' || b.preset === 'leaves' || b.preset === 'drip' || b.preset === 'waterfall' ? `از آن ${kinds[b.preset]} می‌بارد` : `از آن ${kinds[b.preset]} بیرون می‌آید`;
+      const kinds: Record<typeof b.preset, string> = { fire: 'آتش', smoke: 'دود', rain: 'باران', snow: 'برف', sparkle: 'برق و ستاره', bubbles: 'حباب', confetti: 'کاغذ رنگی', sparks: 'جرقه', petals: 'گلبرگ', feathers: 'پَر', poison: 'حباب سم', frost: 'یخ‌زدگی', glitter: 'اکلیل', coins: 'سکه', ash: 'خاکستر', rainbow: 'رنگین‌کمان', splash: 'آب', sand: 'شن', embers: 'جرقه‌ی آتش', leaves: 'برگ پاییزی', dust: 'گرد و خاک', magic: 'ذره‌های جادویی', hearts: 'قلب', steam: 'بخار', electric: 'جرقه‌ی برق', portal: 'ذره‌های چرخان', waterfall: 'آبشار', fireflies: 'کرم شب‌تاب', stars: 'ستاره', drip: 'چکه' };
+      return b.preset === 'rain' || b.preset === 'snow' || b.preset === 'leaves' || b.preset === 'drip' || b.preset === 'petals' || b.preset === 'ash' || b.preset === 'waterfall' ? `از آن ${kinds[b.preset]} می‌بارد` : `از آن ${kinds[b.preset]} بیرون می‌آید`;
     }
     case 'light': return `در تاریکی دورش را روشن می‌کند${b.flicker ? '، مثل شعله‌ای که می‌لرزد' : ''}${b.shadowTag ? `؛ ${group(b.shadowTag)} سایه می‌اندازد` : ''}`;
     case 'field': {

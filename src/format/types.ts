@@ -143,6 +143,10 @@ export interface Scene {
   bloom?: boolean;
   /** Weather over the whole screen: rain, a storm with lightning, snow, falling leaves, rising embers or drifting fog. 'none' or absent for clear. */
   weather?: Weather;
+  /** An old-screen look over the whole game: big pixels, a curved arcade screen with lines, or a scratched old film. */
+  retro?: Retro;
+  /** Seconds for a whole day and night; the scene darkens to night and lightens to day again, over and over. 0 or absent for none. */
+  dayLength?: number;
   /** Objects placed in the scene. Later objects draw on top of earlier ones. */
   objects: GameObject[];
   /** Objects that are not placed but can be created during play, by a spawner or a rule. */
@@ -161,6 +165,9 @@ export type Ease = (typeof EASES)[number];
 /** The painted backdrops a scene can have. */
 export const SKIES = ['none', 'day', 'sunset', 'night', 'space', 'underwater', 'forest', 'desert', 'city', 'cave', 'snow'] as const;
 export type Sky = (typeof SKIES)[number];
+
+export const RETROS = ['none', 'pixel', 'crt', 'film'] as const;
+export type Retro = (typeof RETROS)[number];
 
 export const WEATHERS = ['none', 'rain', 'storm', 'snow', 'leaves', 'embers', 'fog'] as const;
 export type Weather = (typeof WEATHERS)[number];
@@ -430,6 +437,7 @@ export interface ParticlesBehavior {
 export const PARTICLE_PRESETS = [
   'fire', 'smoke', 'rain', 'snow', 'sparkle', 'bubbles', 'confetti',
   'embers', 'leaves', 'dust', 'magic', 'hearts', 'steam', 'electric', 'portal', 'waterfall', 'fireflies', 'stars', 'drip',
+  'sparks', 'petals', 'feathers', 'poison', 'frost', 'glitter', 'coins', 'ash', 'rainbow', 'splash', 'sand',
 ] as const;
 export type ParticlePreset = (typeof PARTICLE_PRESETS)[number];
 
@@ -1037,7 +1045,12 @@ export type Action =
   /** A puff of small pieces flying out from an object and fading. */
   | { type: 'burst'; target: Target; color: string; count: number }
   /** Shakes the whole screen for a moment. */
-  | { type: 'shake'; strength: number }
+  /** `axis`: 'side' shakes only left and right (a hit from the side), 'up' only up and down (a heavy landing); absent for every way. */
+  | { type: 'shake'; strength: number; axis?: 'both' | 'side' | 'up' }
+  /** The view jumps in a little closer and settles back, for the weight of a big hit. `amount` 1.1 is 10% closer. */
+  | { type: 'zoomPunch'; amount: number; seconds: number }
+  /** A ring that ripples out over the picture from an object, bending what is behind it, like the air after an explosion. */
+  | { type: 'shockwave'; at: Target; size: number }
   /** Time runs slower for a while (real seconds): 0.3 is a third of the speed; 0 freezes the game for a moment, a "hit stop". */
   | { type: 'slowMotion'; amount: number; seconds: number }
   /** Words or a number that pop up over an object and float away: "+30", "OUCH", "{score}". */

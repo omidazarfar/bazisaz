@@ -333,7 +333,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
       { type: 'floatText', target: 'second', text: '+5', color: '#c5f27a', size: 40 },
       { type: 'setVariable', name: 'score', op: 'add', amount: 5 },
       { type: 'playSound', sound: 'pop' },
-      { type: 'shake', strength: 5 },
+      { type: 'shake', strength: 6, axis: 'up' },
     ]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'side' }, [{ type: 'send', name: HURT }]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(SPIKES) }, [{ type: 'jump', target: 'first' }, { type: 'send', name: HURT }]),
@@ -561,7 +561,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
   const HEAL = 'قلب جایزه';
   const BONUS = 'ستاره جایزه';
   let p = withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0);
-  p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(s.width, W), height: Math.max(s.height, H), gravity: 0, sky: 'space', music: 'music:orbit', bloom: true, vignette: true }));
+  p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(s.width, W), height: Math.max(s.height, H), gravity: 0, sky: 'space', music: 'music:orbit', bloom: true, vignette: true, retro: 'crt' }));
   const pics: Record<string, string> = {};
   for (const id of ['space-ship', 'asteroid', 'alien', 'ufo', 'heart', 'star']) {
     const made = await art(p, id);
@@ -639,7 +639,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
       { type: 'playMusic', music: 'music:tense' },
       { type: 'shake', strength: 10 },
     ]),
-    rule({ type: 'dead', target: byTag(BOSS) }, [{ type: 'playSound', sound: 'win' }, { type: 'setVariable', name: 'score', op: 'add', amount: 100 }, { type: 'wait', seconds: 1.4 }, { type: 'goToScene', scene: screen.win }]),
+    rule({ type: 'dead', target: byTag(BOSS) }, [{ type: 'shockwave', at: 'first', size: 700 }, { type: 'zoomPunch', amount: 1.15, seconds: 0.6 }, { type: 'shake', strength: 16 }, { type: 'playSound', sound: 'win' }, { type: 'setVariable', name: 'score', op: 'add', amount: 100 }, { type: 'wait', seconds: 1.4 }, { type: 'goToScene', scene: screen.win }]),
     ...lifeRules(screen.over, 0),
   );
   p = await banner(p, sceneId, 'Blast them all!');
@@ -780,6 +780,8 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
     { type: 'burst', target: 'first', color: '#ff9f1c', count: 40 },
     { type: 'playSound', sound: 'boom' },
     { type: 'shake', strength: 18 },
+    { type: 'shockwave', at: 'first', size: 560 },
+    { type: 'zoomPunch', amount: 1.12, seconds: 0.45 },
     { type: 'destroy', target: 'first' },
     { type: 'slowMotion', amount: 0.35, seconds: 0.6 },
   ];
@@ -818,7 +820,7 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
   const { width: W, height: H } = project.meta;
   const orbit = scene('Orbital relay', W, H, 'space', 'music:calm', { gravity: 0 });
   const trail = scene('Mountain trail', W, H, 'forest', 'music:happy', { weather: 'leaves' });
-  const ridge = scene('Rescue ridge', W, H, 'desert', 'music:happy');
+  const ridge = scene('Rescue ridge', W, H, 'desert', 'music:happy', { dayLength: 16 });
   const harbor = scene('Harbor crossing', W, H, 'night', 'music:tense', { weather: 'storm' });
   const clockwork = scene('Clockwork lift', W, H, 'night', 'music:mystery', { gravity: 1600 });
   let p = updateScene(project, first, sc => ({ ...sc, name: 'Cliff rescue', width: Math.max(W, sc.width), height: Math.max(H, sc.height), gravity: 1600, sky: 'sunset', music: 'music:happy' }));
@@ -866,6 +868,10 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
       heights: vehicle === 'bike' ? [0.25, 0.25, 0.25, 0.13, 0.06, 0.18, 0.32, 0.26, 0.24] : [0.32, 0.32, 0.32, 0.19, 0.28, 0.15, 0.25, 0.32, 0.32] },
       W, H - top, { x: W / 2, y: (H + top) / 2 }, { tags: [GROUND] })]);
     const driver = await add(stage.id, vehicle, Math.max(108, W * 0.18), top);
+    if (vehicle === 'tank') {
+      // Night falls on the ridge: the crawler lights its own way.
+      p = updateScene(p, stage.id, (sc) => ({ ...sc, objects: sc.objects.map((o) => (o.id === driver ? { ...o, behaviors: [...o.behaviors, { type: 'light', radius: 340, color: '#fff2c0', flicker: false }] } : o)) }));
+    }
     const goal = await picture(p, 'star', 'نشان مقصد', 63, 72, { x: W - 68, y: water ? top : top + (H - top) * (vehicle === 'bike' ? 0.24 : 0.32) - 53 }, { glow: '#ffca43' });
     p = goal.project;
     checkpoint(stage.id, driver, goal.object, next);

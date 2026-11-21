@@ -1,5 +1,5 @@
 import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Matrix, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
-import { AdvancedBloomFilter, DropShadowFilter, GlowFilter } from 'pixi-filters';
+import { AdvancedBloomFilter, CRTFilter, DropShadowFilter, GlowFilter, OldFilmFilter, PixelateFilter, ShockwaveFilter } from 'pixi-filters';
 import type {
   Action,
   Amount,
@@ -376,6 +376,12 @@ export interface GameState {
   /** The things in the player's bag, in the order of their places; and how many are flying into it. */
   bag: string[];
   flights: number;
+  /** The old-screen look in use ('none' when a slow phone dropped it), ripples running, and how far the view is punched in (1 for not). */
+  retro: string;
+  waves: number;
+  punch: number;
+  /** Where the shake has moved the screen to right now. */
+  shakeAt: { x: number; y: number };
   /** The scene's weather: what is falling, and lightning. */
   weather: ReturnType<WeatherView['state']>;
   /** Lights that walls are in the way of: the outline of where each reaches, in world points (x, y, x, y, …). */
@@ -536,6 +542,13 @@ export class Game {
   private floats: { view: Text; life: number; span: number; from: number }[] = [];
   /** The weather over the screen. */
   private readonly weather = new WeatherView(() => (this.lightTexture ??= softSpot(256, 'rgba(255,255,255,1)', 'rgba(255,255,255,0)', 0.25)));
+  /** The scene's old-screen look, and the ripples of explosions running over the picture. */
+  private retroFilter: PixelateFilter | CRTFilter | OldFilmFilter | null = null;
+  private waves: { filter: ShockwaveFilter; left: number }[] = [];
+  /** A quick jump of the view closer and back: how far, and how long it has left of how long. */
+  private punch: { amount: number; left: number; span: number } | null = null;
+  /** Which way the screen shakes now. */
+  private shakeAxis: 'both' | 'side' | 'up' = 'both';
   /** The outline of each light that walls block, as last drawn. */
   private lit: { id: string; points: number[] }[] = [];
   private tweens: Tween[] = [];
@@ -651,6 +664,7 @@ export class Game {
       if (this.emitters) this.animateParticles(Math.min(elapsed, MAX_FRAME));
       this.skyView?.update(this.camera, this.z, this.scene.height, Math.min(elapsed, MAX_FRAME));
       this.weather.update(Math.min(elapsed, MAX_FRAME), this.camera, this.z);
+      this.animateRetro(Math.min(elapsed, MAX_FRAME));
       this.drawShade();
       return;
     }
@@ -800,6 +814,17 @@ export class Game {
       this.bloomFilter ??= new AdvancedBloomFilter({ threshold: 0.84, bloomScale: 0.55, brightness: 1, blur: 5, quality: 5 });
       filters.push(this.bloomFilter);
     }
+    // An old screen: big pixels always (they cost nothing); the arcade screen and old film not on a slow phone.
+    const retro = this.scene.retro ?? 'none';
+    const wanted = retro === 'pixel' ? PixelateFilter : retro === 'crt' && !this.light ? CRTFilter : retro === 'film' && !this.light ? OldFilmFilter : null;
+    if (!wanted) this.retroFilter = null;
+    else if (!(this.retroFilter instanceof wanted)) {
+      this.retroFilter = retro === 'pixel' ? new PixelateFilter(6)
+        : retro === 'crt' ? new CRTFilter({ curvature: 1, lineWidth: 2, lineContrast: 0.2, noise: 0.06, vignetting: 0 })
+        : new OldFilmFilter({ sepia: 0.45, noise: 0.18, scratch: 0.4, scratchDensity: 0.3, vignetting: 0.3 });
+    }
+    if (this.retroFilter) filters.push(this.retroFilter);
+    filters.push(...this.waves.map((w) => w.filter));
     this.scenery.filters = filters;
     const { width, height } = this.project.meta;
     this.vignette.visible = Boolean(this.scene.vignette);
@@ -1125,6 +1150,10 @@ export class Game {
       bag: this.carried(),
       flights: this.flights.length,
       weather: this.weather.state(),
+      retro: this.retroFilter ? (this.scene.retro ?? 'none') : 'none',
+      waves: this.waves.length,
+      punch: this.scenery.scale.x,
+      shakeAt: { x: this.app.stage.position.x, y: this.app.stage.position.y },
       lit: this.lit.map((l) => ({ id: l.id, points: [...l.points] })),
       floats: this.floats.map((f) => ({ text: f.view.text, x: f.view.x, y: f.view.y, alpha: f.view.alpha })),
       entities: this.entities.map((e) => ({
@@ -1291,6 +1320,9 @@ export class Game {
     this.cameraTravel = 0;
     this.shakeLeft = 0;
     this.slowLeft = 0;
+    for (const w of this.waves.splice(0)) w.filter.destroy();
+    this.punch = null;
+    this.scenery.scale.set(1);
     this.slowScale = 1;
     this.app.stage.position.set(0, 0);
     // Music belongs to the game being played, never to the frozen picture in the editor.
@@ -3383,6 +3415,21 @@ export class Game {
       case 'shake':
         this.shakeLeft = SHAKE_SECONDS;
         this.shakeStrength = action.strength;
+        this.shakeAxis = action.axis ?? 'both';
+        break;
+      case 'zoomPunch':
+        this.punch = { amount: clamp(action.amount, 1, 2), left: Math.max(0.05, action.seconds), span: Math.max(0.05, action.seconds) };
+        break;
+      case 'shockwave':
+        for (const e of this.targets(action.at, context)) {
+          const box = this.boxOf(e);
+          const at = e.def.fixed ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : { x: (box.x + box.width / 2 - this.camera.x) * this.z, y: (box.y + box.height / 2 - this.camera.y) * this.z };
+          const size = Math.max(50, action.size) * (e.def.fixed ? 1 : this.z);
+          // Not on a slow phone, and never more than a few at once.
+          if (this.light || this.waves.length >= 4) break;
+          this.waves.push({ filter: new ShockwaveFilter({ center: at, amplitude: 22, wavelength: 140, speed: size * 1.6, brightness: 1.15, radius: size, time: 0 }), left: 0.8 });
+          this.applyLook();
+        }
         break;
       case 'slowMotion':
         this.slowScale = clamp(action.amount, 0, 1);
@@ -3488,8 +3535,14 @@ export class Game {
       this.shakeLeft -= dt;
       // The shake dies away rather than stopping dead.
       const reach = this.shakeStrength * Math.max(0, this.shakeLeft / SHAKE_SECONDS);
-      this.app.stage.position.set((Math.random() * 2 - 1) * reach, (Math.random() * 2 - 1) * reach);
+      // Along one line when asked, swinging from side to side rather than jittering.
+      const swing = Math.sin(this.shakeLeft * 70) * reach;
+      if (this.shakeAxis === 'side') this.app.stage.position.set(swing, 0);
+      else if (this.shakeAxis === 'up') this.app.stage.position.set(0, swing);
+      else this.app.stage.position.set((Math.random() * 2 - 1) * reach, (Math.random() * 2 - 1) * reach);
     }
+    this.stepScreenEffects(dt);
+    this.stepDayNight();
   }
 
   /** Mixes the flash colour into the object's own, strongly at first and fading to nothing. */
@@ -3503,6 +3556,56 @@ export class Game {
   }
 
   /** Moves a camera zoom along, easing in and out, and keeps the followed object in the middle as it goes. */
+  /** Ripples spreading and dying away, the view's punch closer and back, and the old screen's flicker. */
+  private stepScreenEffects(dt: number): void {
+    if (this.waves.length) {
+      for (const w of this.waves) {
+        w.filter.time += dt;
+        w.left -= dt;
+      }
+      const done = this.waves.filter((w) => w.left <= 0);
+      if (done.length) {
+        this.waves = this.waves.filter((w) => w.left > 0);
+        this.applyLook();
+        for (const w of done) w.filter.destroy();
+      }
+    }
+    const { width, height } = this.project.meta;
+    let scale = 1;
+    if (this.punch) {
+      this.punch.left -= dt;
+      const p = clamp(1 - this.punch.left / this.punch.span, 0, 1);
+      // In fast, out slow.
+      const k = p < 0.2 ? p / 0.2 : 1 - ((p - 0.2) / 0.8) ** 0.6;
+      scale = 1 + (this.punch.amount - 1) * k;
+      if (this.punch.left <= 0) this.punch = null;
+    }
+    this.scenery.pivot.set(width / 2, height / 2);
+    this.scenery.position.set(width / 2, height / 2);
+    this.scenery.scale.set(scale);
+    this.animateRetro(dt);
+  }
+
+  /** The arcade screen's lines roll and its noise changes; the old film flickers and gets new scratches. */
+  private animateRetro(dt: number): void {
+    const r = this.retroFilter;
+    if (r instanceof CRTFilter) {
+      r.time += dt * 2;
+      r.seed = Math.random();
+    } else if (r instanceof OldFilmFilter) r.seed = Math.random();
+  }
+
+  /** A scene with a day length darkens to night and lightens to day again, unless a rule is changing the darkness. */
+  private stepDayNight(): void {
+    const length = this.scene.dayLength ?? 0;
+    if (length <= 0 || this.darknessGlide) return;
+    const day = clamp(this.scene.darkness ?? 0, 0, 1);
+    const night = Math.max(day, 0.82);
+    // It starts at midday, is darkest halfway through, and is day again at the end.
+    const dusk = 0.5 - 0.5 * Math.cos((2 * Math.PI * this.time) / length);
+    this.darkness = day + (night - day) * dusk;
+  }
+
   private stepZoom(dt: number): void {
     const glide = this.zoomGlide!;
     glide.elapsed = Math.min(glide.seconds, glide.elapsed + dt);

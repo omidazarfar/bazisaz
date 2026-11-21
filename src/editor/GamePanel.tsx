@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { FONTS, isBuiltinMusic, ruleActions, type Look, type Sky, type Weather } from '../format/types';
+import { FONTS, isBuiltinMusic, ruleActions, type Look, type Retro, type Sky, type Weather } from '../format/types';
 import { builtinMusic } from '../runtime/music';
 import { setMusic } from '../runtime/sound';
-import { BUILTIN_MUSIC_OPTIONS, LOOK_OPTIONS, SKY_OPTIONS, WEATHER_OPTIONS } from './labels';
+import { BUILTIN_MUSIC_OPTIONS, LOOK_OPTIONS, RETRO_OPTIONS, SKY_OPTIONS, WEATHER_OPTIONS } from './labels';
 import { APP_ID } from '../format/validate';
 import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextField } from './controls';
 import type { GameProject } from '../format/types';
@@ -212,6 +212,16 @@ export function GamePanel({ editor }: { editor: Editor }) {
           options={WEATHER_OPTIONS}
           onChange={(weather) => setScene({ weather: weather as Weather }, 'weather')}
         />
+        <Slider
+          label="شب و روز"
+          hint="چند ثانیه طول بکشد تا یک روز و یک شب کامل بگذرد؛ صحنه آرام تاریک می‌شود، شب می‌شود و دوباره روز. صفر یعنی همیشه همین‌طور. در شب فقط اشیایی که «نور» دارند روشن‌اند."
+          min={0}
+          max={300}
+          step={5}
+          value={scene.dayLength ?? 0}
+          onChange={(dayLength) => setScene({ dayLength }, 'dayLength')}
+        />
+        <Select label="ظاهر قدیمی" hint="کل بازی را مثل بازی‌های قدیمی نشان می‌دهد. روی گوشی ضعیف، صفحه‌ی تلویزیون و فیلم قدیمی خودکار خاموش می‌شوند." value={scene.retro ?? 'none'} options={RETRO_OPTIONS} onChange={(retro) => setScene({ retro: retro as Retro }, 'retro')} />
         <Check label="درخشش نورها" hint="چیزهای روشن (آتش، نور، ستاره، خورشید) هاله‌ی نرمی دورشان دارند. روی گوشی ضعیف کمی سنگین است." value={scene.bloom ?? false} onChange={(bloom) => setScene({ bloom }, 'bloom')} />
         <Slider
           label="تاریکی صحنه"

@@ -85,6 +85,29 @@ export function particle(b: ParticlesBehavior): ParticleSpec {
       return { ...base, at: { x: Math.random(), y: Math.random() }, ...fly(aim(0, 180), between(8, 25)), gravity: 0, life: between(2.5, 4), wobble: 22, shape: 'dot', width: s * 0.35, height: s * 0.35, glow: true };
     case 'stars':
       return { ...base, at: { x: 0.5, y: 0.5 }, ...fly(aim(-90, 60), between(120, 260)), gravity: 380, life: between(0.8, 1.3), grow: 0.4, spin: between(-6, 6), shape: 'star', glow: true };
+    case 'sparks':
+      // Welding sparks: fast, bright, thrown up and out, falling back in arcs.
+      return { ...base, at: { x: 0.5, y: 0.5 }, ...fly(aim(-90, 70), between(250, 480)), gravity: 900, life: between(0.4, 0.8), shape: 'streak', width: Math.max(2, s * 0.15), height: s * 0.9, glow: true };
+    case 'petals':
+      return { ...base, at: { x: Math.random(), y: 0 }, ...fly(aim(80, 20), between(40, 80)), gravity: 8, life: between(4, 6), spin: between(-2, 2), wobble: 35, shape: 'leaf', height: s * 0.7, color: mixed(b.color, ['#ffd1dc', '#ffffff', '#f8bbd0']) };
+    case 'feathers':
+      return { ...base, at: { x: between(0.3, 0.7), y: 0.5 }, ...fly(aim(-90, 80), between(60, 140)), gravity: 60, life: between(1.8, 2.6), spin: between(-2, 2), wobble: 30, shape: 'leaf', height: s * 0.35 };
+    case 'poison':
+      return { ...base, at: { x: between(0.2, 0.8), y: 0.8 }, ...fly(aim(-90, 15), between(40, 90)), gravity: -15, life: between(1.2, 2), grow: 1.6, wobble: 12, shape: Math.random() < 0.5 ? 'ring' : 'dot', alpha: 0.75 };
+    case 'frost':
+      return { ...base, at: { x: Math.random(), y: Math.random() }, ...fly(aim(90, 40), between(5, 25)), gravity: 10, life: between(0.8, 1.6), grow: 0.3, spin: between(-1, 1), shape: Math.random() < 0.5 ? 'star' : 'square', width: s * 0.6, height: s * 0.6, glow: true };
+    case 'glitter':
+      return { ...base, at: { x: Math.random(), y: Math.random() * 0.5 }, ...fly(aim(90, 30), between(30, 80)), gravity: 40, life: between(1, 2), spin: between(-8, 8), shape: 'square', width: s * 0.3, height: s * 0.3, glow: true, color: mixed(b.color, CONFETTI) };
+    case 'coins':
+      return { ...base, at: { x: 0.5, y: 0.4 }, ...fly(aim(-90, 40), between(300, 520)), gravity: 1100, life: between(1, 1.4), spin: between(-10, 10), shape: 'dot', height: s * 0.35 };
+    case 'ash':
+      return { ...base, at: { x: Math.random(), y: 0 }, ...fly(aim(95, 20), between(20, 50)), gravity: 5, life: between(4, 6), wobble: 20, spin: between(-2, 2), shape: 'square', width: s * 0.3, height: s * 0.3, alpha: 0.6 };
+    case 'rainbow':
+      return { ...base, at: { x: between(0.2, 0.8), y: 0.7 }, ...fly(aim(-90, 35), between(80, 160)), gravity: -20, life: between(1, 1.6), grow: 0.2, shape: 'dot', glow: true, color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)] };
+    case 'splash':
+      return { ...base, at: { x: between(0.3, 0.7), y: 0.9 }, ...fly(aim(-90, 50), between(200, 380)), gravity: 1200, life: between(0.5, 0.8), grow: 0.5, shape: 'dot', width: s * 0.45, height: s * 0.45, alpha: 0.85 };
+    case 'sand':
+      return { ...base, at: { x: 0, y: Math.random() }, ...fly(aim(5, 6), between(220, 380)), gravity: 30, life: between(1.2, 1.8), shape: 'streak', width: Math.max(1.5, s * 0.12), height: s * 0.6, alpha: 0.55 };
     case 'drip':
       return { ...base, at: { x: between(0.1, 0.9), y: 1 }, ...fly(aim(90, 0), 10), gravity: 1100, life: 1.2, shape: 'dot', width: s * 0.45, height: s * 0.45, alpha: 0.85 };
   }
@@ -111,4 +134,15 @@ export const PARTICLE_COLORS: Record<ParticlesBehavior['preset'], string> = {
   fireflies: '#e6ee9c',
   stars: '#ffe066',
   drip: '#4fc3f7',
+  sparks: '#ffd180',
+  petals: '#f48fb1',
+  feathers: '#fafafa',
+  poison: '#9ccc65',
+  frost: '#b3e5fc',
+  glitter: '#ffd54a',
+  coins: '#ffc107',
+  ash: '#9e9e9e',
+  rainbow: '#ff5a5f',
+  splash: '#81d4fa',
+  sand: '#e0c48a',
 };

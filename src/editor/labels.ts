@@ -105,6 +105,13 @@ export const LOOK_OPTIONS: Option[] = [
   { value: 'vivid', label: 'پررنگ و شاد' },
 ];
 /** The painted backdrops, in words. */
+export const RETRO_OPTIONS: Option[] = [
+  { value: 'none', label: 'هیچ' },
+  { value: 'pixel', label: 'پیکسلی، مثل بازی‌های قدیمی' },
+  { value: 'crt', label: 'صفحه‌ی گرد و خط‌دار تلویزیون قدیمی' },
+  { value: 'film', label: 'فیلم قدیمی با خش و رنگ قهوه‌ای' },
+];
+
 export const WEATHER_OPTIONS: Option[] = [
   { value: 'none', label: 'صاف' },
   { value: 'rain', label: 'باران' },
@@ -253,6 +260,17 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'fireflies', label: 'کرم شب‌تاب' },
         { value: 'stars', label: 'ستاره‌های پران' },
         { value: 'drip', label: 'چکه' },
+        { value: 'sparks', label: 'جرقه‌ی جوشکاری' },
+        { value: 'petals', label: 'گلبرگ' },
+        { value: 'feathers', label: 'پَر' },
+        { value: 'poison', label: 'سم (حباب سبز)' },
+        { value: 'frost', label: 'یخ‌زدگی' },
+        { value: 'glitter', label: 'اکلیل' },
+        { value: 'coins', label: 'سکه‌های پران' },
+        { value: 'ash', label: 'خاکستر' },
+        { value: 'rainbow', label: 'رنگین‌کمان' },
+        { value: 'splash', label: 'پاشیدن آب' },
+        { value: 'sand', label: 'طوفان شن' },
       ] },
       { key: 'color', label: 'رنگ', kind: 'color' },
       slider('rate', 'چند تا در ثانیه', 1, 120, 1, 'زیاد کردنش روی گوشی ضعیف سنگین است؛ ۴۰ معمولاً کافی است.'),
@@ -999,6 +1017,21 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     make: (ctx) => ({ type: 'burst', target: firstRef(ctx), color: '#ffd54a', count: 16 }),
     fields: [{ key: 'target', label: 'از کدام شیء', kind: 'target' }, { key: 'color', label: 'رنگ تکه‌ها', kind: 'color' }, slider('count', 'چند تکه', 4, 40, 1)],
   },
+  zoomPunch: {
+    title: 'ضربه‌ی دوربین',
+    about: 'دوربین یک لحظه جلو می‌پرد و برمی‌گردد؛ ضربه و انفجار را سنگین‌تر نشان می‌دهد. با «لرزش صفحه» و «زمان آهسته» عالی است.',
+    make: () => ({ type: 'zoomPunch', amount: 1.12, seconds: 0.35 }),
+    fields: [
+      slider('amount', 'چقدر جلو بپرد', 1.02, 1.5, 0.01, '۱٫۱ یعنی ده درصد نزدیک‌تر.'),
+      slider('seconds', 'چه مدت', 0.1, 1.5, 0.05, undefined, 'ثانیه'),
+    ],
+  },
+  shockwave: {
+    title: 'موج انفجار',
+    about: 'حلقه‌ای از وسط شیء بیرون می‌رود و تصویرِ پشتش را مثل هوای داغ انفجار کج و موج‌دار می‌کند.',
+    make: (ctx) => ({ type: 'shockwave', at: firstRef(ctx), size: 400 }),
+    fields: [{ key: 'at', label: 'از کدام شیء', kind: 'target' }, slider('size', 'تا کجا برود', 100, 1200, 20, undefined, 'پیکسل')],
+  },
   floatText: {
     title: 'نوشته‌ی پران',
     about: 'یک عدد یا کلمه بالای شیء ظاهر می‌شود، کمی بالا می‌رود و محو می‌شود؛ مثل «+۳۰» وقتی سکه برداشته می‌شود، یا «آخ!» وقتی ضربه می‌خورد. مقدارها را با {score} می‌شود نوشت.',
@@ -1023,7 +1056,14 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     title: 'لرزش صفحه',
     about: 'کل صفحه یک لحظه می‌لرزد؛ برای ضربه و باخت.',
     make: () => ({ type: 'shake', strength: 12 }),
-    fields: [slider('strength', 'شدت', 2, 40, 1)],
+    fields: [
+      slider('strength', 'شدت', 2, 40, 1),
+      { key: 'axis', label: 'به کدام طرف', kind: 'choice', fallback: 'both', options: [
+        { value: 'both', label: 'همه طرف' },
+        { value: 'side', label: 'فقط چپ و راست، مثل ضربه از پهلو' },
+        { value: 'up', label: 'فقط بالا و پایین، مثل فرود سنگین' },
+      ] },
+    ],
   },
   showAd: {
     title: 'نمایش تبلیغ تمام‌صفحه',
@@ -1225,7 +1265,7 @@ export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
-  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'floatText', 'shake', 'slowMotion', 'vibrate', 'setSound'] },
+  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'floatText', 'shake', 'zoomPunch', 'shockwave', 'slowMotion', 'vibrate', 'setSound'] },
   { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },
   { title: 'تبلیغ', types: ['showAd', 'showRewardedAd'] },

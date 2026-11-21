@@ -2067,6 +2067,72 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13j. Lab 21: old-screen looks, ripples, the view's punch, shaking one way, day and night, the last particle kinds ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#ff8a65' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const scene = (id, extra) => ({ id, name: id, width: 720, height: 1280, background: null, music: null, gravity: 0, objects: [], prefabs: [], rules: [], ...extra });
+  const late = ['sparks', 'petals', 'feathers', 'poison', 'frost', 'glitter', 'coins', 'ash', 'rainbow', 'splash', 'sand'];
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab21', orientation: 'portrait', width: 720, height: 1280, background: '#3a4a5a', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentyone', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [],
+    startScene: 'hit',
+    scenes: [
+      scene('hit', {
+        retro: 'crt',
+        objects: [box('barrel', 310, 600, 100, 100), ...late.map((p, i) => box('l-' + p, 30 + (i % 4) * 175, 80 + Math.floor(i / 4) * 160, 110, 110, { visual: { kind: 'rect', color: '#263238' }, behaviors: [{ type: 'particles', preset: p, color: '#ffcc80', rate: 30, size: 16, speed: 1 }] }))],
+        rules: [{ id: 'r-hit', when: { type: 'after', seconds: 0.3 }, condition: null, then: [
+          { type: 'shockwave', at: { by: 'id', id: 'barrel' }, size: 500 },
+          { type: 'zoomPunch', amount: 1.2, seconds: 0.5 },
+          { type: 'shake', strength: 20, axis: 'side' },
+        ] }],
+      }),
+      scene('pixel', { retro: 'pixel', objects: [box('block', 300, 600, 120, 120)] }),
+      scene('day', { dayLength: 4, objects: [box('lamp', 330, 600, 60, 60, { behaviors: [{ type: 'light', radius: 200, color: '#ffffff', flicker: false }] })] }),
+    ],
+  };
+  let { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.2);
+  let s = await gameState(page);
+  check('old screen: the arcade look is on', s.retro === 'crt', s.retro);
+  await untilTime(page, 0.4);
+  s = await gameState(page);
+  check('shockwave: a ripple runs over the picture', s.waves === 1, `waves ${s.waves}`);
+  check('the view punches in closer', s.punch > 1.05, `scale ${s.punch.toFixed(3)}`);
+  check('a side shake moves the screen only left and right', s.shaking && s.shakeAt.y === 0, JSON.stringify(s.shakeAt));
+  await page.screenshot({ path: resolve(shots, '21-shockwave.png') });
+  await untilTime(page, 1.4);
+  s = await gameState(page);
+  check('and the ripple and the punch are over a moment later', s.waves === 0 && Math.abs(s.punch - 1) < 0.001, `waves ${s.waves}, scale ${s.punch}`);
+  check('particles: the last eleven kinds stream too', s.particles > 60 && errors.length === 0, `${s.particles} ${errors.join(' | ')}`);
+  await page.screenshot({ path: resolve(shots, '21-particles.png') });
+  await page.close();
+
+  ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: 'pixel' } }));
+  await loaded(page);
+  await untilTime(page, 0.3);
+  check('old screen: big pixels', (await gameState(page)).retro === 'pixel' && errors.length === 0);
+  await page.screenshot({ path: resolve(shots, '21-pixel.png') });
+  await page.close();
+
+  ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: 'day' } }));
+  await loaded(page);
+  await untilTime(page, 0.2);
+  const noon = (await gameState(page)).darkness;
+  await untilTime(page, 2);
+  const midnight = (await gameState(page)).darkness;
+  await untilTime(page, 3.8);
+  const morning = (await gameState(page)).darkness;
+  check('day and night: the scene darkens to night halfway through the day, and is light again at the end', noon < 0.05 && midnight > 0.75 && morning < 0.1, `${noon.toFixed(2)} → ${midnight.toFixed(2)} → ${morning.toFixed(2)}`);
+  check('lab 21: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },
