@@ -1,12 +1,12 @@
 // Builds each of the genre helper's games in the editor and saves it as a project file, for the bots to play.
-// node scripts/bots/export.mjs [genre,genre]   (all five by default)
+// node scripts/bots/export.mjs [genre,genre]   (all six by default)
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { launch, openPage, sleep } from '../lib.mjs';
 
 const dir = fileURLToPath(new URL('./games/', import.meta.url));
 mkdirSync(dir, { recursive: true });
-const genres = (process.argv[2] ?? 'platform,adventure,shooter,puzzle,physics').split(',');
+const genres = (process.argv[2] ?? 'platform,adventure,shooter,puzzle,physics,rescue').split(',');
 const browser = await launch();
 try {
   for (const genre of genres) {

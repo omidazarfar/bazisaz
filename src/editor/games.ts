@@ -1,6 +1,6 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TilesVisual, Visual } from '../format/types';
 import { CRATE, DANGER, GROUND, physics, PLAYER, THROWN, withVariable } from './presets';
-import { addAll, badge, bagIfNone, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
+import { addAll, addRescueRig, badge, bagIfNone, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
 import { SPRITES, useSprite } from './sprites';
 import { makeObject, newId, updateScene } from './state';
 
@@ -365,11 +365,11 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
 }
 
 /** A banner at the start of a level that says what to do, then fades. */
-async function banner(project: GameProject, sceneId: string, text: string): Promise<GameProject> {
+async function banner(project: GameProject, sceneId: string, text: string, height = 0.3): Promise<GameProject> {
   const { width: W, height: H } = project.meta;
   // Long enough words get smaller letters, so the banner always fits across the screen.
   const size = Math.min(58, Math.floor((W * 1.7) / text.length));
-  const words = makeObject('نوشته‌ی هدف', { kind: 'text', text, color: '#ffd23f', size, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: W / 2, y: H * 0.3 }, { fixed: true });
+  const words = makeObject('نوشته‌ی هدف', { kind: 'text', text, color: '#ffd23f', size, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: W / 2, y: H * height }, { fixed: true });
   return withRules(addAll(project, sceneId, [words]), sceneId, rule({ type: 'start' }, [
     { type: 'show', target: byId(words.id) },
     { type: 'effect', target: byId(words.id), kind: 'pop', seconds: 0.5 },
@@ -809,6 +809,70 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
   };
 }
 
+/** A rescue from a cliff to a space relay, then across a ridge and a harbour. */
+async function buildRescue(project: GameProject, first: string): Promise<GameResult> {
+  const { width: W, height: H } = project.meta;
+  const orbit = scene('Orbital relay', W, H, 'space', 'music:calm', { gravity: 0 });
+  const trail = scene('Mountain trail', W, H, 'forest', 'music:happy');
+  const ridge = scene('Rescue ridge', W, H, 'desert', 'music:happy');
+  const harbor = scene('Harbor crossing', W, H, 'day', 'music:calm');
+  let p = updateScene(project, first, sc => ({ ...sc, name: 'Cliff rescue', width: Math.max(W, sc.width), height: Math.max(H, sc.height), gravity: 1600, sky: 'sunset', music: 'music:happy' }));
+  p = { ...p, scenes: [...p.scenes, orbit, trail, ridge, harbor] };
+  const menu = await screens(p, first, { name: 'RESCUE RELAY', hero: 'hero', sky: 'forest', music: 'music:happy' });
+  p = menu.project;
+  function checkpoint(id: string, player: string, goal: GameObject, next: string) {
+    // A foot can bounce back into contact while the screen fades. Each destination awards its points once.
+    goal.values = { ...goal.values, claimed: 0 };
+    const arrived = rule({ type: 'touch', a: byId(player), b: byId(goal.id) }, [
+      { type: 'setValue', target: 'second', name: 'claimed', op: 'set', amount: 1 },
+      { type: 'setVariable', name: 'score', op: 'add', amount: 100 }, { type: 'playSound', sound: 'win' }, { type: 'goToScene', scene: next },
+    ]);
+    arrived.condition = { of: 'second', name: 'claimed', op: '==', value: 0 };
+    p = withRules(addAll(p, id, [goal]), id, arrived);
+  }
+  const add = async (id: string, recipe: string, x: number, y: number) => {
+    const result = await RECIPES.find(r => r.id === recipe)!.apply(p, id, { x, y });
+    p = result.project;
+    return result.select!;
+  };
+  const rig = addRescueRig(p, first, W / 2, H * 0.26);
+  p = rig.project;
+  const pad = makeObject('تشک نجات', { kind: 'rect', color: '#39b9a3', radius: 18, shade: true }, W * 0.62, 42, { x: W / 2, y: H * 0.81 }, { behaviors: [physics({ kind: 'still' })] });
+  checkpoint(first, rig.boot, pad, orbit.id);
+  p = await banner(p, first, 'Tap the gold hook to lower the rescuer', 0.13);
+  const radius = Math.min(W, H) * 0.45, distance = radius * 0.64, cx = W / 2, cy = H * 0.55;
+  const strength = 900;
+  const field = makeObject('میدان سیاره', { kind: 'ellipse', color: '#637cc0' }, 2 * radius, 2 * radius, { x: cx, y: cy },
+    { opacity: 0.15, visible: false, behaviors: [{ type: 'field', kind: 'planet', strength, direction: 0 }] });
+  const globe = makeObject('سیاره', { kind: 'ellipse', color: '#6994cb', shade: true, outline: '#24538c' }, radius * 0.56, radius * 0.56, { x: cx, y: cy }, { glow: '#508dd6' });
+  const probe = await picture(p, 'space-ship', 'کاوشگر', 54, 62, { x: cx - distance, y: cy }, { behaviors: [physics({ gravity: false, edges: false })] });
+  const relay = await picture(probe.project, 'star', 'ایستگاه مداری', 70, 70, { x: cx, y: cy - distance }, { glow: '#ffe188' });
+  p = addAll(relay.project, orbit.id, [field, globe, probe.object]);
+  const speed = Math.sqrt(strength * (radius / 2) ** 2 / distance);
+  p = withRules(p, orbit.id, rule({ type: 'tapObject', target: byId(probe.object.id) }, [
+    { type: 'show', target: byId(field.id) }, { type: 'push', target: byId(probe.object.id), vx: 0, vy: -speed },
+  ]));
+  checkpoint(orbit.id, probe.object.id, relay.object, trail.id);
+  p = await banner(p, orbit.id, 'Tap the ship to orbit into the relay');
+  for (const [stage, vehicle, next] of [[trail, 'bike', ridge.id], [ridge, 'tank', harbor.id], [harbor, 'boat', menu.win]] as const) {
+    const water = vehicle === 'boat';
+    const top = H * 0.7;
+    if (!water) p = addAll(p, stage.id, [makeObject('مسیر ترسیمی', { kind: 'terrain', color: vehicle === 'bike' ? '#4b8061' : '#ae7145',
+      heights: vehicle === 'bike' ? [0.25, 0.25, 0.25, 0.13, 0.06, 0.18, 0.32, 0.26, 0.24] : [0.32, 0.32, 0.32, 0.19, 0.28, 0.15, 0.25, 0.32, 0.32] },
+      W, H - top, { x: W / 2, y: (H + top) / 2 }, { tags: [GROUND] })]);
+    const driver = await add(stage.id, vehicle, Math.max(108, W * 0.18), top);
+    const goal = await picture(p, 'star', 'نشان مقصد', 63, 72, { x: W - 68, y: water ? top : top + (H - top) * (vehicle === 'bike' ? 0.24 : 0.32) - 53 }, { glow: '#ffca43' });
+    p = goal.project;
+    checkpoint(stage.id, driver, goal.object, next);
+    p = await banner(p, stage.id, water ? 'Hold right to reach the harbor' : vehicle === 'bike' ? 'Ride right to the ridge' : 'Drive the rescue crawler to the star');
+  }
+  for (const id of [first, orbit.id, trail.id, ridge.id, harbor.id]) {
+    const retry = await picture(p, 'btn-restart', 'شروع دوباره‌ی این مرحله', 64, 64, { x: W - 47, y: 47 }, { fixed: true });
+    p = withRules(addAll(retry.project, id, [retry.object]), id, rule({ type: 'tapObject', target: byId(retry.object.id) }, [{ type: 'restartScene' }]));
+  }
+  return { project: p, select: rig.select, note: 'مسیر امداد آماده است. قلاب را آزاد کن، کاوشگر را به مدار بفرست و با سه وسیله تا بندر بران.' };
+}
+
 /** The genre helper's games, by genre id. Genres without one here still use the helper's simpler start. */
 export const GAMES: Record<string, (project: GameProject, sceneId: string) => Promise<GameResult>> = {
   platform: buildPlatformer,
@@ -816,4 +880,5 @@ export const GAMES: Record<string, (project: GameProject, sceneId: string) => Pr
   shooter: buildShooter,
   puzzle: buildPuzzle,
   physics: buildPhysics,
+  rescue: buildRescue,
 };

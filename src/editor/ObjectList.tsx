@@ -144,6 +144,9 @@ function Thumb({ object, project }: { object: GameObject; project: Editor['proje
   }
   if (v.kind === 'bar') return <span className="thumb thumb-bar" style={{ background: `linear-gradient(90deg, ${v.color} 65%, ${v.back} 65%)` }} />;
   if (v.kind === 'bag') return <span className="thumb thumb-bag" style={{ background: 'repeating-linear-gradient(90deg, #232d55 0 7px, #ffd23f 7px 8px)', borderRadius: '4px' }} />;
+  if (v.kind === 'terrain') return <svg className="thumb" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <polygon fill={v.color} points={v.heights.map((y, i) => `${100 * i / (v.heights.length - 1)},${100 * y}`).join(' ') + ' 100,100 0,100'} />
+  </svg>;
   if (v.kind === 'tiles') {
     // A map shows as a little checkerboard of its first two kinds.
     const [a = '#6d4c41', b = a] = Object.values(v.kinds).map((k) => k.color);

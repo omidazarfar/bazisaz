@@ -211,13 +211,24 @@ interface Entity extends Box {
   path: Point[];
   pathIn: number;
   /** A chaser that needs to see: where it last saw its target, and when. */
-  lastSeen?: { x: number; y: number; at: number } | null;
+  lastSeen?: { x: number; y: number; at: number; arrivedAt?: number } | null;
   /** Seconds until the particles behavior lets out its next particle. */
   emitIn: number;
   /** Its own lasting effects: a soft shadow, a glow. A flash goes on top of these while it lasts. */
   fx: Filter[];
   /** A character's squash or stretch, from a jump or a landing, springing back to normal over `span` seconds. */
   squash: { x: number; y: number; left: number; span: number } | null;
+}
+
+/** Highest point of a terrain surface under a horizontal footprint (including peaks between its feet). */
+function terrainTop(r: Box, heights: number[], left: number, right: number): number {
+  const last = heights.length - 1;
+  const sample = (x: number) => clamp((x - r.x) / r.width, 0, 1) * last;
+  const at = (i: number) => heights[Math.floor(i)] + (heights[Math.ceil(i)] - heights[Math.floor(i)]) * (i % 1);
+  const a = sample(left), b = sample(right);
+  let high = Math.min(at(a), at(b));
+  for (let i = Math.ceil(a); i < b; i++) high = Math.min(high, heights[i]);
+  return r.y + r.height * high;
 }
 
 /** What a body needs to know about a ramp: how high its surface is at any point across it. */
@@ -644,8 +655,9 @@ export class Game {
     if (this.fade) this.stepFade(total);
     if (this.slowLeft > 0 && !this.paused) {
       // Counted in real time, so a freeze (0) still ends.
-      this.slowLeft -= Math.min(elapsed, MAX_FRAME);
-      total *= this.slowScale;
+      const slowed = Math.min(elapsed, this.slowLeft);
+      this.slowLeft -= slowed;
+      if (elapsed > 0) total *= 1 - (1 - this.slowScale) * slowed / elapsed;
       if (this.slowLeft <= 0) this.slowScale = 1;
       if (total <= 0) {
         this.drawShade();
@@ -1456,6 +1468,13 @@ export class Game {
       if (look.color) sprite.tint = look.color;
       return sprite;
     }
+    if (v.kind === 'terrain') {
+      const ridge = v.heights.flatMap((y, i) => [i * def.width / (v.heights.length - 1), y * def.height]);
+      const g = new Graphics().poly([...ridge, def.width, def.height, 0, def.height]).fill(look?.color ?? v.color);
+      const reverse = v.heights.map((y, i) => [ridge[i * 2], Math.min(def.height, y * def.height + 9)]).reverse().flat();
+      g.poly([...ridge, ...reverse]).fill({ color: 0xffffff, alpha: 0.28 });
+      return centred(g, def);
+    }
     if (def.slope && v.kind !== 'text' && v.kind !== 'tiles' && v.kind !== 'image') {
       // A ramp is drawn as the triangle it is.
       const points = def.slope === 'rise'
@@ -2161,6 +2180,7 @@ export class Game {
           if (!free(e, ...step(mine))) [mine, theirs] = [0, otherMoves ? depth : 0];
           else if (theirs && !free(o, ...step(-theirs))) [mine, theirs] = [depth, 0];
           if (mine && !free(e, ...step(mine))) mine = 0;
+          if (theirs && !free(o, ...step(-theirs))) theirs = 0;
           if (!mine && !theirs) continue;
           const [ex, ey] = step(mine);
           const [ox, oy] = step(-theirs);
@@ -2208,8 +2228,8 @@ export class Game {
       ? this.entities.filter((s) => s !== e && s.alive && s.visible && s.def.tags.includes(body.solidTag))
       : [];
     // Ramps are met by their sloping surface, not as boxes.
-    const solids = all.filter((s) => !s.def.slope);
-    const ramps = all.filter((s) => s.def.slope);
+    const solids = all.filter((s) => !s.def.slope && s.def.visual.kind !== 'terrain');
+    const ramps = all.filter((s) => s.def.slope || s.def.visual.kind === 'terrain');
     const startX = e.x;
     const startBottom = e.y + e.height;
     const startTop = e.y;
@@ -2242,7 +2262,16 @@ export class Game {
     // A ramp's steep side is a wall to whatever comes at it from beyond that side.
     for (const r of body.oneWay ? [] : ramps) {
       if (!blocked(r) || startBottom <= r.y + 1) continue;
-      if (r.def.slope === 'rise' && startX >= r.x + r.width - 0.5) {
+      if (r.def.visual.kind === 'terrain') {
+        const heights = r.def.visual.heights;
+        if (startX >= r.x + r.width - 0.5 && startBottom > r.y + r.height * heights[heights.length - 1]) {
+          e.x = r.x + r.width;
+          e.vx = rebound(e.vx, body.bounce);
+        } else if (startX + e.width <= r.x + 0.5 && startBottom > r.y + r.height * heights[0]) {
+          e.x = r.x - e.width;
+          e.vx = rebound(e.vx, body.bounce);
+        }
+      } else if (r.def.slope === 'rise' && startX >= r.x + r.width - 0.5) {
         e.x = r.x + r.width;
         e.vx = rebound(e.vx, body.bounce);
       } else if (r.def.slope === 'fall' && startX + e.width <= r.x + 0.5) {
@@ -2280,11 +2309,13 @@ export class Game {
     const travelled = Math.abs(e.x - startX);
     for (const r of ramps) {
       if (e.x >= r.x + r.width || e.x + e.width <= r.x) continue;
-      const surface = surfaceAt(r, foot(r, e.x))!;
-      const before = surfaceAt(r, foot(r, startX))!;
+      const v = r.def.visual;
+      const support = (x: number) => v.kind === 'terrain' ? terrainTop(r, v.heights, x, x + e.width) : surfaceAt(r, foot(r, x))!;
+      const surface = support(e.x);
+      const before = support(startX);
       const bottom = e.y + e.height;
       const steepness = r.height / Math.max(1, r.width);
-      const reach = travelled * steepness + 4;
+      const reach = (v.kind === 'terrain' ? Math.abs(surface - before) : travelled * steepness) + 4;
       const wasOnOrAbove = startBottom <= before + reach;
       const sticks = wasGrounded && e.vy >= 0 && !e.rising && bottom < surface && surface - bottom <= reach;
       if ((bottom > surface && wasOnOrAbove && e.vy >= 0) || sticks) {
@@ -2401,7 +2432,7 @@ export class Game {
         if (this.time - (this.lastKnock.get(e) ?? -1) < 0.12) continue;
         this.lastKnock.set(e, this.time);
         this.knocksThisStep += 1;
-        playEffect(this.project, MATERIALS[p.material].sound, Math.min(100, 15 + hit.speed / 14));
+        this.sound(MATERIALS[p.material].sound, Math.min(100, 15 + hit.speed / 14));
       }
     }
   }
@@ -2420,8 +2451,9 @@ export class Game {
     const centre = { x: e.x + e.width / 2, y: e.y + e.height / 2 };
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
+        const crop = v.kind === 'image' && v.crop ? v.crop : { x: 0, y: 0, w: 1, h: 1 };
         const visual: GameObject['visual'] = v.kind === 'image'
-          ? { kind: 'image', asset: e.image ?? v.asset, crop: { x: c / cols, y: r / rows, w: 1 / cols, h: 1 / rows } }
+          ? { kind: 'image', asset: e.image ?? v.asset, crop: { x: crop.x + c * crop.w / cols, y: crop.y + r * crop.h / rows, w: crop.w / cols, h: crop.h / rows } }
           : v.kind === 'rect' || v.kind === 'ellipse' ? { ...v, kind: 'rect', radius: 0 } : { kind: 'rect', color: '#9e9e9e' };
         const piece: GameObject = {
           ...e.def, id: `${e.def.id}~${r}${c}`, name: e.def.name, tags: [], width: w, height: h, rotation: 0, round: false,
@@ -2431,10 +2463,9 @@ export class Game {
             { type: 'lifetime', seconds: 2.5 + Math.random() },
           ],
         } as GameObject;
-        const x = e.x + c * w;
-        const y = e.y + r * h;
-        const piece_ = this.createEntity(piece, x, y);
-        const away = { x: x + w / 2 - centre.x, y: y + h / 2 - centre.y };
+        const dx = (c + 0.5) * w - e.width / 2, dy = (r + 0.5) * h - e.height / 2;
+        const away = { x: Math.cos(e.angle) * dx - Math.sin(e.angle) * dy, y: Math.sin(e.angle) * dx + Math.cos(e.angle) * dy };
+        const piece_ = this.createEntity(piece, centre.x + away.x - w / 2, centre.y + away.y - h / 2);
         const reach = Math.hypot(away.x, away.y) || 1;
         piece_.vx = e.vx + (away.x / reach) * (120 + Math.random() * 160);
         piece_.vy = e.vy + (away.y / reach) * (120 + Math.random() * 160) - 120;
@@ -2445,7 +2476,7 @@ export class Game {
     }
     const color = v.kind === 'rect' || v.kind === 'ellipse' ? v.color : '#d8c8a8';
     this.burst(e, color, 14);
-    playEffect(this.project, p.material === 'glass' || p.material === 'ice' ? 'shatter' : p.material === 'metal' ? 'clang' : 'boom', p.material === 'glass' ? 80 : 45);
+    this.sound(p.material === 'glass' || p.material === 'ice' ? 'shatter' : p.material === 'metal' ? 'clang' : 'boom', p.material === 'glass' ? 80 : 45);
   }
 
   /**
@@ -3688,7 +3719,10 @@ export class Game {
       if (walls && this.blocksView(me, goal, walls, e, target)) {
         // Out of sight: on to where it was last seen, a short look round there, then nothing.
         const last = e.lastSeen;
-        if (!last || this.time - last.at > 2 + Math.hypot(last.x - me.x, last.y - me.y) / Math.max(1, b.speed)) {
+        if (last && last.arrivedAt === undefined && Math.hypot(last.x - me.x, last.y - me.y) <= Math.max(4, b.speed * dt)) last.arrivedAt = this.time;
+        // Give up two seconds after arriving. Bound an unreachable search even if the route was sealed.
+        const searchLimit = 2 + 2 * Math.hypot(this.scene.width, this.scene.height) / Math.max(1, b.speed);
+        if (!last || (last.arrivedAt !== undefined ? this.time - last.arrivedAt > 2 : this.time - last.at > searchLimit)) {
           e.lastSeen = null;
           e.path = [];
           return null;
@@ -4463,6 +4497,14 @@ function overlaps(a: Entity, b: Entity): boolean {
   if (!a.visible || !b.visible || Boolean(a.def.fixed) !== Boolean(b.def.fixed)) return false;
   const ia = a.def.hitboxInset ?? 0;
   const ib = b.def.hitboxInset ?? 0;
+  if (a.def.visual.kind === 'terrain' || b.def.visual.kind === 'terrain') {
+    const [ground, other, inset] = a.def.visual.kind === 'terrain' ? [a, b, ib] as const : [b, a, ia] as const;
+    const v = ground.def.visual;
+    if (v.kind !== 'terrain') return false;
+    const left = other.x + inset, right = other.x + other.width - inset;
+    return right > ground.x && left < ground.x + ground.width && other.y + inset < ground.y + ground.height &&
+      other.y + other.height - inset >= terrainTop(ground, v.heights, left, right) - 0.01;
+  }
   // A turned box is tested as the turned shape it is. A circle looks the same however it is turned.
   const turned = (e: Entity) => !e.def.round && e.def.visual.kind !== 'text' && Math.abs(Math.sin(e.angle)) > 0.001;
   if (turned(a) || turned(b)) {

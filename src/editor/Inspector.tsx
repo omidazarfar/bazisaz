@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TerrainEditor } from './TerrainEditor';
 import { ruleActions, type Behavior, type GameObject, type Rule, type Trigger, type Visual } from '../format/types';
 import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextField } from './controls';
 import type { Editor } from './editor';
@@ -272,6 +273,9 @@ export function Inspector({ editor }: { editor: Editor }) {
         </form>
       </Section>
 
+      {visual.kind === 'terrain' && <Section title="رسم سطح زمین" about="خطِ بالای زمین را با انگشت یا موس بکش. با رها کردن، شکل و برخورد با هم ثبت می‌شوند.">
+        <TerrainEditor heights={visual.heights} color={visual.color} onChange={heights => setVisual(newId('terrain'), { heights })} />
+      </Section>}
       {visual.kind === 'tiles' && <TilesPanel editor={editor} object={object} update={update} />}
 
       {visual.kind !== 'tiles' && <Section title="ظاهر">
@@ -434,7 +438,7 @@ export function Inspector({ editor }: { editor: Editor }) {
             <NumberField label="فاصله از بالا" value={object.y} onChange={(y) => update('y', (o) => ({ ...o, y }))} />
           </div>
         )}
-        {visual.kind !== 'text' && visual.kind !== 'bar' && visual.kind !== 'tiles' && (
+        {visual.kind !== 'text' && visual.kind !== 'bar' && visual.kind !== 'tiles' && visual.kind !== 'terrain' && (
           <Choice
             label="شکل برای راه رفتن"
             hint="سراشیبی یعنی جسم‌هایی که از این شیء رد نمی‌شوند، رویش بالا و پایین می‌روند؛ مثل تپه یا رمپ."

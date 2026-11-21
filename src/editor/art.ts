@@ -884,6 +884,18 @@ export const ART_SPRITES: Sprite[] = [
     }),
   },
   {
+    id: 'trail-bike', name: 'موتور کوهستان', category: 'character', width: 160, height: 66,
+    body: draw(k => `<path d="M13 56l36-34 34 33H14l53-20 41-14 30 38" fill="none" stroke="#264154" stroke-linejoin="round" stroke-width="9"/><path d="M39 23l32-3 20 11-9 12-32-5z" fill="${k.lin('#f87332', 0.4, 0.3)}"/><path d="M29 17h28m47-2 7-8h14" fill="none" stroke="#283746" stroke-linecap="round" stroke-width="7"/><path d="M106 17l18 3-3 12h-11z" fill="#ffe090"/>`),
+  },
+  {
+    id: 'rescue-tank', name: 'شنی‌دار امداد', category: 'character', width: 200, height: 76,
+    body: draw(k => `<path d="M6 39l22-10h27L70 9h57l19 20h28l20 12-13 24H28z" fill="${k.lin('#e7952e', 0.45, 0.35)}" ${ol('#594020', 4)}/><path d="M77 13h45l12 15H67z" fill="#85d0dd"/><path d="M19 51h162l-6 12H29z" fill="#394854"/><path d="M46 34h9v5h5v8h-5v5h-9v-5h-5v-8h5z" fill="#fffbea"/>`),
+  },
+  {
+    id: 'harbor-boat', name: 'قایق بندر', category: 'character', width: 200, height: 80,
+    body: draw(k => `<path d="M52 43l15-32h60l21 32z" fill="#f3ede0" ${ol('#344b60', 3)}/><path d="M73 16h18v19H63zm24 0h26l12 19H97z" fill="#65b4cd"/><path d="M5 40l98 5 87-13-27 34-35 9H36z" fill="${k.lin('#ef694d', 0.35, 0.32)}" ${ol('#543a3b', 4)}/><path d="M22 53l81 5 69-11-9 8-61 11-70-6z" fill="#fff0bc"/>`),
+  },
+  {
     id: 'car-body', name: 'بدنه‌ی ماشین', category: 'character', width: 240, height: 90,
     body: draw((k) =>
       `<path d="M6 68V44q0-10 12-10h36l24-26h70l30 26h40q14 0 14 14v20q0 6-6 6h-24a26 26 0 0 0-52 0H86a26 26 0 0 0-52 0H12q-6 0-6-6z" fill="${k.lin('#ff3b47', 0.4, 0.32)}" ${ol('#a50f1c', 4)}/>` +

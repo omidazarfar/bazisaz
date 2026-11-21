@@ -1078,6 +1078,18 @@ await click('+ شرط بگذار', 'article.rule');
 check('and shows them when asked', (await page.$eval('article.rule', (r) => r.textContent)).includes('+ شرط روی مقدار یک شیء'));
 await click('شیء', '.tabs');
 
+// Draw across the complete inspector surface. The saved collision profile must follow the stroke.
+await freshGame();
+await openLibrary('شکل، متن و عکس خودت');
+await page.click('[data-basic="terrain"]');
+const profile = await page.waitForSelector('svg[aria-label="خط بالای زمین"]');
+await profile.evaluate(el => el.scrollIntoView({ block: 'center' }));
+const bounds = await profile.boundingBox();
+await drag([bounds.x + 2, bounds.y + 14], [bounds.x + bounds.width - 2, bounds.y + bounds.height - 14]);
+const drawn = (await object((await editor()).selection)).visual.heights;
+check('drawn terrain saves a continuous rising or falling stroke', drawn.length === 65 && drawn[1] < 0.2 && drawn[63] > 0.77 && drawn[32] > 0.35 && drawn[32] < 0.65);
+await page.screenshot({ path: resolve(shots, 'editor-drawn-terrain.png') });
+
 // ── A tile map, painted with the mouse ─────────────────────────────────────
 await freshGame();
 await openLibrary('شکل، متن و عکس خودت');
@@ -1240,7 +1252,7 @@ await until(page, () => !document.querySelector('.modal'));
 const knightArt = (await scene()).objects.at(-1);
 check('a placed knight carries run, jump and hurt pictures', knightArt.visual.moveFrames?.length === 2 && knightArt.visual.airFrames?.length === 1 && knightArt.visual.hurtFrames?.length === 1);
 await openLibrary('راهنمای سبک');
-check('the helper offers five genres', (await page.$$('.modal [data-genre]')).length === 5);
+check('the helper offers six genres', (await page.$$('.modal [data-genre]')).length === 6);
 await page.click('.modal [data-genre="shooter"]');
 await until(page, () => !document.querySelector('.modal'));
 sc = await scene();
@@ -1251,6 +1263,27 @@ check('shooter helper keeps existing objects and wires a camera, finger controls
 await click('یک قدم به عقب', '.topbar');
 sc = await scene();
 check('one undo removes the helper addition and keeps the original knight', sc.objects.length === 1 && sc.objects[0].id === knightArt.id && sc.prefabs.length === 0);
+
+await freshGame();
+await openLibrary('راهنمای سبک');
+await page.click('.modal [data-genre="rescue"]');
+await until(page, () => !document.querySelector('.modal'), null, 30000);
+const rescue = (await editor()).project;
+const leg = name => rescue.scenes.find(s => s.name === name);
+check('each rescue checkpoint awards points only on its first contact', ['Cliff rescue', 'Orbital relay', 'Mountain trail', 'Rescue ridge', 'Harbor crossing'].every(name => {
+  const finish = leg(name).rules.find(r => r.when.type === 'touch' && r.then.some(a => a.type === 'goToScene'));
+  return finish?.condition?.name === 'claimed' && finish.condition.of === 'second' && finish.condition.value === 0 &&
+    finish.then[0].type === 'setValue' && finish.then[0].name === 'claimed' && finish.then[0].amount === 1;
+}));
+const hinges = leg('Cliff rescue').objects.flatMap(o => o.behaviors.filter(b => b.type === 'joint'));
+check('rescue chain and limbs have individual limited hinges with exactly one anchor each',
+  hinges.length === 15 && hinges.every(b => b.kind === 'hinge' && b.limit > 0 && leg('Cliff rescue').objects.filter(o => o.tags.includes(b.targetTag)).length === 1));
+for (const [name, count] of [['Mountain trail', 2], ['Rescue ridge', 4]]) {
+  const wheels = leg(name).objects.filter(o => o.behaviors.some(b => b.type === 'joint' && b.drive === 'player'));
+  check(name + ' has a steerable vehicle on an editable trail', wheels.length === count && leg(name).objects.some(o => o.visual.kind === 'terrain'));
+}
+check('the boat engine and the water field can be edited independently', leg('Harbor crossing').objects.some(o => o.behaviors.some(b => b.propeller > 0)) &&
+  leg('Harbor crossing').objects.some(o => o.behaviors.some(b => b.kind === 'water')));
 
 // ── The genre helper's platformer: a whole game, played ───────────────────
 await freshGame();

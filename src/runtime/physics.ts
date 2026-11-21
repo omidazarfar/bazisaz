@@ -503,7 +503,11 @@ export class Physics<T extends Thing> {
     const hh = Math.max(1, t.height / 2 - inset) / M;
     const def = t.def;
     const shape =
-      def.round || def.visual.kind === 'ellipse' ? new Circle(Math.min(hw, hh))
+      def.visual.kind === 'terrain' ? new Chain([
+        ...def.visual.heights.map((y, i, all) => ({ x: hw * (2 * i / (all.length - 1) - 1), y: hh * (2 * y - 1) })),
+        { x: hw, y: hh }, { x: -hw, y: hh },
+      ], true)
+      : def.round || def.visual.kind === 'ellipse' ? new Circle(Math.min(hw, hh))
       : def.slope === 'rise' ? new Polygon([{ x: -hw, y: hh }, { x: hw, y: hh }, { x: hw, y: -hh }])
       : def.slope === 'fall' ? new Polygon([{ x: -hw, y: -hh }, { x: -hw, y: hh }, { x: hw, y: hh }])
       : new Box(hw, hh);
@@ -691,6 +695,14 @@ export class Physics<T extends Thing> {
       if (b.kind === 'wind') {
         const angle = (b.direction * Math.PI) / 180;
         body.applyForceToCenter({ x: Math.cos(angle) * (b.strength / M) * mass, y: Math.sin(angle) * (b.strength / M) * mass }, true);
+      } else if (b.kind === 'planet') {
+        const dx = middle.x - c.x, dy = middle.y - c.y;
+        const distance = Math.hypot(dx, dy);
+        // Strength is the acceleration halfway out. A finite core keeps the centre stable.
+        const radius = Math.min(box.w, box.h) / 2;
+        if (distance > radius || distance === 0) continue;
+        const scale = b.strength * (radius / 2) ** 2 / Math.max(distance, radius / 4) ** 3;
+        body.applyForceToCenter({ x: dx * scale * mass / M, y: dy * scale * mass / M }, true);
       } else if (b.kind === 'magnet') {
         const [dx, dy] = [middle.x - c.x, middle.y - c.y];
         const d = Math.hypot(dx, dy);
@@ -707,7 +719,7 @@ export class Physics<T extends Thing> {
         if (sunk <= 0) continue;
         const weight = Math.max(0.1, rec.physics ? feel(rec.physics).weight : 1);
         const lift = this.gravity * sunk * b.strength * 1.5 / weight;
-        body.applyForceToCenter({ x: 0, y: -lift * mass }, true);
+        body.applyForceToCenter({ x: (rec.physics?.propeller ?? 0) * this.throttle * mass * sunk / M, y: -lift * mass }, true);
         // Water slows whatever moves in it; up and down most, so something light settles at the surface instead of bobbing out of it.
         const v = body.getLinearVelocity();
         body.setLinearVelocity({ x: v.x * Math.exp(-3 * sunk * dt), y: v.y * Math.exp(-8 * Math.min(1, sunk * 3) * dt) });

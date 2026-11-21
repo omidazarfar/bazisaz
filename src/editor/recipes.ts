@@ -82,7 +82,13 @@ async function withGround(project: GameProject, sceneId: string, centre: { x: nu
   const scene = getScene(project, sceneId);
   const grounds = scene.objects.filter((o) => o.tags.includes(GROUND) && o.visual.kind !== 'text');
   const under = grounds.find((o) => o.x <= centre.x && o.x + o.width >= centre.x) ?? grounds[0];
-  if (under) return { project, top: under.y };
+  if (under) {
+    if (under.visual.kind !== 'terrain') return { project, top: under.y };
+    const samples = under.visual.heights;
+    const i = Math.max(0, Math.min(1, (centre.x - under.x) / under.width)) * (samples.length - 1);
+    const h = samples[Math.floor(i)] + (samples[Math.ceil(i)] - samples[Math.floor(i)]) * (i % 1);
+    return { project, top: under.y + under.height * h };
+  }
   const height = 80;
   const top = Math.round(centre.y + project.meta.height / 2 - height);
   // Grass on earth, repeated along the whole world.
@@ -108,7 +114,73 @@ async function crateTower(project: GameProject, x: number, top: number, rows: nu
 
 export const addAll = (project: GameProject, sceneId: string, objects: GameObject[]) => objects.reduce((p, o) => addObject(p, sceneId, 'objects', o), project);
 
+/** Each assembly uses local joint targets so adjacent copies stay independent. */
+export function addRescueRig(p: GameProject, sceneId: string, x: number, y: number) {
+  const parts: GameObject[] = [];
+  const piece = (name: string, dx: number, dy: number, w: number, h: number, color: string, parent?: GameObject, limit = 65) => {
+    const o = makeObject(name, { kind: 'rect', color, radius: Math.min(9, w / 2), shade: true }, w, h, { x: x + dx, y: y + dy }, {
+      behaviors: [physics(parent ? { bounce: 0, drag: 'grab' } : { kind: 'still' })],
+    });
+    o.tags.push(name + '-' + o.id);
+    if (parent) o.behaviors.push({ type: 'joint', kind: 'hinge', targetTag: parent.tags[0], at: 'between', limit, motor: 0 });
+    parts.push(o);
+    return o;
+  };
+  const pin = piece('قلاب نجات', 0, 0, 60, 30, '#ffb843');
+  let end = pin;
+  for (let i = 1; i <= 5; i++) end = piece('حلقه ' + i, 0, i * 21, i % 2 ? 12 : 19, 23, i % 2 ? '#7299b1' : '#c4e6ef', end);
+  const head = piece('کلاه نجات', 0, 134, 44, 42, '#ffb743', end, 28);
+  const torso = piece('تنه', 0, 183, 49, 62, '#f07a3f', head, 24);
+  const boots = ([-1, 1] as const).map(side => {
+    const name = side === -1 ? 'چپ' : 'راست';
+    const arm = piece('بازوی ' + name, side * 37, 168, 17, 36, '#ffb743', torso, 80);
+    piece('ساعد ' + name, side * 38, 201, 17, 33, '#477489', arm, 70);
+    const thigh = piece('ران ' + name, side * 14, 230, 19, 39, '#477489', torso, 50);
+    return piece('ساق ' + name, side * 15, 267, 19, 38, '#204259', thigh, 60);
+  });
+  const project = withRules(addAll(p, sceneId, parts), sceneId, rule({ type: 'tapObject', target: byId(pin.id) }, [{ type: 'cut', target: byId(pin.id) }]));
+  return { project, select: torso.id, boot: boots[1].id };
+
+}
+
 export const RECIPES: Recipe[] = [
+  ...(['bike', 'tank'] as const).map((id): Recipe => ({
+    id, title: id === 'bike' ? 'موتور کوهستان' : 'خودروی شنی‌دار امداد',
+    about: 'با کلید یا لمس راست و چپ بران. هر چرخ اتصال و موتور خودش را دارد.',
+    apply: async (p, s, centre) => {
+      const bike = id === 'bike';
+      const ground = await withGround(p, s, centre);
+      const cx = centre.x, cy = ground.top - 78;
+      const shell = await picture(ground.project, bike ? 'trail-bike' : 'rescue-tank', bike ? 'بدنه‌ی موتور' : 'بدنه‌ی شنی‌دار',
+        bike ? 152 : 186, bike ? 58 : 65, { x: cx, y: cy }, { hitboxInset: bike ? 0 : 8, behaviors: [physics({ weight: bike ? 0.65 : 2, friction: 0.2 })] });
+      const body = shell.object;
+      const axle = 'محور-' + body.id;
+      body.tags.push(axle);
+      const tire = await useSprite(shell.project, 'tire');
+      const size = bike ? 47 : 43;
+      const wheels = (bike ? [-57, 56] : [-66, -22, 22, 66]).map((dx, i) => makeObject('چرخ ' + (i + 1),
+        { kind: 'image', asset: tire.asset }, size, size, { x: cx + dx, y: cy + 26 }, { round: true,
+          behaviors: [physics({ friction: 1.1, bounce: 0 }), { type: 'joint', kind: 'wheel', targetTag: axle, at: 'self', drive: 'player', motor: bike ? 690 : 530 }] }));
+      return { project: addAll(tire.project, s, [body, ...wheels]), select: body.id };
+    },
+  })),
+  {
+    id: 'boat', title: 'قایق موتوری', about: 'قایق و آب را اضافه می‌کند. با لمس نیمه‌ی راست یا چپ صفحه روی آب بران.',
+    apply: async (p, s, centre) => {
+      const world = getScene(p, s);
+      const top = centre.y + 18;
+      const h = Math.max(100, world.height - top);
+      const water = await picture(p, 'water', 'آب بندر', world.width, h, { x: world.width / 2, y: top + h / 2 },
+        { locked: true, opacity: 0.65, behaviors: [{ type: 'field', kind: 'water', strength: 1, direction: 0 }] });
+      const hull = await picture(water.project, 'harbor-boat', 'قایق نجات', 170, 65, centre,
+        { behaviors: [physics({ weight: 0.65, propeller: 1400, bounce: 0.03 })] });
+      return { project: addAll(hull.project, s, [water.object, hull.object]), select: hull.object.id };
+    },
+  },
+  {
+    id: 'rescue-chain', title: 'زنجیر و آدمک مفصلی', about: 'آدمک با پنج حلقه از قلاب آویزان است. دست و پاهایش را بکش یا قلاب را لمس کن تا روی تشک بیفتد.',
+    apply: async (p, s, centre) => addRescueRig(p, s, centre.x, centre.y - 120),
+  },
   {
     id: 'score',
     title: 'امتیاز بالای صفحه',

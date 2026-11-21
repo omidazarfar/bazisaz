@@ -86,8 +86,10 @@ and a Persian guide entry.
    forward, left is back; the "car" part uses it) and `chase.sight` (a chaser
    only notices what it can see; out of sight it goes to where it last saw
    it, looks for two seconds and gives up; Dungeon Escape's skeletons use it).
-   Next: polygon/capsule/drawn-terrain shapes; chains/ragdolls/gears; planet
-   gravity and gravity zones; more vehicles (bike, tank, boat).
+   Rescue Relay now uses drawn terrain, a five-link chain and a jointed rescue
+   figure, a local planetary field, and a trail bike, four-wheel rescue crawler
+   and powered boat. Still open in Phase 1: polygon and capsule collision shapes,
+   gears, and configurable gravity zones.
 2. **Graphics.** Real lights and shadows cast by walls, flickering torches,
    day/night; rain, snow, fog, wind; a particle editor with 30+ presets;
    hit-stop, directional shake, impact zoom, flash, floating damage numbers;
@@ -117,8 +119,9 @@ The games are in `src/editor/games.ts`:
 - `buildShooter` — Star Raiders
 - `buildPuzzle` — Gem Crush
 - `buildPhysics` — Rock Smash
+- `buildRescue` — Rescue Relay (five playable stages)
 
-Each builds into the user's current scene, in one undo step. Each adds three scenes: Start (the game opens there), You win and Game over. They are made only of ordinary editable objects, rules and parts. Keep it that way: no hidden logic, everything visible and changeable.
+Each builds into the user's current scene, in one undo step. Each adds menu scenes: Start (the game opens there), You win and Game over. They are made only of ordinary editable objects, rules and parts. Keep it that way: no hidden logic, everything visible and changeable.
 
 To see them: `node scripts/look/gameplay.mjs <genre>` and `node scripts/look/platformer.mjs <genre> <shares>`.
 
@@ -154,7 +157,7 @@ To see them: `node scripts/look/gameplay.mjs <genre>` and `node scripts/look/pla
 | `npm run build` | type-check, then build the player (`dist/`) and the editor (`dist-editor/editor.html`), each a single file |
 | `npm test` | `scripts/smoke.mjs` (runtime labs 1–18), then `scripts/editor.smoke.mjs` (drives the real editor), then `scripts/server.smoke.mjs`; uses puppeteer-core and Chrome |
 | `npx tsc --noEmit -p .` | type-check only |
-| `npm run bots` | builds the five genre-helper games fresh in the editor, then a bot plays each one in the real player from the start screen to "You win" (the shooter: 35 s of waves without dying). Needs `npm run build` first; takes about 10 minutes. Each bot can also run alone: `node scripts/bots/<genre>.mjs [seconds]`; photographs of every life lost go to `scripts/bots/out/` |
+| `npm run bots` | builds the six genre-helper games fresh in the editor, then a bot plays each one in the real player from the start screen to "You win" (the shooter: 35 s of waves without dying). Needs `npm run build` first; takes longer on software-rendered Chrome. Each bot can also run alone: `node scripts/bots/<genre>.mjs [seconds]`; photographs of every life lost go to `scripts/bots/out/` |
 
 Shell is **Windows PowerShell 5.1**: no `&&`. `Set-Content` writes ANSI and
 corrupts Persian, so write files with an editor tool, or with
@@ -183,7 +186,7 @@ corrupts Persian, so write files with an editor tool, or with
 After `npm run build`, these write PNGs to `scripts/look/out/`. Open them and
 look:
 
-- `node scripts/look/genres.mjs`: the genre helper and all five choices in fresh editor try-outs.
+- `node scripts/look/genres.mjs`: the genre helper and its choices in fresh editor try-outs.
 - `node scripts/look/sheet.mjs`: every library picture, large, on light and dark.
 - `node scripts/look/parts.mjs [id,id]`: each ready-made part in a fresh game, played. For example `parts.mjs sling-tower,car`.
 - `node scripts/look/editorlook.mjs`: the editor in its main states (library, parts, object, rules, game tab, playing).
@@ -234,19 +237,17 @@ look:
 
 ## Current state (keep this up to date)
 
-- Last updated **2026-11-20 by Claude** (see the plan above; phase 0 done). Before that, by Codex: Phase D now includes text variables for quest steps and names. Phase E is implemented. The editor
-  library has five genre choices, four animated character sets, three art
-  packs, sound preview and volume, and eight built-in music pieces.
-- The sword try-out advances and one swing damages the patrol. A scene-load
-  trace established that the loss rule kept restarting the test scene.
-- `npm run build` passed. The complete `npm test` run passed all three suites with **483 PASS, 0 FAIL**.
+- Updated 2026-11-21 by Codex. Phase 0 is complete. Phase 1 includes the new editable rescue game in Library → «راهنمای سبک» → «عملیات نجات». The terrain editor is in «شکل، متن و عکس خودت». The chain, bike, rescue crawler and boat are also independent parts.
+- Verification before changes: build passed, runtime 243, editor 233, server 24 (500 PASS, 0 FAIL). All five original bots passed on their first run. The half-speed shooter survived the 35-second gate with two lives and 145 points.
+- After the checkpoint fix, `npm run build` succeeded and `npm test` passed **512 checks, 0 FAIL** (249 runtime, 239 editor, 24 server).
+- The six-game `npm run bots` run passed (6 PASS, 0 FAIL). Rescue Relay exposed a double award on its first attempt and won with 500 points on retry. Each goal now records its first contact before the scene fade. A fresh export of that fix passed the rescue bot on its first run, with exactly 500 points and no page errors.
 - The player (`src/player/main.ts`, i.e. the game on a phone) passes
   `lighten: true`.
   - After 3 s below 28 fps it calls `Game.lighten()`, which drops bloom,
     shadow and glow filters for the session.
   - The editor's try-out does not do this.
-  - The tests set `window.__LIGHTEN__ = false` (in `scripts/lib.mjs`),
-    because headless Chrome is slow enough to trigger it.
+  - The visual smoke tests set `window.__LIGHTEN__ = false` (in `scripts/lib.mjs`),
+    because headless Chrome is slow enough to trigger it. Gameplay bots use the production adaptive setting.
 - Nothing has been tested on a real phone. Bloom, shadows and glows may be
   slow on weak phones.
 - A few editor tests used to be timing-sensitive on a busy computer. The car
@@ -266,14 +267,11 @@ The ticker was advancing. The editor now searches using the new object's
 bounds and a gap. Existing scenes keep their authored positions. To repair an
 already overlapping pair, move the patrol clear of the player's start.
 
-### Remaining roadmap work
+### Next Phase 1 work
 
-Owner phone feedback comes first when available. The remaining scoped items
-are one-shot per-object timers (D), edge-turning and
-jumping enemies and an aimed-projectile part (B), then deferred autotiling
-(A). The AI helper still waits for the hosting decision.
+Continue the professional-engine plan above. Polygon and capsule shapes, gear joints and configurable gravity zones are still open. Use a playable scene, collision tests, a bot, visual inspection and a Persian guide entry for each. Verify touch driving and terrain drawing on a real phone when the owner has one available.
 
-### THE CURRENT PLAN: "complex games" roadmap (agreed by the owner 2026-11-19)
+### Historical "complex games" roadmap (agreed by the owner 2026-11-19)
 
 The owner said: "now it is just making simple games … making more complex
 games is the priority". They also chose these earlier ideas:
@@ -393,6 +391,17 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-21 — Codex, professional engine Phase 1 (started November 20)
+
+- Re-ran the low-memory baseline with one Chrome at a time. The shooter survived with its existing settings. Reviewed 6ab021b (physics, examples, tests and bots) and 0682542 (editor descriptions).
+- Fixed the second body's wall check in bump separation, material sounds bypassing mute, the position and source crop of rotated fragments, the real-time duration of slow motion, and pursuit's two-second timer at the last sighting. Motor input and pass groups retain their existing controls.
+- Added editable line terrain for both body systems, an articulated rescue rig, radial gravity with a finite central acceleration, wheeled assemblies and submerged propeller thrust. In Rescue Relay the player drops the figure onto a mattress, launches a probe into orbit and drives three vehicles across checkpoints. Each scene has a retry button.
+- Rescue score regression: the boot could bounce on the pad during the transition and award 200 instead of 100. The editable checkpoint rule now checks and sets a per-goal `claimed` value. The bot checks the score after every stage.
+- Crawler diagnosis: its rectangular nose hit the first ascent before the front wheel could climb. The body now has 8 px of clearance. Tested the solver at 60, 90 and 120 steps per second.
+- On a later run the former shooter pilot lost at 22.2 s and 15.6 s. The red bolts in the life-loss photos were invisible to its threat filter: the snapshot has the shot tag but no `round` property. Falling enemies also move through `mover`, which changes position directly and leaves body velocity at zero. The pilot now reads shot tags and prefab movement, predicts waves and checks the entire path to a firing lane. Three deterministic steering regressions run before the bot suite. The corrected pilot passed its first full run, surviving 35.001 game seconds with 125 points and one life.
+- Final verification on November 21: build succeeded; 249 runtime + 239 editor + 24 server = 512 PASS, 0 FAIL. The six-bot suite passed, and the shooter steering regressions were 3/3.
+- The shooter report records elapsed game time. Bot results require a successful process exit. Polling clears its watchdog timer and bots run the same adaptive visual settings as the shipped player. See `scripts/bots/out/rescue-*.png` and `test-output/editor-drawn-terrain.png` for the photographs.
 
 ### 2026-11-20 — Claude (professional-engine plan, phase 0 and the start of phase 1)
 

@@ -184,6 +184,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'rubber', label: 'لاستیک (فنری)' },
         { value: 'glass', label: 'شیشه' },
       ] },
+      { ...slider('propeller', 'رانش ملخ در آب', 0, 3000, 50, 'با کلید راست یا لمس نیمه‌ی راست روی آب جلو می‌رود و با چپ عقب می‌آید.'), fallback: 0, showIf: moving },
       { ...slider('breaks', 'بشکند با ضربه‌ی', 0, 2000, 50, 'اگر محکم‌تر از این بخورد، تکه‌تکه می‌شود و تکه‌ها پخش می‌شوند؛ مثل شیشه یا جعبه‌ی ترد. صفر یعنی هیچ‌وقت نمی‌شکند. حدود ۴۰۰ یعنی با یک ضربه‌ی معمولی.', 'پیکسل در ثانیه'), fallback: 0 },
       { key: 'passTag', label: 'از این گروه رد شود', hint: 'به اشیای این گروه نمی‌خورد و از میانشان رد می‌شود؛ مثلاً تیرهای خود بازیکن، یا دشمن‌هایی که از هم رد می‌شوند.', kind: 'tag', fallback: '', advanced: true },
       { ...slider('weight', 'سنگینی', 0.1, 10, 0.1, 'یک معمولی است. سنگین‌تر بقیه را محکم‌تر هل می‌دهد و سخت‌تر جابه‌جا می‌شود.'), fallback: 1, advanced: true, showIf: (v) => moving(v) && custom(v) },
@@ -193,7 +194,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
     ],
   },
   field: {
-    title: 'منطقه‌ی نیرو: باد، آب، آهن‌ربا',
+    title: 'منطقه‌ی نیرو: باد، آب، آهن‌ربا و سیاره',
     about: 'اشیای «فیزیک واقعی» را تا وقتی داخل این شیء‌اند هل می‌دهد. باد: به یک طرف، مثل پنکه. آب: چیزهای سبک شناور می‌مانند و سنگین‌ها غرق می‌شوند (سنگینی در «فیزیک واقعی» است). آهن‌ربا: به وسطش می‌کشد. خود این شیء به چیزی نمی‌خورد؛ معمولاً یک مستطیل کم‌رنگ است.',
     make: () => ({ type: 'field', kind: 'wind', direction: -90, strength: 3000 }),
     fields: [
@@ -201,6 +202,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'wind', label: 'باد' },
         { value: 'water', label: 'آب' },
         { value: 'magnet', label: 'آهن‌ربا' },
+        { value: 'planet', label: 'جاذبه‌ی سیاره' },
       ] },
       { ...slider('direction', 'به کدام طرف', -180, 180, 5, 'صفر یعنی راست، ۹۰ پایین، ۹۰- بالا، ۱۸۰ چپ.', 'درجه'), showIf: (v) => v.kind === 'wind' },
       { ...slider('strength', 'قدرت', -8000, 8000, 50, 'هرچه بیشتر، محکم‌تر. برای آهن‌ربا، منفی یعنی دور می‌کند. جاذبه‌ی معمولی حدود ۲۴۰۰ است.'), showIf: (v) => v.kind !== 'water' },

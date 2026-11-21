@@ -238,7 +238,13 @@ export interface GameObject {
   behaviors: Behavior[];
 }
 
-export type Visual = RectVisual | EllipseVisual | ImageVisual | TextVisual | BarVisual | TilesVisual | BagVisual;
+export interface TerrainVisual {
+  kind: 'terrain';
+  color: string;
+  /** Surface heights measured down from the top, at equally spaced x positions, in fractions of the box. */
+  heights: number[];
+}
+export type Visual = TerrainVisual | RectVisual | EllipseVisual | ImageVisual | TextVisual | BarVisual | TilesVisual | BagVisual;
 
 /**
  * The player's bag: a row of places, each showing one thing they carry (a
@@ -433,6 +439,8 @@ export interface LightBehavior {
  * they are in `solidTag`, and then they stand firm like walls.
  */
 export interface PhysicsBehavior {
+  /** Horizontal acceleration (px/s²) from the player's throttle while floating in water. */
+  propeller?: number;
   type: 'physics';
   /** moving: gravity and knocks move it. still: it never moves by itself (a floor, a wall, a spinning bar); rules and other behaviors may still move it, and it shoves what it meets. */
   kind: 'moving' | 'still';
@@ -490,7 +498,7 @@ export interface PhysicsBehavior {
  */
 export interface FieldBehavior {
   type: 'field';
-  kind: 'wind' | 'water' | 'magnet';
+  kind: 'wind' | 'water' | 'magnet' | 'planet';
   /** Wind: the way it blows, in degrees: 0 right, 90 down, -90 up, 180 left. */
   direction: number;
   /** Wind and magnet: how hard, in pixels per second squared. Water: how strongly it holds things up; 1 floats things of ordinary weight. */

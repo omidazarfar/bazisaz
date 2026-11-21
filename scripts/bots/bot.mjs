@@ -10,7 +10,7 @@ mkdirSync(out, { recursive: true });
 export async function startGame(genre) {
   const project = JSON.parse(readFileSync(fileURLToPath(new URL(`./games/${genre}.json`, import.meta.url)), 'utf8'));
   const browser = await launch();
-  const { page, errors } = await openPage(browser, new URL('../../dist/index.html', import.meta.url).href, { project, viewport: { width: 450, height: 800, deviceScaleFactor: 1 } });
+  const { page, errors } = await openPage(browser, new URL('../../dist/index.html', import.meta.url).href, { project, adaptiveGraphics: true, viewport: { width: 450, height: 800, deviceScaleFactor: 1 } });
   await page.waitForFunction(() => window.__game && window.__game.getState().time > 0.6, { timeout: 60000 });
   const start = await state(page);
   const play = start.entities.find((e) => e.width === 220 && e.height === 220);
@@ -23,8 +23,9 @@ export async function startGame(genre) {
 /** The game's state; if the page stops answering (the game is stuck in a loop), says where it is stuck and stops. */
 export async function state(page) {
   const answer = page.evaluate(() => window.__game.getState());
-  const late = new Promise((resolve) => setTimeout(() => resolve('frozen'), 20000));
-  const got = await Promise.race([answer, late]);
+  let timer;
+  const late = new Promise(resolve => { timer = setTimeout(() => resolve('frozen'), 20000); });
+  const got = await Promise.race([answer, late]).finally(() => clearTimeout(timer));
   if (got !== 'frozen') return got;
   const cdp = await page.target().createCDPSession();
   await cdp.send('Debugger.enable');

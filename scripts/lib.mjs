@@ -31,7 +31,7 @@ export function launch() {
 }
 
 /** Opens a page and collects any errors it logs. */
-export async function openPage(browser, url, { viewport, project } = {}) {
+export async function openPage(browser, url, { viewport, project, adaptiveGraphics = false } = {}) {
   const page = await browser.newPage();
   await page.setViewport(viewport ?? { width: 412, height: 915, deviceScaleFactor: 1 });
   const errors = [];
@@ -39,7 +39,7 @@ export async function openPage(browser, url, { viewport, project } = {}) {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   if (project) await page.evaluateOnNewDocument((p) => (window.__GAME_PROJECT__ = p), project);
   // Headless Chrome runs slowly; the player would drop its costly effects, which the tests check.
-  await page.evaluateOnNewDocument(() => (window.__LIGHTEN__ = false));
+  if (!adaptiveGraphics) await page.evaluateOnNewDocument(() => (window.__LIGHTEN__ = false));
   await page.goto(url);
   return { page, errors };
 }

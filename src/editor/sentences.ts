@@ -227,6 +227,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
     case 'light': return `در تاریکی دورش را روشن می‌کند${b.flicker ? '، مثل شعله‌ای که می‌لرزد' : ''}`;
     case 'field': {
       if (b.kind === 'water') return 'آب است: چیزهای فیزیکی سبک در آن شناور می‌مانند و سنگین‌ها غرق می‌شوند';
+      if (b.kind === 'planet') return 'جاذبه‌ی سیاره‌ای دارد؛ اجسام نزدیک را با نیروی بیشتری به مرکز می‌کشد';
       if (b.kind === 'magnet') return b.strength >= 0 ? 'آهن‌رباست: چیزهای فیزیکی را به وسطش می‌کشد' : 'چیزهای فیزیکی را از وسطش دور می‌کند';
       return 'بادی دارد که چیزهای فیزیکی داخلش را هل می‌دهد';
     }

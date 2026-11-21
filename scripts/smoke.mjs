@@ -1811,6 +1811,49 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('camera rooms: the view stays inside the room the hero is in, and moves to the next room with it', inFirst === 280 && inSecond === 1000, `${inFirst} → ${inSecond}`);
   check('lab 18 (rooms): no errors in the page', second.errors.length === 0, second.errors.join(' | '));
   await second.page.close();
+  // Both contact systems sample the same flat middle ledge. The empty space above it is traversable.
+  const phys = { type: 'physics', kind: 'moving', gravity: true, weight: 1, bounce: 0, friction: 0.6, rotates: false, solidTag: 'ground', edges: false, drag: 'none', power: 1 };
+  const ledge = box('ledge', 0, 700, 720, 300, { tags: ['ground'], visual: {kind:'terrain', color:'#437754', heights:[0.1,0.5,0.5,0.5,0.1]} });
+  const lab = { ...rooms, scenes: [{...rooms.scenes[0], width:720, gravity:1100, rules:[], objects: [
+    ledge, box('wheel',245,480,40,40,{round:true,behaviors:[phys]}),
+    box('walker',425,480,40,40,{behaviors:[{type:'body', solidTag:'ground', gravity:true, edges:'none', bounce:0}]}),
+  ]}] };
+  const terrain = await openPage(browser, url, {project:lab});
+  await loaded(terrain.page);
+  await untilTime(terrain.page,1.8);
+  const settled = (await gameState(terrain.page)).entities;
+  for (const id of ['walker','wheel']) {
+    const e = settled.find(o => o.id === id);
+    check('drawn terrain supports ' + id + ' at the painted height', Math.abs(e.y + e.height - 850) < 3, String(e.y));
+  }
+  check('terrain renders without page errors', !terrain.errors.length, terrain.errors.join(' | '));
+  await terrain.page.close();
+  // Equal radii at different masses must produce equal acceleration, even on opposite sides.
+  const gravityField = box('field', 80, 260, 560, 560, { visual:{kind:'ellipse',color:'#6788aa'}, behaviors:[{type:'field',kind:'planet',direction:0,strength:420}] });
+  const floater = (id,x,y,extra) => box(id,x-10,y-10,20,20,{behaviors:[{...phys,gravity:false,...extra}]});
+  const forces = {...lab, scenes:[{...lab.scenes[0], gravity:1200, objects:[
+    gravityField, floater('light',220,540,{weight:0.3}), floater('heavy',500,540,{weight:4}), floater('far',360,795,{}),
+    box('water',0,910,720,350,{behaviors:[{type:'field',kind:'water',strength:1,direction:0}]}),
+    floater('boat',110,980,{weight:0.6,gravity:true,propeller:1200}), floater('dry',110,90,{propeller:1200})
+  ]}]};
+  const forcesPage = await openPage(browser,url,{project:forces});
+  await loaded(forcesPage.page);
+  await untilTime(forcesPage.page,0.32);
+  const snapshot = await gameState(forcesPage.page);
+  const find = (s,id) => s.entities.find(e => e.id === id);
+  const light = find(snapshot,'light'), heavy = find(snapshot,'heavy'), far = find(snapshot,'far');
+  check('planet gravity points inward equally at both masses and weakens with distance',
+    light.vx > 30 && Math.abs(light.vx + heavy.vx) < 2 && far.vy < 0 && -far.vy < light.vx * 0.65,
+    JSON.stringify([light.vx,heavy.vx,far.vy]));
+  await forcesPage.page.keyboard.down('ArrowRight');
+  await untilTime(forcesPage.page,snapshot.time+1);
+  const driven = await gameState(forcesPage.page);
+  check('the propeller drives a floating hull and stays idle on dry land', find(driven,'boat').x > 130 && Math.abs(find(driven,'dry').x-100)<1);
+  await forcesPage.page.keyboard.up('ArrowRight');
+  await forcesPage.page.keyboard.down('ArrowLeft');
+  await untilTime(forcesPage.page,driven.time+1.4);
+  check('the boat pedal reverses the hull', find(await gameState(forcesPage.page),'boat').vx < -20);
+  await forcesPage.page.close();
 }
 
 // ── 14. A broken project is refused with a readable message ───────────────

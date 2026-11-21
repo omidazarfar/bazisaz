@@ -22,7 +22,7 @@ Other commands:
 npm run dev        # editor with live reload at http://localhost:5173/editor.html (no export)
 npm run build      # dist/index.html (the player) and dist-editor/editor.html (the editor)
 npm test           # browser tests of the games and editor, and a server test with Gradle replaced
-npm run bots       # bots play the five genre-helper games from start screen to win (after npm run build)
+npm run bots       # bots play six genre-helper games (five wins and 35 seconds of shooter waves) (after npm run build)
 ```
 
 `npm test` needs Chrome; set `CHROME_PATH` if it isn't at `/usr/bin/google-chrome`.

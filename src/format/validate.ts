@@ -88,6 +88,11 @@ export function validateProject(project: GameProject): string[] {
           if (project.assets[asset]?.type !== 'image') say(`${where}: "${obj.id}" uses missing image "${asset}".`);
         }
       }
+      if (obj.visual.kind === 'terrain') {
+        const h = obj.visual.heights;
+        if (!Array.isArray(h) || h.length < 2 || h.length > 129 || !h.every(y => Number.isFinite(y) && y >= 0 && y <= 0.95))
+          say(`${where}: terrain "${obj.id}" needs 2–129 heights from 0 to 0.95.`);
+      }
       if (obj.visual.kind === 'bar') needVariable(obj.visual.variable, `${where}: bar "${obj.id}"`);
       if (obj.visual.kind === 'bag' && !(obj.visual.slots >= 1)) say(`${where}: bag "${obj.id}" needs at least one place.`);
       if (obj.visual.kind === 'tiles') {
