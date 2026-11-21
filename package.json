@@ -15,7 +15,8 @@
     "server": "node server/index.mjs",
     "prebuild": "node scripts/clean-stale.mjs",
     "bots": "node scripts/bots/all.mjs",
-    "check": "npm run build && npm test && npm run bots"
+    "check": "npm run build && npm test && npm run bots",
+    "check:slow": "node scripts/check-slow.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.3.0",

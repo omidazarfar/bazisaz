@@ -26,7 +26,11 @@ export function launch() {
     // Set CHROME_PATH if Chrome is installed somewhere else.
     executablePath: process.env.CHROME_PATH ?? (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '/usr/bin/google-chrome'),
     headless: true,
-    args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+    args: [
+      '--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
+      // LOW_MEMORY=1: slower, but leaves room for other programs (pages share one renderer, a smaller JS heap).
+      ...(process.env.LOW_MEMORY ? ['--renderer-process-limit=1', '--disable-extensions', '--disable-background-networking', '--disable-component-update', '--js-flags=--max-old-space-size=512'] : []),
+    ],
   });
 }
 
