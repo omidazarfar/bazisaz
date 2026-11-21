@@ -95,6 +95,9 @@ const genres = [
   { id: 'puzzle', title: 'معمایی: Gem Crush', role: 'finger-player', sprite: 'gem', parts: ['key-door'], about: 'یک بازی کامل: سه‌تایی جور کن با ۲۰ حرکت برای رسیدن به ۹۰ امتیاز، نوار پیشرفت، و صفحه‌ی برد و باخت.' },
   { id: 'rescue', title: 'نجات: Rescue Relay', role: 'sling-stone', sprite: 'rescue-tank', parts: ['rescue-chain', 'bike', 'tank', 'boat', 'gears'], about: 'یک بازی کامل: آدمک را نجات بده، کاوشگر را به مدار بفرست و با موتور، خودروی شنی‌دار و قایق به مقصد برس.' },
   { id: 'tower', title: 'برج: Tower Climb', role: 'jump-player', sprite: 'ladder', parts: ['controls'], about: 'یک بازی کامل: برجی چهارطبقه زیر باران؛ با نردبان از هر طبقه بالا برو، روی لجن‌ها بپر، سکه جمع کن و زنگ بالای برج را به صدا درآور. قهرمان از دیوار می‌پرد، تیز می‌رود و به زمین می‌کوبد.' },
+  { id: 'bricks', title: 'آجرشکن: Brick Blitz', role: 'finger-player', sprite: 'brick', parts: [], about: 'یک بازی کامل: راکتی که دنبال انگشت می‌آید، توپی که برمی‌گردد و دیواری از ۴۲ آجر رنگی؛ سه توپ داری.' },
+  { id: 'runner', title: 'دونده: Rooftop Run', role: 'jump-player', sprite: 'crate', parts: [], about: 'یک بازی کامل: دونده خودش روی بام‌های شهر می‌دود؛ با لمس از روی شکاف‌ها و جعبه‌ها بپر تا به پرچم برسی. شب و روز می‌شود.' },
+  { id: 'hopper', title: 'پرنده: Sky Hopper', role: 'jump-player', sprite: 'bird', parts: [], about: 'یک بازی کامل: پرنده خودش جلو می‌رود و با هر لمس بال می‌زند؛ از شکاف بین دوازده لوله رد شو.' },
   { id: 'physics', title: 'فیزیکی: Rock Smash', role: 'sling-stone', sprite: 'rock', parts: ['tower'], about: 'یک بازی کامل: تیرکمان با پنج سنگ و قلعه‌ای از سنگ، چوب، شیشه‌ی شکستنی و تیرآهن، با بشکه‌ی انفجاری وسطش و چهار موجود فضایی که دوتایشان پنهان‌اند.' },
 ];
 

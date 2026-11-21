@@ -266,7 +266,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
 
   // Where falling into a gap is caught: hidden strips along the bottom of each gap.
   for (const [i, [c0, c1]] of level.pits.entries()) {
-    objects.push(makeObject(`چاله ${i + 1}`, { kind: 'rect', color: '#000000' }, (c1 - c0 + 1) * CELL, 50, { x: ((c0 + c1 + 1) / 2) * CELL, y: rows * CELL - 25 }, { visible: false, tags: [PIT] }));
+    objects.push(makeObject(`چاله ${i + 1}`, { kind: 'rect', color: '#000000' }, (c1 - c0 + 1) * CELL, 50, { x: ((c0 + c1 + 1) / 2) * CELL, y: rows * CELL - 25 }, { opacity: 0, tags: [PIT] }));
   }
   // A platform that carries the player over the widest gap.
   const raft = await art(p, 'platform');
@@ -1035,6 +1035,199 @@ export async function buildTower(project: GameProject, sceneId: string): Promise
   };
 }
 
+/** Brick Blitz: a paddle that follows the finger, a ball, and a wall of bricks; clear them all, three balls to do it. */
+export async function buildBricks(project: GameProject, sceneId: string): Promise<GameResult> {
+  const { width: W, height: H } = project.meta;
+  const WALL = 'دیوار';
+  const BRICK = 'آجر';
+  const BALL = 'توپ';
+  const PADDLE = 'راکت';
+  const DROP = 'افتادن';
+  let p = withNumber(withVariable(project, 'score'), 'lives', 3);
+  p = updateScene(p, sceneId, (s) => ({ ...s, width: W, height: H, gravity: 0, sky: 'space', music: 'music:orbit', bloom: true, vignette: true, retro: 'none' }));
+  const objects: GameObject[] = [];
+  const wall = (name: string, w: number, h: number, x: number, y: number) =>
+    makeObject(name, { kind: 'rect', color: '#3a4a6b', shade: true }, w, h, { x, y }, { tags: [WALL], locked: true, behaviors: [physics({ kind: 'still', solidTag: '', bounce: 1, friction: 0 })] });
+  objects.push(wall('دیوار چپ', 24, H, 12, H / 2), wall('دیوار راست', 24, H, W - 12, H / 2), wall('سقف', W, 24, W / 2, 132));
+  objects.push(makeObject('زیر راکت', { kind: 'rect', color: '#000000' }, W, 40, { x: W / 2, y: H + 60 }, { tags: [DROP], opacity: 0 }));
+  const colors = ['#ff5a5f', '#ff9f1c', '#ffd23f', '#43c463', '#2f9cf6', '#8f5ff0'];
+  const cols = 7;
+  const bw = (W - 80) / cols;
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < cols; c++) {
+      objects.push(makeObject(`آجر ${r + 1}-${c + 1}`, { kind: 'rect', color: colors[r], radius: 8, shade: true }, bw - 8, 40, { x: 40 + bw * c + bw / 2, y: 260 + r * 50 }, { tags: [BRICK, WALL], behaviors: [physics({ kind: 'still', solidTag: '', bounce: 1, friction: 0 })] }));
+    }
+  }
+  const paddle = makeObject('راکت', { kind: 'rect', color: '#dfe8ff', radius: 18, shade: true, outline: '#6cf2ff' }, 180, 36, { x: W / 2, y: H - 230 }, {
+    // Round ends: where the ball lands on the paddle decides the angle it leaves at.
+    tags: [PADDLE, WALL], glow: '#6cf2ff', behaviors: [{ type: 'followFinger', speed: 2400, axis: 'x' }, physics({ kind: 'still', solidTag: '', bounce: 1, friction: 0, shape: 'capsule' })],
+  });
+  const ballPic = await art(p, 'ball');
+  p = ballPic.project;
+  const ball = makeObject('توپ', { kind: 'image', asset: ballPic.asset }, 40, 40, { x: W / 2, y: H - 300 }, {
+    tags: [BALL], round: true, glow: '#ffffff',
+    behaviors: [physics({ gravity: false, solidTag: '', bounce: 1, friction: 0, rotates: false, edges: false, slowdown: 0 }), { type: 'launch', vx: 260, vy: -620 }, { type: 'trail', color: '#9fd8ff', size: 18, rate: 30 }],
+  });
+  objects.push(paddle, ball);
+  p = addAll(p, sceneId, objects);
+  const screen = await screens(p, sceneId, { name: 'BRICK BLITZ', hero: 'hero', sky: 'space', music: 'music:orbit' });
+  p = screen.project;
+  p = withRules(p, sceneId,
+    rule({ type: 'touch', a: byTag(BALL), b: byTag(BRICK) }, [
+      { type: 'burst', target: 'second', color: '#ffd23f', count: 14 },
+      { type: 'floatText', target: 'second', text: '+10', color: '#ffe066', size: 34 },
+      { type: 'destroy', target: 'second' },
+      { type: 'setVariable', name: 'score', op: 'add', amount: 10 },
+      { type: 'playSound', sound: 'pop', volume: 60 },
+    ]),
+    // Where the ball meets the paddle decides where it goes: the edges send it out at a slant.
+    rule({ type: 'touch', a: byTag(BALL), b: byTag(PADDLE) }, [{ type: 'playSound', sound: 'click', volume: 50 }, { type: 'flash', target: 'second', color: '#ffffff', seconds: 0.1 }]),
+    rule({ type: 'touch', a: byTag(BALL), b: byTag(DROP) }, [
+      { type: 'setVariable', name: 'lives', op: 'subtract', amount: 1 },
+      { type: 'shake', strength: 10 },
+      { type: 'playSound', sound: 'hit' },
+      { type: 'respawn', target: 'first' },
+      { type: 'push', target: 'first', vx: 260, vy: -620 },
+    ]),
+    rule({ type: 'variable', name: 'lives', op: '<=', value: 0 }, [{ type: 'playSound', sound: 'lose' }, { type: 'wait', seconds: 0.6 }, { type: 'goToScene', scene: screen.over }]),
+    rule({ type: 'noneLeft', target: byTag(BRICK) }, [
+      { type: 'achieve', name: 'Wall breaker' }, { type: 'slowMotion', amount: 0.3, seconds: 1 }, { type: 'playSound', sound: 'win' },
+      { type: 'wait', seconds: 1.2 }, { type: 'goToScene', scene: screen.win },
+    ]),
+  );
+  p = await banner(p, sceneId, 'Break every brick!');
+  const lives = await badge(p, 'heart', 'جان‌ها', '{lives}', { x: W * 0.72, y: 70 }, { w: 170, h: 80 });
+  const points = await badge(lives.project, 'coin', 'امتیاز', '{score}', { x: W * 0.28, y: 70 }, { w: 220, h: 80 });
+  p = addAll(points.project, sceneId, [...lives.objects, ...points.objects]);
+  return { project: p, select: paddle.id, note: 'بازی آجرشکن ساخته شد: راکت دنبال انگشت می‌آید، توپ به دیوارها و آجرها می‌خورد و برمی‌گردد. همه‌ی آجرها را بشکن؛ سه توپ داری.' };
+}
+
+/** Rooftop Run: the hero runs by itself across the rooftops; tap to jump over the gaps and crates, to the flag. */
+export async function buildRunner(project: GameProject, sceneId: string): Promise<GameResult> {
+  const { width: W, height: H } = project.meta;
+  const LENGTH = W * 9;
+  let p = withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0);
+  p = updateScene(p, sceneId, (s) => ({ ...s, width: LENGTH, height: H, gravity: 2600, sky: 'city', music: 'music:happy', dayLength: 40 }));
+  const top = H - 220;
+  const objects: GameObject[] = [];
+  const crate = await art(p, 'crate');
+  const coin = await art(crate.project, 'coin');
+  const flag = await art(coin.project, 'flag');
+  p = flag.project;
+  const roof = { kind: 'rect' as const, color: '#4a4f63', radius: 6, shade: true };
+  // Rooftops with gaps between them; every gap a little wider than the last.
+  let x = 0;
+  let gapWidth = 140;
+  let n = 0;
+  while (x < LENGTH - 600) {
+    const w = n === 0 ? W * 1.2 : 900 + (n % 3) * 160;
+    objects.push(makeObject(`بام ${n + 1}`, roof, w, H - top, { x: x + w / 2, y: (top + H) / 2 }, { tags: [GROUND], locked: true }));
+    if (n > 0) {
+      objects.push(makeObject(`جعبه ${n}`, { kind: 'image', asset: crate.asset }, 80, 80, { x: x + w * 0.55, y: top - 40 }, { tags: [GROUND] }));
+      for (let c = 0; c < 3; c++) objects.push(makeObject(`سکه ${n}-${c + 1}`, { kind: 'image', asset: coin.asset }, 46, 46, { x: x + w * 0.55 - 60 + c * 60, y: top - 200 }, { tags: [COIN] }));
+    }
+    objects.push(makeObject(`چاله ${n + 1}`, { kind: 'rect', color: '#000000' }, gapWidth + 80, 40, { x: x + w + gapWidth / 2, y: H + 80 }, { tags: [PIT], opacity: 0 }));
+    x += w + gapWidth;
+    gapWidth = Math.min(260, gapWidth + 20);
+    n += 1;
+  }
+  objects.push(makeObject('بام آخر', roof, LENGTH - x, H - top, { x: (x + LENGTH) / 2, y: (top + H) / 2 }, { tags: [GROUND], locked: true }));
+  objects.push(makeObject('پرچم پایان', { kind: 'image', asset: flag.asset }, 90, 130, { x: LENGTH - 200, y: top - 65 }, { tags: [GOAL] }));
+  const hero = await character(p, 'hero');
+  p = hero.project;
+  const player = makeObject('دونده', hero.visual, 80, 96, { x: 200, y: top - 48 }, {
+    tags: [PLAYER], shadow: true,
+    behaviors: [
+      { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'none', oneWay: false },
+      { type: 'walker', speed: 420, control: 'auto', leftTag: '', rightTag: '' },
+      { type: 'jumper', jumpSpeed: 1150, maxJumps: 2, on: 'tap', buttonTag: '' },
+      { type: 'camera', lock: 'free', smooth: 0.1 },
+    ],
+  });
+  p = addAll(p, sceneId, [...objects, player]);
+  const screen = await screens(p, sceneId, { name: 'ROOFTOP RUN', hero: 'hero', sky: 'city', music: 'music:happy' });
+  p = screen.project;
+  p = withRules(p, sceneId,
+    prizeRule(COIN, 1, 'coin', '#ffd23f'),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(PIT) }, [
+      { type: 'setVariable', name: 'lives', op: 'subtract', amount: 1 }, { type: 'playSound', sound: 'hit' }, { type: 'shake', strength: 8 }, { type: 'respawn', target: 'first' },
+    ]),
+    rule({ type: 'variable', name: 'lives', op: '<=', value: 0 }, [{ type: 'playSound', sound: 'lose' }, { type: 'wait', seconds: 0.6 }, { type: 'goToScene', scene: screen.over }]),
+    rule({ type: 'every', seconds: 1 }, [{ type: 'setVariable', name: 'score', op: 'add', amount: 1 }]),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(GOAL) }, [
+      { type: 'achieve', name: 'Roof runner' }, { type: 'burst', target: 'second', color: '#ffd23f', count: 40 }, { type: 'playSound', sound: 'win' },
+      { type: 'setVariable', name: 'score', op: 'add', amount: 25 }, { type: 'wait', seconds: 1 }, { type: 'goToScene', scene: screen.win },
+    ]),
+  );
+  p = await banner(p, sceneId, 'Tap to jump! Tap twice to jump higher');
+  p = await part(p, sceneId, 'score');
+  p = await hearts(p, sceneId);
+  return { project: p, select: player.id, note: 'بازی دونده ساخته شد: دونده خودش روی بام‌ها می‌دود؛ با لمس صفحه می‌پرد (دو بار برای پرش بلندتر). از روی شکاف‌ها و جعبه‌ها بپر تا به پرچم برسی. هر شکاف کمی پهن‌تر از قبلی است و شب و روز می‌شود.' };
+}
+
+/** Sky Hopper: a bird flies on by itself; each tap flaps it up; fly through the gaps between the pipes to the end. */
+export async function buildHopper(project: GameProject, sceneId: string): Promise<GameResult> {
+  const { width: W, height: H } = project.meta;
+  const PIPES = 12;
+  const SPACING = 520;
+  const LENGTH = W + PIPES * SPACING + W;
+  let p = withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0);
+  p = updateScene(p, sceneId, (s) => ({ ...s, width: LENGTH, height: H, gravity: 2000, sky: 'day', music: 'music:happy' }));
+  const pipe = await art(p, 'pipe');
+  const flag = await art(pipe.project, 'flag');
+  p = flag.project;
+  const objects: GameObject[] = [];
+  const GAP = 420;
+  for (let i = 0; i < PIPES; i++) {
+    const x = W + i * SPACING;
+    // Gaps wander up and down in a gentle wave, never too far from the last.
+    const middle = H * 0.5 + Math.sin(i * 1.3) * H * 0.18;
+    const upper = middle - GAP / 2;
+    const lower = middle + GAP / 2;
+    objects.push(makeObject(`لوله بالا ${i + 1}`, { kind: 'image', asset: pipe.asset }, 120, upper, { x, y: upper / 2 }, { tags: [DANGER], rotation: 180, locked: true }));
+    objects.push(makeObject(`لوله پایین ${i + 1}`, { kind: 'image', asset: pipe.asset }, 120, H - lower, { x, y: (lower + H) / 2 }, { tags: [DANGER], locked: true }));
+    objects.push(makeObject(`دروازه ${i + 1}`, { kind: 'rect', color: '#ffffff' }, 20, GAP, { x: x + 80, y: middle }, { tags: [CHECK], opacity: 0 }));
+  }
+  objects.push(makeObject('پرچم پایان', { kind: 'image', asset: flag.asset }, 90, 130, { x: LENGTH - W / 2, y: H * 0.5 }, { tags: [GOAL] }));
+  // The finish is the whole height of the sky at the flag, so a bird flying high or low still reaches it.
+  objects.push(makeObject('خط پایان', { kind: 'rect', color: '#ffffff' }, 40, H, { x: LENGTH - W / 2, y: H / 2 }, { tags: [GOAL], opacity: 0 }));
+  const bird = await character(p, 'bird');
+  p = bird.project;
+  const player = makeObject('پرنده', bird.visual, 90, 76, { x: 200, y: H * 0.45 }, {
+    tags: [PLAYER], hitboxInset: 10,
+    behaviors: [
+      { type: 'body', gravity: true, solidTag: '', bounce: 0, edges: 'stop', oneWay: false },
+      { type: 'walker', speed: 260, control: 'auto', leftTag: '', rightTag: '' },
+      { type: 'jumper', jumpSpeed: 760, maxJumps: 999, on: 'tap', buttonTag: '' },
+      { type: 'camera', lock: 'free', smooth: 0.1 },
+    ],
+  });
+  objects.push(player);
+  p = addAll(p, sceneId, objects);
+  const screen = await screens(p, sceneId, { name: 'SKY HOPPER', hero: 'bird', sky: 'day', music: 'music:happy' });
+  p = screen.project;
+  p = withRules(p, sceneId,
+    // Through a gap: a point. Into a pipe: a life, and back to the last gap passed.
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(CHECK) }, [
+      { type: 'checkpoint', target: 'first' }, { type: 'floatText', target: 'first', text: '+1', color: '#ffe066', size: 36 },
+      { type: 'setVariable', name: 'score', op: 'add', amount: 1 }, { type: 'playSound', sound: 'coin', volume: 50 }, { type: 'destroy', target: 'second' },
+    ]),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(DANGER) }, [
+      { type: 'setVariable', name: 'lives', op: 'subtract', amount: 1 }, { type: 'playSound', sound: 'hit' }, { type: 'shake', strength: 10 },
+      { type: 'respawn', target: 'first' }, { type: 'push', target: 'first', vx: 0, vy: -500 },
+    ]),
+    rule({ type: 'variable', name: 'lives', op: '<=', value: 0 }, [{ type: 'playSound', sound: 'lose' }, { type: 'wait', seconds: 0.6 }, { type: 'goToScene', scene: screen.over }]),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(GOAL) }, [
+      { type: 'achieve', name: 'High flyer' }, { type: 'burst', target: 'second', color: '#ffd23f', count: 40 }, { type: 'playSound', sound: 'win' },
+      { type: 'setVariable', name: 'score', op: 'add', amount: 10 }, { type: 'wait', seconds: 1 }, { type: 'goToScene', scene: screen.win },
+    ]),
+  );
+  p = await banner(p, sceneId, 'Tap to flap!');
+  p = await part(p, sceneId, 'score');
+  p = await hearts(p, sceneId);
+  return { project: p, select: player.id, note: 'بازی پرنده ساخته شد: پرنده خودش جلو می‌رود؛ با هر لمس بال می‌زند و بالا می‌رود. از شکاف بین لوله‌ها رد شو تا به پرچم برسی؛ هر شکاف یک امتیاز است.' };
+}
+
 /** The genre helper's games, by genre id. Genres without one here still use the helper's simpler start. */
 export const GAMES: Record<string, (project: GameProject, sceneId: string) => Promise<GameResult>> = {
   platform: buildPlatformer,
@@ -1044,4 +1237,7 @@ export const GAMES: Record<string, (project: GameProject, sceneId: string) => Pr
   physics: buildPhysics,
   rescue: buildRescue,
   tower: buildTower,
+  bricks: buildBricks,
+  runner: buildRunner,
+  hopper: buildHopper,
 };

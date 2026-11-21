@@ -1,4 +1,4 @@
-// Builds the seven genre-helper games fresh and lets a bot play each one from the start screen to the end.
+// Builds the ten genre-helper games fresh and lets a bot play each one from the start screen to the end.
 // Fails if any game cannot be won, freezes, or shows an error. npm run bots  (needs npm run build first)
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +9,7 @@ const steering = run('shooter-steering.test.mjs');
 if (steering.status !== 0) { console.log(steering.stdout, steering.stderr); process.exit(1); }
 const exported = run('export.mjs');
 if (exported.status !== 0) { console.log(exported.stdout, exported.stderr); process.exit(1); }
-const bots = [['platform', ['60']], ['adventure', ['60']], ['shooter', ['35']], ['puzzle'], ['physics'], ['rescue'], ['tower', ['90']]];
+const bots = [['platform', ['60']], ['adventure', ['60']], ['shooter', ['35']], ['puzzle'], ['physics'], ['rescue'], ['tower', ['90']], ['bricks', ['240']], ['runner', ['90']], ['hopper', ['90']]];
 let failed = 0;
 const play = (genre, args) => {
   const r = run(`${genre}.mjs`, args);
@@ -28,5 +28,5 @@ for (const [genre, args] of bots) {
   if (!ok) failed += 1;
   console.log(`${ok ? 'PASS' : 'FAIL'} ${genre}: ${text}`);
 }
-console.log(failed ? `${failed} game(s) failed` : 'All seven games played through');
+console.log(failed ? `${failed} game(s) failed` : 'All ten games played through');
 process.exit(failed ? 1 : 0);

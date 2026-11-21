@@ -133,7 +133,7 @@ and a Persian guide entry.
 5. **Game systems.** Started 2026-11-21 (Claude): the `say` action (dialogue box, typewriter, pauses until tapped, the rest of the rule runs after), `achieve` (gold banner once, kept on the device), `recordScore` (best five kept; variables top1..top3 show them; all genre screens use it). Rest of the original list: Branching dialogue, quests, achievements, cutscenes,
    settings menu, save slots, leaderboard, equipment and crafting.
 6. **Speed and reliability.** Started: lighten() also drops wall shadows and halves the weather; `npm run check` = build + test + bots. Rest of the original list: 60 fps on mid-range phones; bots in every test run.
-7. **Showcase.** Started: Tower Climb (`buildTower`, genre `tower`), a four-floor rain tower with ladders, slimes, coins, dialogue and every special move; `scripts/bots/tower.mjs` climbs it. Ladders now centre the climber. Rest of the original list: 10 multi-level games and large art packs.
+7. **Showcase.** Ten genre games now: Brick Blitz (`buildBricks`; real physics, capsule paddle), Rooftop Run (`buildRunner`; auto-run, widening gaps, day and night) and Sky Hopper (`buildHopper`; flap through twelve pipe pairs), each with a bot; hidden trigger zones must use opacity 0, not visible: false (touch ignores hidden objects). Before them: Tower Climb (`buildTower`, genre `tower`), a four-floor rain tower with ladders, slimes, coins, dialogue and every special move; `scripts/bots/tower.mjs` climbs it. Ladders now centre the climber. Rest of the original list: 10 multi-level games and large art packs.
 
 Persian text inside games: asked, not answered yet; games stay English for now.
 
