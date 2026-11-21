@@ -2266,6 +2266,73 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13l. Lab 23: a character speaking, achievements, the best-scores list ──
+{
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab23', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentythree', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {},
+    variables: [{ name: 'score', initial: 42, saved: false }, ...['top1', 'top2', 'top3'].map((name) => ({ name, initial: 0, saved: false }))],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [],
+      objects: [{ id: 'board', name: 'board', x: 100, y: 200, width: 0, height: 0, visual: { kind: 'text', text: '1. {top1}', color: '#ffffff', size: 40 }, tags: [], visible: true, behaviors: [] }],
+      rules: [{ id: 'r-talk', when: { type: 'after', seconds: 0.2 }, condition: null, then: [
+        { type: 'say', speaker: 'Guide', text: 'Hello {score}', color: '#ffd23f' },
+        { type: 'say', speaker: 'Guide', text: 'One more thing.', color: '#ffd23f' },
+        { type: 'setVariable', name: 'score', op: 'set', amount: 50 },
+        { type: 'achieve', name: 'Tester' },
+        { type: 'recordScore', variable: 'score' },
+      ] }],
+    }],
+  };
+  let { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await until(page, () => window.__game.getState().dialogue !== null, null, 5000);
+  let s = await gameState(page);
+  check('say: a box shows who speaks and what, with values filled in', s.dialogue.speaker === 'Guide' && s.dialogue.text === 'Hello 42', JSON.stringify(s.dialogue));
+  const frozen = s.time;
+  await sleep(400);
+  s = await gameState(page);
+  check('say: the game waits while the words are read, and what comes after has not happened yet', s.time === frozen && s.variables.score === 42, `${frozen} → ${s.time}, score ${s.variables.score}`);
+  check('say: the words appear letter by letter', s.dialogue.shown > 0 && s.dialogue.shown <= s.dialogue.text.length);
+  const tapTo = async (text) => {
+    for (let i = 0; i < 4 && (await gameState(page)).dialogue?.text === text; i++) {
+      await clickGame(page, 360, 640);
+      await sleep(250);
+    }
+  };
+  await tapTo('Hello 42');
+  s = await gameState(page);
+  check('say: a tap goes on to the next words of the conversation', s.dialogue?.text === 'One more thing.', JSON.stringify(s.dialogue));
+  await tapTo('One more thing.');
+  await until(page, () => window.__game.getState().dialogue === null && window.__game.getState().variables.score === 50, null, 5000);
+  s = await gameState(page);
+  check('say: after the last words, the game goes on and the rest of the rule runs', s.dialogue === null && s.variables.score === 50);
+  check('achievement: unlocked, kept, and a banner says so', s.achievements.includes('Tester') && s.toast === 'Tester', JSON.stringify([s.achievements, s.toast]));
+  check('best scores: the score goes on the list, and top1 shows it', s.top[0] === 50 && s.variables.top1 === 50, JSON.stringify(s.top));
+  await page.screenshot({ path: resolve(shots, '23-achievement.png') });
+  await page.close();
+
+  // The same game again: the achievement is not announced twice, and the list is still there.
+  ({ page, errors } = await openPage(browser, url, { project }));
+  await loaded(page);
+  check('best scores: kept on the device and shown from the start', await until(page, () => window.__game.getState().variables.top1 === 50, null, 5000));
+  await until(page, () => window.__game.getState().dialogue !== null, null, 5000);
+  await page.screenshot({ path: resolve(shots, '23-dialogue.png') });
+  for (let i = 0; i < 8 && (await gameState(page)).dialogue; i++) {
+    await clickGame(page, 360, 640);
+    await sleep(250);
+  }
+  await until(page, () => window.__game.getState().variables.score === 50, null, 5000);
+  s = await gameState(page);
+  check('achievement: a second time it is not announced again', s.toast === null && s.achievements.filter((a) => a === 'Tester').length === 1, JSON.stringify([s.achievements, s.toast]));
+  check('lab 23: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

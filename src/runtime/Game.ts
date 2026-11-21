@@ -399,6 +399,12 @@ export interface GameState {
   /** The old-screen look in use ('none' when a slow phone dropped it), ripples running, and how far the view is punched in (1 for not). */
   retro: string;
   waves: number;
+  /** A character speaking, and how many letters show so far. */
+  dialogue: { speaker: string; text: string; shown: number } | null;
+  /** Achievements unlocked on this device, the banner showing now, and the best scores. */
+  achievements: string[];
+  toast: string | null;
+  top: number[];
   punch: number;
   /** Where the shake has moved the screen to right now. */
   shakeAt: { x: number; y: number };
@@ -569,6 +575,11 @@ export class Game {
   private punch: { amount: number; left: number; span: number } | null = null;
   /** Which way the screen shakes now. */
   private shakeAxis: 'both' | 'side' | 'up' = 'both';
+  /** A character speaking: the words, who says them, when they began, and what to do once the player has read them. */
+  private dialogue: { speaker: string; text: string; color: string; since: number; rest: Action[]; context: Context; view: Container } | null = null;
+  /** Achievement banners waiting to be shown, and the one showing. */
+  private toasts: string[] = [];
+  private toast: { view: Container; left: number } | null = null;
   /** The outline of each light that walls block, as last drawn. */
   private lit: { id: string; points: number[] }[] = [];
   private tweens: Tween[] = [];
@@ -1174,6 +1185,10 @@ export class Game {
       weather: this.weather.state(),
       retro: this.retroFilter ? (this.scene.retro ?? 'none') : 'none',
       waves: this.waves.length,
+      dialogue: this.dialogue ? { speaker: this.dialogue.speaker, text: this.dialogue.text, shown: this.dialogueShown() } : null,
+      achievements: this.achievements(),
+      toast: this.toast ? (this.toast.view.getChildAt(1) as Text).text : null,
+      top: this.topScores(),
       punch: this.scenery.scale.x,
       shakeAt: { x: this.app.stage.position.x, y: this.app.stage.position.y },
       lit: this.lit.map((l) => ({ id: l.id, points: [...l.points] })),
@@ -1343,6 +1358,9 @@ export class Game {
     this.shakeLeft = 0;
     this.slowLeft = 0;
     for (const w of this.waves.splice(0)) w.filter.destroy();
+    this.dialogue?.view.destroy({ children: true });
+    this.dialogue = null;
+    this.showTop(this.topScores());
     this.punch = null;
     this.scenery.scale.set(1);
     this.slowScale = 1;
@@ -2300,6 +2318,15 @@ export class Game {
   /** While paused nothing moves and no clock runs; only rules about taps act, so that one of them can resume the game. */
   private updatePaused(): void {
     const tapped = this.taps.length > 0 || this.keyTap;
+    if (this.dialogue) {
+      this.stepDialogue(tapped);
+      this.taps = [];
+      this.drops = [];
+      this.swipes = [];
+      this.keyTap = false;
+      this.pressed.clear();
+      return;
+    }
     for (const rule of this.scene.rules) {
       if (rule.when.type !== 'tap' && rule.when.type !== 'tapObject') continue;
       for (const context of this.fired(rule, 0, tapped, [])) {
@@ -2797,6 +2824,10 @@ export class Game {
         this.waiting.push({ at: this.time + action.seconds, actions: actions.slice(i + 1), context });
         return;
       }
+      if (action.type === 'say') {
+        this.speak(action, actions.slice(i + 1), context);
+        return;
+      }
       this.perform(action, context);
     }
   }
@@ -3263,6 +3294,12 @@ export class Game {
       case 'pause':
         this.paused = true;
         break;
+      case 'achieve':
+        this.achieve(action.name);
+        break;
+      case 'recordScore':
+        this.recordScore(Number(this.variables.get(action.variable) ?? 0));
+        break;
       case 'resume':
         this.paused = false;
         break;
@@ -3629,6 +3666,130 @@ export class Game {
   }
 
   /** Moves a camera zoom along, easing in and out, and keeps the followed object in the middle as it goes. */
+  /** A character starts to speak: the game waits, the box shows, and the words appear letter by letter. */
+  private speak(action: Extract<Action, { type: 'say' }>, rest: Action[], context: Context): void {
+    this.dialogue?.view.destroy({ children: true });
+    const { width: W, height: H } = this.project.meta;
+    const font = [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'];
+    const view = new Container();
+    const box = new Graphics().roundRect(24, H - 330, W - 48, 290, 28).fill({ color: '#141a2e', alpha: 0.94 }).stroke({ width: 5, color: action.color });
+    const name = new Text({ text: action.speaker, style: { fontFamily: font, fontSize: 38, fontWeight: 'bold', fill: action.color, padding: 12 } });
+    name.position.set(56, H - 312);
+    const words = new Text({ text: '', style: { fontFamily: font, fontSize: 36, fill: '#ffffff', wordWrap: true, wordWrapWidth: W - 120, lineHeight: 48, padding: 12 } });
+    words.position.set(56, H - 254);
+    const more = new Text({ text: '▼', style: { fontFamily: font, fontSize: 30, fill: action.color } });
+    more.position.set(W - 90, H - 92);
+    view.addChild(box, name, words, more);
+    this.app.stage.addChild(view);
+    const text = fillTemplate(action.speaker === '' ? action.text : action.text, this.variables, new Map(), this.textVariables);
+    this.dialogue = { speaker: action.speaker, text, color: action.color, since: performance.now(), rest, context, view };
+    this.paused = true;
+    this.sound('click', 40);
+    this.drawDialogue();
+  }
+
+  /** How many letters of the words show: about forty a second. */
+  private dialogueShown(): number {
+    const d = this.dialogue;
+    return d ? Math.min(d.text.length, Math.floor(((performance.now() - d.since) / 1000) * 40)) : 0;
+  }
+
+  private drawDialogue(): void {
+    const d = this.dialogue;
+    if (!d) return;
+    const shown = this.dialogueShown();
+    (d.view.getChildAt(2) as Text).text = d.text.slice(0, shown);
+    // The arrow that says "tap for more" blinks once all the words are there.
+    d.view.getChildAt(3).visible = shown >= d.text.length && Math.floor(performance.now() / 400) % 2 === 0;
+  }
+
+  /** A tap shows all the words at once, or, once they are all there, closes the box and goes on. */
+  private stepDialogue(tapped: boolean): void {
+    const d = this.dialogue!;
+    if (tapped && performance.now() - d.since > 150) {
+      if (this.dialogueShown() < d.text.length) d.since = -1e9;
+      else {
+        d.view.destroy({ children: true });
+        this.dialogue = null;
+        this.paused = false;
+        this.runActions(d.rest, d.context);
+        return;
+      }
+    }
+    this.drawDialogue();
+  }
+
+  private achievements(): string[] {
+    try {
+      return JSON.parse(localStorage.getItem(this.savedKey('#achievements')) ?? '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  /** The first time only: kept on the device, and a gold banner slides in to say so. */
+  private achieve(name: string): void {
+    const got = this.achievements();
+    if (got.includes(name)) return;
+    try {
+      localStorage.setItem(this.savedKey('#achievements'), JSON.stringify([...got, name]));
+    } catch { /* Storage unavailable: shown, not kept. */ }
+    this.toasts.push(name);
+  }
+
+  private stepToast(dt: number): void {
+    if (!this.toast && this.toasts.length) {
+      const { width: W } = this.project.meta;
+      const font = [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'];
+      const view = new Container();
+      view.addChild(new Graphics().roundRect(0, 0, W - 120, 110, 26).fill({ color: '#2a1f05', alpha: 0.95 }).stroke({ width: 5, color: '#ffd23f' }));
+      const text = new Text({ text: this.toasts.shift()!, style: { fontFamily: font, fontSize: 38, fontWeight: 'bold', fill: '#ffe066', padding: 10 } });
+      text.position.set(120, 50);
+      const heading = new Text({ text: 'Achievement unlocked', style: { fontFamily: font, fontSize: 26, fill: '#ffd23f', padding: 10 } });
+      heading.position.set(120, 12);
+      view.addChild(text, heading);
+      const cup = new Text({ text: '🏆', style: { fontSize: 58, padding: 10 } });
+      cup.position.set(28, 18);
+      view.addChild(cup);
+      view.position.set(60, -130);
+      this.app.stage.addChild(view);
+      this.toast = { view, left: 2.6 };
+      this.sound('powerup', 60);
+    }
+    if (!this.toast) return;
+    this.toast.left -= dt;
+    const shown = 2.6 - this.toast.left;
+    // Slides down, waits, slides back up.
+    const y = shown < 0.3 ? -130 + (shown / 0.3) * 170 : this.toast.left < 0.3 ? 40 - ((0.3 - this.toast.left) / 0.3) * 170 : 40;
+    this.toast.view.y = y;
+    if (this.toast.left <= 0) {
+      this.toast.view.destroy({ children: true });
+      this.toast = null;
+    }
+  }
+
+  private topScores(): number[] {
+    try {
+      const list = JSON.parse(localStorage.getItem(this.savedKey('#top')) ?? '[]');
+      return Array.isArray(list) ? list.filter((n) => typeof n === 'number') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private recordScore(value: number): void {
+    const list = [...this.topScores(), value].sort((a, b) => b - a).slice(0, 5);
+    try {
+      localStorage.setItem(this.savedKey('#top'), JSON.stringify(list));
+    } catch { /* Storage unavailable. */ }
+    this.showTop(list);
+  }
+
+  /** The variables top1, top2, top3 (when the game has them) show the best scores. */
+  private showTop(list: number[]): void {
+    for (let i = 1; i <= 5; i++) if (this.variables.has('top' + i)) this.variables.set('top' + i, list[i - 1] ?? 0);
+  }
+
   /** Whether any of these keys went down since the last step, or a button of the group was touched. */
   private asked(keys: string[], tag: string): boolean {
     return keys.some((k) => this.pressed.has(k)) || (tag !== '' && this.taps.some((t) => this.hitsTag(t, tag)));
@@ -3762,6 +3923,7 @@ export class Game {
       scale = 1 + (this.punch.amount - 1) * k;
       if (this.punch.left <= 0) this.punch = null;
     }
+    this.stepToast(dt);
     this.scenery.pivot.set(width / 2, height / 2);
     this.scenery.position.set(width / 2, height / 2);
     this.scenery.scale.set(scale);

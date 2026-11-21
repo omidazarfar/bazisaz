@@ -1041,6 +1041,28 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     make: (ctx) => ({ type: 'burst', target: firstRef(ctx), color: '#ffd54a', count: 16 }),
     fields: [{ key: 'target', label: 'از کدام شیء', kind: 'target' }, { key: 'color', label: 'رنگ تکه‌ها', kind: 'color' }, slider('count', 'چند تکه', 4, 40, 1)],
   },
+  say: {
+    title: 'حرف زدن (گفت‌وگو)',
+    about: 'یک جعبه پایین صفحه با نام گوینده، و حرفش حرف‌به‌حرف نوشته می‌شود. بازی صبر می‌کند تا بازیکن لمس کند؛ بعد کارهای بعدی همین قانون انجام می‌شوند. چند «حرف زدن» پشت هم یعنی یک گفت‌وگو. مقدارها را با {score} می‌شود نوشت.',
+    make: () => ({ type: 'say', speaker: 'Knight', text: 'Hello!', color: '#ffd23f' }),
+    fields: [
+      { key: 'speaker', label: 'چه کسی می‌گوید', kind: 'text' },
+      { key: 'text', label: 'چه می‌گوید', kind: 'text' },
+      { key: 'color', label: 'رنگ نام و قاب', kind: 'color' },
+    ],
+  },
+  achieve: {
+    title: 'دستاورد',
+    about: 'بار اولی که این کار انجام شود، یک نوار طلایی بالای صفحه می‌گوید «دستاورد: …» و روی گوشی می‌ماند؛ دفعه‌های بعد چیزی نشان نمی‌دهد. مثل «اولین سکه» یا «غول‌کش».',
+    make: () => ({ type: 'achieve', name: 'First win' }),
+    fields: [{ key: 'name', label: 'نام دستاورد', kind: 'text' }],
+  },
+  recordScore: {
+    title: 'ثبت در جدول امتیاز',
+    about: 'مقدار یک امتیاز را در فهرست بهترین امتیازهای روی گوشی می‌گذارد (پنج‌تای اول می‌مانند). اگر بازی مقدارهایی به نام top1، top2 و top3 داشته باشد، همیشه بهترین‌ها را نشان می‌دهند؛ مثلاً در متن «1. {top1}».',
+    make: () => ({ type: 'recordScore', variable: 'score' }),
+    fields: [{ key: 'variable', label: 'کدام مقدار', kind: 'variable' }],
+  },
   shoot: {
     title: 'شلیک با الگو',
     about: 'از یک شیء چند نمونه از یک شیء ساختنی را با سرعت پرتاب می‌کند: یکی، بادبزنی، حلقه‌ای دور تا دور، یا رو به نزدیک‌ترین هدف. برای اسلحه و حمله‌ی غول آخر. عکس تیر رو به بالا باشد.',
@@ -1303,7 +1325,8 @@ export const TRIGGER_GROUPS: BlockGroup<Trigger['type']>[] = [
 ];
 
 export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
-  { title: 'امتیاز و مقدارها', types: ['setVariable', 'setTextVariable', 'resetVariables'] },
+  { title: 'امتیاز و مقدارها', types: ['setVariable', 'setTextVariable', 'resetVariables', 'recordScore', 'achieve'] },
+  { title: 'گفت‌وگو', types: ['say'] },
   { title: 'کوله‌پشتی', types: ['give', 'take'] },
   { title: 'اشیا', types: ['destroy', 'spawn', 'shoot', 'show', 'hide', 'damage'] },
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },

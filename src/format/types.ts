@@ -1108,6 +1108,16 @@ export type Action =
   | { type: 'damage'; target: Target; amount: number; push?: number }
   /** Freezes the game. Only taps still act, so a rule can resume it. */
   | { type: 'pause' }
+  /**
+   * A character speaks: a box at the bottom of the screen with their name and
+   * the words appearing letter by letter. The game waits until the player taps;
+   * the actions after it run then, so several in a row are a conversation.
+   */
+  | { type: 'say'; speaker: string; text: string; color: string }
+  /** Unlocks an achievement: a gold banner says so the first time, and it stays unlocked on the device. */
+  | { type: 'achieve'; name: string }
+  /** Puts a variable's value on the device's list of best scores. Variables named top1, top2 and top3 show the list. */
+  | { type: 'recordScore'; variable: string }
   | { type: 'resume' }
   /** Offers a rewarded ad; the "reward" trigger fires if the player watches it through. */
   | { type: 'showRewardedAd' }

@@ -148,6 +148,9 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     }
     case 'burst': return `از ${who(a.target)} جرقه بپران`;
     case 'shake': return a.axis === 'side' ? 'صفحه را چپ و راست بلرزان' : a.axis === 'up' ? 'صفحه را بالا و پایین بلرزان' : 'صفحه را بلرزان';
+    case 'say': return `${a.speaker || 'کسی'} می‌گوید: «${a.text}»`;
+    case 'achieve': return `دستاورد «${a.name}» را بده`;
+    case 'recordScore': return `${a.variable} را در جدول امتیاز ثبت کن`;
     case 'zoomPunch': return 'دوربین را یک لحظه جلو بپران';
     case 'shoot': return `از ${who(a.from)} ${{ single: 'یک تیر', spread: `${fa(a.count)} تیر بادبزنی`, ring: `${fa(a.count)} تیر دور تا دور`, aimed: `${fa(a.count)} تیر رو به هدف` }[a.pattern]} شلیک کن`;
     case 'shockwave': return `از ${who(a.at)} موج انفجار بفرست`;

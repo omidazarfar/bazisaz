@@ -117,12 +117,17 @@ async function screens(project: GameProject, levelId: string, look: { name: stri
     title('عنوان برد', 'YOU WIN!', 110, W / 2, H * 0.12),
     trophy.object,
     label('امتیاز نهایی', 'Score: {score}', 60, W / 2, H * 0.58, { fixed: false }),
+    label('بهترین امتیازها', 'Top: {top1} · {top2} · {top3}', 38, W / 2, H * 0.64, { fixed: false }),
     again.object,
     label('نوشته‌ی دوباره', 'Play again', 46, W / 2, H * 0.74 - 32, { fixed: false }),
     home.object,
   ];
   win.rules = [
-    rule({ type: 'start' }, [{ type: 'setVariable', name: 'best', op: 'max', amount: { variable: 'score' } }]),
+    rule({ type: 'start' }, [
+      { type: 'recordScore', variable: 'score' },
+      { type: 'setVariable', name: 'best', op: 'max', amount: { variable: 'score' } },
+      { type: 'achieve', name: `${look.name[0]}${look.name.slice(1).toLowerCase()} complete` },
+    ]),
     rule({ type: 'tapObject', target: byId(again.object.id) }, fresh),
     rule({ type: 'tapObject', target: byId(home.object.id) }, [{ type: 'playSound', sound: 'click' }, { type: 'goToScene', scene: start.id }]),
   ];
@@ -133,16 +138,17 @@ async function screens(project: GameProject, levelId: string, look: { name: stri
   over.objects = [
     title('عنوان باخت', 'GAME OVER', 100, W / 2, H * 0.2),
     label('امتیاز', 'Score: {score}', 56, W / 2, H * 0.36, { fixed: false }),
-    label('بهترین', 'Best: {best}', 40, W / 2, H * 0.43, { fixed: false }),
+    label('بهترین', 'Top: {top1} · {top2} · {top3}', 40, W / 2, H * 0.43, { fixed: false }),
     retry.object,
     label('نوشته‌ی دوباره', 'Try again', 44, W / 2, H * 0.75, { fixed: false }),
   ];
   over.rules = [
-    rule({ type: 'start' }, [{ type: 'setVariable', name: 'best', op: 'max', amount: { variable: 'score' } }]),
+    rule({ type: 'start' }, [{ type: 'recordScore', variable: 'score' }, { type: 'setVariable', name: 'best', op: 'max', amount: { variable: 'score' } }]),
     rule({ type: 'tapObject', target: byId(retry.object.id) }, fresh),
   ];
 
   p = withNumber(withNumber(p, 'best', 0, true), 'score', 0);
+  for (const name of ['top1', 'top2', 'top3']) p = withNumber(p, name, 0);
   return { project: { ...p, scenes: [...p.scenes, start, win, over], startScene: start.id }, start: start.id, win: win.id, over: over.id };
 }
 
@@ -331,6 +337,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
       { type: 'effect', target: 'second', kind: 'shrink', seconds: 0.2 },
       { type: 'jump', target: 'first' },
       { type: 'floatText', target: 'second', text: '+5', color: '#c5f27a', size: 40 },
+      { type: 'achieve', name: 'Stomper' },
       { type: 'setVariable', name: 'score', op: 'add', amount: 5 },
       { type: 'playSound', sound: 'pop' },
       { type: 'shake', strength: 6, axis: 'up' },
@@ -547,6 +554,11 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
     ...lifeRules(screen.over),
   );
   p = await banner(p, sceneId, 'Find the key. Escape!');
+  // The knight wakes in the dark and says what to do, in a few words the player taps through.
+  p = withRules(p, sceneId, rule({ type: 'after', seconds: 0.8 }, [
+    { type: 'say', speaker: 'Knight', text: 'Where am I? This dungeon is so dark...', color: '#ffd23f' },
+    { type: 'say', speaker: 'Knight', text: 'Skeletons! I must find the golden key and open the door. Tap the green button to roll away from danger.', color: '#ffd23f' },
+  ]));
   p = await part(p, sceneId, 'score');
   p = await hearts(p, sceneId);
   p = await part(p, sceneId, 'pause-menu');
@@ -653,7 +665,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
       { type: 'playMusic', music: 'music:tense' },
       { type: 'shake', strength: 10 },
     ]),
-    rule({ type: 'dead', target: byTag(BOSS) }, [{ type: 'shockwave', at: 'first', size: 700 }, { type: 'zoomPunch', amount: 1.15, seconds: 0.6 }, { type: 'shake', strength: 16 }, { type: 'playSound', sound: 'win' }, { type: 'setVariable', name: 'score', op: 'add', amount: 100 }, { type: 'wait', seconds: 1.4 }, { type: 'goToScene', scene: screen.win }]),
+    rule({ type: 'dead', target: byTag(BOSS) }, [{ type: 'achieve', name: 'Boss slayer' }, { type: 'shockwave', at: 'first', size: 700 }, { type: 'zoomPunch', amount: 1.15, seconds: 0.6 }, { type: 'shake', strength: 16 }, { type: 'playSound', sound: 'win' }, { type: 'setVariable', name: 'score', op: 'add', amount: 100 }, { type: 'wait', seconds: 1.4 }, { type: 'goToScene', scene: screen.win }]),
     ...lifeRules(screen.over, 0),
   );
   p = await banner(p, sceneId, 'Blast them all!');
@@ -795,6 +807,7 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
     { type: 'playSound', sound: 'boom' },
     { type: 'shake', strength: 18 },
     { type: 'shockwave', at: 'first', size: 560 },
+    { type: 'achieve', name: 'Demolition' },
     { type: 'zoomPunch', amount: 1.12, seconds: 0.45 },
     { type: 'destroy', target: 'first' },
     { type: 'slowMotion', amount: 0.35, seconds: 0.6 },

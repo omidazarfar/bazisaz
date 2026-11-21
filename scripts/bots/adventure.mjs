@@ -73,6 +73,8 @@ try {
     const scene = await w.see(s);
     if (scene === 'You win' || scene === 'Game over') { outcome = scene; break; }
     if (s.time > limit) break;
+    // The knight speaking: read it and tap on, as a player would (the game waits meanwhile).
+    if (s.dialogue) { await page.keyboard.press('Space'); await new Promise((r) => setTimeout(r, 300)); continue; }
     const me = s.entities.find((e) => e.tags.includes('بازیکن'));
     if (!me) { await tick(page, 0.1); continue; }
     const centre = { x: me.x + me.width / 2, y: me.y + me.height / 2 };
