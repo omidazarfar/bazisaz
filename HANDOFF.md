@@ -265,6 +265,7 @@ look:
 
 ## Current state (keep this up to date)
 
+- Updated 2026-11-21 (later) by Claude: Phase 2 mostly done and Phase 3 started (see the plan). Verified after the last change: `npm test` **567 PASS, 0 FAIL** (301 runtime, 242 editor, 24 server); `npm run bots` 6 of 6 on the first try (the shooter met the boss and kept all three lives).
 - Updated 2026-11-21 by Claude: Phase 1 done, Phase 2 started (see the plan). Verified after the last change: `npm run build` passed; `npm test` **544 PASS, 0 FAIL** (278 runtime, 242 editor, 24 server); `npm run bots` **6 of 6 games played through on the first try** (rescue 600 points, shooter 35 s with a life left).
 - Updated 2026-11-21 by Codex. Phase 0 is complete. Phase 1 includes the new editable rescue game in Library → «راهنمای سبک» → «عملیات نجات». The terrain editor is in «شکل، متن و عکس خودت». The chain, bike, rescue crawler and boat are also independent parts.
 - Verification before changes: build passed, runtime 243, editor 233, server 24 (500 PASS, 0 FAIL). All five original bots passed on their first run. The half-speed shooter survived the 35-second gate with two lives and 145 points.
