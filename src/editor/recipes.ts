@@ -736,7 +736,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'pause-menu',
     title: 'منوی مکث کامل',
-    about: 'دکمه‌ی مکث گوشه‌ی صفحه که روی بازی را تیره می‌کند و یک منو با «ادامه»، «از نو» و (اگر صفحه‌ی مرحله‌ها یا شروع داری) «منو» نشان می‌دهد.',
+    about: 'دکمه‌ی مکث گوشه‌ی صفحه که روی بازی را تیره می‌کند و یک منو با «ادامه»، «از نو»، روشن و خاموش کردن صدا (که روی گوشی یادش می‌ماند) و (اگر صفحه‌ی مرحله‌ها یا شروع داری) «منو» نشان می‌دهد.',
     apply: async (p, s) => {
       const MENU = 'منوی مکث';
       const { width, height } = p.meta;
@@ -745,10 +745,10 @@ export const RECIPES: Recipe[] = [
       const pause = await picture(p, 'btn-pause', 'دکمه‌ی مکث', 90, 90, { x: width - 75, y: 75 }, { fixed: true });
       let project = pause.project;
       const dim = makeObject('پرده‌ی تیره', { kind: 'rect', color: '#0b1620' }, width, height, { x: width / 2, y: height / 2 }, { ...hidden, opacity: 0.6 });
-      const board = await picture(project, 'panel', 'صفحه‌ی منو', Math.min(520, width - 80), 600, { x: width / 2, y: height / 2 }, hidden);
+      const board = await picture(project, 'panel', 'صفحه‌ی منو', Math.min(520, width - 80), 740, { x: width / 2, y: height / 2 }, hidden);
       project = board.project;
       const panel = board.object;
-      const heading = makeObject('نوشته‌ی مکث', { kind: 'text', text: 'Paused', color: '#ffd23f', size: 84, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: width / 2, y: height / 2 - 250 }, hidden);
+      const heading = makeObject('نوشته‌ی مکث', { kind: 'text', text: 'Paused', color: '#ffd23f', size: 84, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: width / 2, y: height / 2 - 320 }, hidden);
       const buttons: { name: string; text: string; then: Action[] }[] = [
         { name: 'دکمه‌ی ادامه', text: 'Resume', then: [{ type: 'hide', target: byTag(MENU) }, { type: 'resume' }] },
         { name: 'دکمه‌ی از نو', text: 'Restart', then: [{ type: 'resume' }, { type: 'restartScene' }] },
@@ -757,12 +757,25 @@ export const RECIPES: Recipe[] = [
       const objects: GameObject[] = [dim, panel, heading];
       const rules: Rule[] = [rule({ type: 'tapObject', target: byId(pause.object.id) }, [{ type: 'playSound', sound: 'click' }, { type: 'show', target: byTag(MENU) }, { type: 'pause' }])];
       for (const [i, b] of buttons.entries()) {
-        const y = height / 2 - 90 + i * 130;
+        const y = height / 2 - 170 + i * 130;
         const made = await picture(project, 'btn-wide', b.name, 340, 110, { x: width / 2, y }, hidden);
         project = made.project;
         objects.push(made.object, label(`نوشته‌ی ${b.name}`, b.text, 46, width / 2, y - 30, { ...hidden }));
         rules.push(rule({ type: 'tapObject', target: byId(made.object.id) }, [{ type: 'playSound', sound: 'click' }, ...b.then]));
       }
+      // Sound on and off, remembered on the phone in the saved value "sound" (1 on, 0 off).
+      const soundY = height / 2 - 170 + buttons.length * 130;
+      const soundButton = await picture(project, 'btn-wide', 'دکمه‌ی صدا', 340, 110, { x: width / 2, y: soundY }, hidden);
+      project = soundButton.project;
+      const soundLabel = label('نوشته‌ی دکمه‌ی صدا', 'Sound: on', 46, width / 2, soundY - 30, { ...hidden });
+      objects.push(soundButton.object, soundLabel);
+      if (!project.variables.some((v) => v.name === 'sound')) project = { ...project, variables: [...project.variables, { name: 'sound', initial: 1, saved: true }] };
+      const off: Action[] = [{ type: 'setSound', on: false }, { type: 'setVariable', name: 'sound', op: 'set', amount: 0 }, { type: 'setText', target: byId(soundLabel.id), text: 'Sound: off' }];
+      const on: Action[] = [{ type: 'setSound', on: true }, { type: 'setVariable', name: 'sound', op: 'set', amount: 1 }, { type: 'setText', target: byId(soundLabel.id), text: 'Sound: on' }, { type: 'playSound', sound: 'click' }];
+      rules.push(
+        { ...rule({ type: 'tapObject', target: byId(soundButton.object.id) }, off), condition: { name: 'sound', op: '==', value: 1 }, otherwise: on },
+        { ...rule({ type: 'start' }, off), condition: { name: 'sound', op: '==', value: 0 } },
+      );
       project = withRules(addAll(addObject(project, s, 'objects', pause.object), s, objects), s, ...rules);
       return {
         project,

@@ -1419,6 +1419,37 @@ await page.click('[data-restore]');
 check('versions: going back to a kept version undoes what came after', await until(page, (n) => window.__editor.getState().project.scenes.reduce((m, s) => m + s.objects.length, 0) === n, keptObjects, 5000));
 await page.screenshot({ path: resolve(shots, 'editor-game-tools.png') });
 
+// ── The pictures of a game, and a pause menu whose sound setting is kept ──
+await freshGame();
+await addPart('pause-menu');
+await click('+ عکس', '.object-list').catch(() => undefined);
+await click('بازی', '.tabs');
+const imageCount = Object.values((await editor()).project.assets).filter((a) => a.type === 'image').length;
+check('pictures: every picture of the game is shown with how often it is used', (await page.$$eval('[data-asset]', (a) => a.length)) === imageCount && imageCount > 0, `${imageCount} pictures`);
+// A picture no object uses any more: the pause button's, once the button is gone.
+const pauseDef = (await scene()).objects.find((o) => o.name === 'دکمه‌ی مکث');
+await page.evaluate((project) => window.__editor.open(project), { ...(await editor()).project, assets: { ...(await editor()).project.assets, spare: { type: 'image', src: (await editor()).project.assets[pauseDef.visual.asset].src } } });
+await click('بازی', '.tabs');
+check('pictures: one no longer used is marked, and can be removed with the others like it', await until(page, () => document.querySelector('[data-asset="spare"].unused') !== null, null, 5000));
+await page.click('[data-remove-unused]');
+check('pictures: removing the unused ones keeps every picture that is used', await until(page, (n) => !('spare' in window.__editor.getState().project.assets) && Object.values(window.__editor.getState().project.assets).filter((a) => a.type === 'image').length === n, imageCount, 5000));
+
+const pauseObjects = (await scene()).objects;
+check('pause menu: it has a sound button, and the game keeps the choice in a saved value', pauseObjects.some((o) => o.name === 'دکمه‌ی صدا') && (await editor()).project.variables.some((v) => v.name === 'sound' && v.saved));
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 1);
+const live = async (name) => (await gameState(page)).entities.find((e) => e.id === pauseObjects.find((o) => o.name === name).id);
+await tapAt(await live('دکمه‌ی مکث'));
+await until(page, () => window.__game.getState().paused, null, 5000);
+await sleep(200);
+await tapAt(await live('دکمه‌ی صدا'));
+check('pause menu: the sound button turns the sound off and says so', await until(page, () => { const s = window.__game.getState(); return !s.soundOn && s.variables.sound === 0 && s.entities.some((e) => e.text === 'Sound: off'); }, null, 5000));
+await sleep(200);
+await tapAt(await live('دکمه‌ی صدا'));
+check('and on again', await until(page, () => { const s = window.__game.getState(); return s.soundOn && s.variables.sound === 1; }, null, 5000));
+await page.screenshot({ path: resolve(shots, 'editor-pause-sound.png') });
+await click('توقف');
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

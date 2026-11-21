@@ -2193,3 +2193,30 @@ ol.rule-then li::before {
   border-radius: 12px;
   margin: 4px 0 8px;
 }
+
+/* The pictures of the game in the game panel. */
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  margin: 6px 0;
+}
+.asset {
+  margin: 0;
+  padding: 4px;
+  background: #18202f;
+  border-radius: 10px;
+  text-align: center;
+}
+.asset img {
+  width: 100%;
+  height: 56px;
+  object-fit: contain;
+}
+.asset figcaption {
+  font-size: 11px;
+  color: #b8c4d8;
+}
+.asset.unused {
+  outline: 2px dashed #ff9f1c;
+}

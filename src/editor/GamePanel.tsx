@@ -248,6 +248,39 @@ export function GamePanel({ editor }: { editor: Editor }) {
         )}
       </Section>
 
+      <Section title="عکس‌ها" about="همه‌ی عکس‌هایی که در این بازی هستند، و اینکه در چند جا به کار رفته‌اند. عکسی که دیگر جایی به کار نمی‌رود فقط فایل بازی را سنگین می‌کند؛ «حذف عکس‌های بی‌استفاده» همه‌شان را با هم برمی‌دارد (با «یک قدم به عقب» برمی‌گردند).">
+        {(() => {
+          const images = Object.entries(project.assets).filter(([, a]) => a.type === 'image');
+          // An image is used wherever its id appears in the game outside the list of pictures itself.
+          const rest = JSON.stringify({ ...project, assets: {} });
+          const uses = (id: string) => rest.split(JSON.stringify(id)).length - 1;
+          const unused = images.filter(([id]) => uses(id) === 0).map(([id]) => id);
+          const kb = (src: string) => Math.max(1, Math.round((src.length * 0.75) / 1024));
+          return (
+            <>
+              <div className="asset-grid">
+                {images.map(([id, a]) => (
+                  <figure key={id} className={uses(id) === 0 ? 'asset unused' : 'asset'} data-asset={id} title={uses(id) === 0 ? 'به کار نرفته' : 'در ' + uses(id).toLocaleString('fa-IR') + ' جا'}>
+                    <img src={a.src} alt="" />
+                    <figcaption>{uses(id) === 0 ? 'بی‌استفاده' : uses(id).toLocaleString('fa-IR') + ' جا'} · {kb(a.src).toLocaleString('fa-IR')}KB</figcaption>
+                  </figure>
+                ))}
+              </div>
+              {images.length === 0 && <p className="hint">هنوز عکسی در بازی نیست.</p>}
+              {unused.length > 0 && (
+                <div className="adders">
+                  <button type="button" className="chip" data-remove-unused onClick={() => {
+                    const assets = { ...project.assets };
+                    for (const id of unused) delete assets[id];
+                    change({ ...project, assets }, 'assets.removeUnused');
+                  }}>🧹 حذف {unused.length.toLocaleString('fa-IR')} عکس بی‌استفاده</button>
+                </div>
+              )}
+            </>
+          );
+        })()}
+      </Section>
+
       <Section title="صداها" about="فایل‌های صدا و موسیقی خودت (mp3، ogg یا wav). صدا را با کار «پخش صدا» در قانون‌ها پخش کن و موسیقی را برای هر صحنه انتخاب کن.">
         {sounds.map((s) => {
           const used = isSoundUsed(s.id);
