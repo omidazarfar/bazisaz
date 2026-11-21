@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { FONTS, isBuiltinMusic, ruleActions, type Look, type Sky } from '../format/types';
+import { FONTS, isBuiltinMusic, ruleActions, type Look, type Sky, type Weather } from '../format/types';
 import { builtinMusic } from '../runtime/music';
 import { setMusic } from '../runtime/sound';
-import { BUILTIN_MUSIC_OPTIONS, LOOK_OPTIONS, SKY_OPTIONS } from './labels';
+import { BUILTIN_MUSIC_OPTIONS, LOOK_OPTIONS, SKY_OPTIONS, WEATHER_OPTIONS } from './labels';
 import { APP_ID } from '../format/validate';
 import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextField } from './controls';
 import type { GameProject } from '../format/types';
@@ -204,6 +204,13 @@ export function GamePanel({ editor }: { editor: Editor }) {
           value={scene.sky ?? 'none'}
           options={SKY_OPTIONS}
           onChange={(sky) => setScene({ sky: sky as Sky }, 'sky')}
+        />
+        <Select
+          label="آب و هوا"
+          hint="روی کل صفحه: باران، طوفان با رعد و برق، برف، برگ‌ریزان، جرقه‌ی آتش یا مه. فقط برای دیدن است و به چیزی نمی‌خورد."
+          value={scene.weather ?? 'none'}
+          options={WEATHER_OPTIONS}
+          onChange={(weather) => setScene({ weather: weather as Weather }, 'weather')}
         />
         <Check label="درخشش نورها" hint="چیزهای روشن (آتش، نور، ستاره، خورشید) هاله‌ی نرمی دورشان دارند. روی گوشی ضعیف کمی سنگین است." value={scene.bloom ?? false} onChange={(bloom) => setScene({ bloom }, 'bloom')} />
         <Slider

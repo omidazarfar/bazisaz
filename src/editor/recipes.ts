@@ -143,7 +143,60 @@ export function addRescueRig(p: GameProject, sceneId: string, x: number, y: numb
 
 }
 
+/**
+ * A geared lift: the player's crank (a small gear) turns a big gear, whose
+ * teeth push a rack up, with a capsule-shaped pod riding on top. Hold right
+ * (or the right half of the screen) to wind it up; let go and the weight
+ * winds it back down. `x, y` is the middle of the crank.
+ */
+export async function addClockwork(p: GameProject, sceneId: string, x: number, y: number) {
+  const GEAR = 'دنده';
+  const small = 100, big = 180;
+  // Teeth reach into each other a little, so the two drawn gears look meshed.
+  const bigX = x + small / 2 + big / 2 - 12;
+  const rackX = bigX + big / 2 - 10 + 45;
+  const rackTop = y - 170;
+  const pin = (name: string, cx: number, cy: number) => {
+    const o = makeObject(name, { kind: 'ellipse', color: '#2d2f38', outline: '#14151a' }, 22, 22, { x: cx, y: cy });
+    o.tags.push(name + '-' + o.id);
+    return o;
+  };
+  const crankPin = pin('محور دسته', x, y);
+  const bigPin = pin('محور چرخ بزرگ', bigX, y);
+  const base = makeObject('پایه‌ی آسانسور', { kind: 'rect', color: '#4a4e5a', radius: 6, shade: true }, 120, 40, { x: rackX, y: rackTop + 360 + 20 });
+  base.tags.push('پایه-' + base.id);
+  const rack = await picture(p, 'gear-rack', 'دنده‌ی شانه‌ای', 90, 360, { x: rackX, y: rackTop + 180 }, {
+    behaviors: [physics({ rotates: false, gravity: false, weight: 0.3, passTag: GEAR, solidTag: base.tags[0], edges: false }),
+      // The rail is the big gear's pin: joined bodies never meet, and the rack must stand on its base.
+      { type: 'joint', kind: 'slider', targetTag: bigPin.tags[0], at: 'self', axis: 90, range: 420, motor: 0 }],
+  });
+  rack.object.tags.push(GEAR, 'شانه-' + rack.object.id);
+  const wheel = (name: string, size: number, cx: number, behaviors: Behavior[]) => picture(rack.project, 'gear', name, size, size, { x: cx, y }, {
+    round: true, behaviors: [physics({ weight: 4, passTag: GEAR, solidTag: '', edges: false, gravity: false }), ...behaviors],
+  });
+  const bigGear = await wheel('چرخ‌دنده‌ی بزرگ', big, bigX, [
+    { type: 'joint', kind: 'hinge', targetTag: bigPin.tags[0], at: 'self', motor: 0 },
+    { type: 'joint', kind: 'gear', targetTag: rack.object.tags[1], at: 'self', motor: 0 },
+  ]);
+  bigGear.object.tags.push(GEAR, 'بزرگ-' + bigGear.object.id);
+  const crank = await picture(bigGear.project, 'gear', 'دسته‌ی چرخ‌دنده', small, small, { x, y }, {
+    round: true, behaviors: [physics({ weight: 4, passTag: GEAR, solidTag: '', edges: false, gravity: false }),
+      { type: 'joint', kind: 'hinge', targetTag: crankPin.tags[0], at: 'self', motor: 220, drive: 'player' },
+      { type: 'joint', kind: 'gear', targetTag: bigGear.object.tags[1], at: 'self', motor: 0 }],
+  });
+  crank.object.tags.push(GEAR);
+  const pod = await picture(crank.project, 'rescue-pod', 'کپسول نجات', 120, 66, { x: rackX, y: rackTop - 33 }, {
+    behaviors: [physics({ shape: 'capsule', weight: 0.6, solidTag: '', bounce: 0 })],
+  });
+  const parts = [base, rack.object, bigGear.object, crank.object, crankPin, bigPin, pod.object];
+  return { project: addAll(pod.project, sceneId, parts), select: crank.object.id, pod: pod.object.id, rackTop, rackX };
+}
+
 export const RECIPES: Recipe[] = [
+  {
+    id: 'gears', title: 'چرخ‌دنده و آسانسور', about: 'دسته‌ی کوچک چرخ‌دنده‌ی بزرگ را می‌چرخاند و آن دنده‌ی شانه‌ای را با کپسول بالا می‌برد. راست را نگه دار تا بالا برود؛ رها کنی، پایین برمی‌گردد.',
+    apply: async (p, s, centre) => addClockwork(p, s, centre.x - 150, centre.y + 120),
+  },
   ...(['bike', 'tank'] as const).map((id): Recipe => ({
     id, title: id === 'bike' ? 'موتور کوهستان' : 'خودروی شنی‌دار امداد',
     about: 'با کلید یا لمس راست و چپ بران. هر چرخ اتصال و موتور خودش را دارد.',

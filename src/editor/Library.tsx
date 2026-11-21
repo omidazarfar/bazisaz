@@ -93,7 +93,7 @@ const genres = [
   { id: 'adventure', title: 'ماجراجویی: Dungeon Escape', role: 'steer-player', sprite: 'knight', parts: ['key-door'], about: 'یک بازی کامل: چهار اتاق سیاه‌چال در تاریکی با مشعل، اسکلت‌هایی که وقتی شوالیه را ببینند دنبالش می‌کنند، شمشیر، کلید، در قفل و صندوق گنج.' },
   { id: 'shooter', title: 'تیراندازی: Star Raiders', role: 'finger-player', sprite: 'space-ship', parts: ['player-laser'], about: 'یک بازی کامل: سفینه‌ای که خودش شلیک می‌کند، موج‌های سیارک، موجود فضایی و بشقاب‌پرنده، قلب و ستاره‌ی جایزه، و غول آخر با ۱۵۰ امتیاز.' },
   { id: 'puzzle', title: 'معمایی: Gem Crush', role: 'finger-player', sprite: 'gem', parts: ['key-door'], about: 'یک بازی کامل: سه‌تایی جور کن با ۲۰ حرکت برای رسیدن به ۹۰ امتیاز، نوار پیشرفت، و صفحه‌ی برد و باخت.' },
-  { id: 'rescue', title: 'عملیات نجات', role: 'sling-stone', sprite: 'rescue-tank', parts: ['rescue-chain', 'bike', 'tank', 'boat'], about: 'آدمک را نجات بده، کاوشگر را به مدار بفرست و با موتور، خودروی شنی‌دار و قایق به مقصد برس.' },
+  { id: 'rescue', title: 'نجات: Rescue Relay', role: 'sling-stone', sprite: 'rescue-tank', parts: ['rescue-chain', 'bike', 'tank', 'boat', 'gears'], about: 'یک بازی کامل: آدمک را نجات بده، کاوشگر را به مدار بفرست و با موتور، خودروی شنی‌دار و قایق به مقصد برس.' },
   { id: 'physics', title: 'فیزیکی: Rock Smash', role: 'sling-stone', sprite: 'rock', parts: ['tower'], about: 'یک بازی کامل: تیرکمان با پنج سنگ و قلعه‌ای از سنگ، چوب، شیشه‌ی شکستنی و تیرآهن، با بشکه‌ی انفجاری وسطش و چهار موجود فضایی که دوتایشان پنهان‌اند.' },
 ];
 

@@ -1856,6 +1856,217 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await forcesPage.page.close();
 }
 
+// ── 13h. Lab 19: shapes a body meets others with, gears and racks, gravity zones ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#888888' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const physics = (extra = {}) => ({ type: 'physics', kind: 'moving', solidTag: 'ground', bounce: 0, friction: 0.6, weight: 1, rotates: true, gravity: true, slowdown: 0, edges: false, drag: 'none', power: 8, ...extra });
+  const still = (extra = {}) => physics({ kind: 'still', ...extra });
+  const joint = (kind, targetTag, extra = {}) => ({ type: 'joint', kind, targetTag, at: 'self', motor: 0, ...extra });
+  const id = (x) => ({ by: 'id', id: x });
+  // A picture that is a small dot in the middle of an empty square: its box is four times wider than what is drawn.
+  const dot = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="24" fill="#e53935"/></svg>').toString('base64');
+  const picture = (extra = {}) => ({ visual: { kind: 'image', asset: 'dot' }, ...extra });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab19', orientation: 'portrait', width: 720, height: 1280, background: '#222831', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labnineteen', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: { dot: { type: 'image', src: dot } },
+    variables: ['corner', 'boxed'].map((name) => ({ name, initial: 0, saved: false })),
+    startScene: 'shapes',
+    scenes: [{
+      id: 'shapes', name: 'shapes', width: 720, height: 1280, background: null, music: null, gravity: 2000,
+      objects: [
+        box('floor', 0, 1200, 720, 80, { tags: ['ground'] }),
+        // A ball dropped over the corner of each square: the plain box catches it, the traced dot and the triangle do not.
+        box('boxy', 40, 500, 100, 100, picture({ behaviors: [still()] })),
+        box('onBoxy', 115, 380, 30, 30, { round: true, tags: ['ball'], behaviors: [physics()] }),
+        box('traced', 220, 500, 100, 100, picture({ tags: ['traced'], behaviors: [still({ shape: 'outline' })] })),
+        box('onTraced', 295, 380, 30, 30, { round: true, tags: ['ball'], behaviors: [physics()] }),
+        box('tri', 400, 500, 100, 100, { behaviors: [still({ shape: 'triangle' })] }),
+        box('onTri', 403, 380, 30, 30, { round: true, behaviors: [physics()] }),
+        // Two posts nudged off upright: a box stands on its flat foot, a capsule rolls over on its round end.
+        box('postBox', 520, 1050, 40, 150, { rotation: 4, behaviors: [physics()] }),
+        box('postCapsule', 620, 1050, 40, 150, { rotation: 4, behaviors: [physics({ shape: 'capsule' })] }),
+        box('hex', 560, 300, 80, 70, { behaviors: [physics({ shape: 'hexagon' })] }),
+      ],
+      prefabs: [],
+      rules: [
+        { id: 'r-corner', when: { type: 'touch', a: { by: 'tag', tag: 'ball' }, b: { by: 'tag', tag: 'traced' } }, condition: null, then: [{ type: 'setVariable', name: 'corner', op: 'add', amount: 1 }] },
+        { id: 'r-boxed', when: { type: 'touch', a: id('onBoxy'), b: id('boxy') }, condition: null, then: [{ type: 'setVariable', name: 'boxed', op: 'add', amount: 1 }] },
+      ],
+    }, {
+      id: 'gears', name: 'gears', width: 720, height: 1280, background: null, music: null, gravity: 2000,
+      objects: [
+        box('pinA', 140, 290, 20, 20, { tags: ['pinA'] }),
+        box('pinB', 260, 290, 20, 20, { tags: ['pinB'] }),
+        box('pinC', 140, 590, 20, 20, { tags: ['pinC'] }),
+        box('pinD', 400, 590, 20, 20, { tags: ['pinD'] }),
+        box('pinE', 200, 890, 20, 20, { tags: ['pinE'] }),
+        // Meshed: a small driver and a gear twice its size, which turns half as fast the other way.
+        box('driver', 100, 250, 100, 100, { round: true, tags: ['g'], behaviors: [physics({ gravity: false, passTag: 'g' }), joint('hinge', 'pinA', { motor: 180 }), joint('gear', 'big')] }),
+        box('bigGear', 170, 200, 200, 200, { round: true, tags: ['g', 'big'], behaviors: [physics({ gravity: false, passTag: 'g' }), joint('hinge', 'pinB')] }),
+        // Belted: the same size, the same way round.
+        box('beltA', 100, 550, 100, 100, { round: true, tags: ['g'], behaviors: [physics({ gravity: false, passTag: 'g' }), joint('hinge', 'pinC', { motor: 180 }), joint('gear', 'beltB', { belt: true })] }),
+        box('beltB', 360, 550, 100, 100, { round: true, tags: ['g', 'beltB'], behaviors: [physics({ gravity: false, passTag: 'g' }), joint('hinge', 'pinD')] }),
+        // A pinion over a rack: turning clockwise, its bottom teeth push the rack to the left.
+        box('pinion', 150, 840, 100, 100, { round: true, tags: ['g'], behaviors: [physics({ gravity: false, passTag: 'g' }), joint('hinge', 'pinE', { motor: 180 }), joint('gear', 'rack')] }),
+        box('rack', 200, 940, 300, 30, { tags: ['g', 'rack'], behaviors: [physics({ gravity: false, rotates: false, passTag: 'g' }), joint('slider', 'pinE', { axis: 0 })] }),
+      ],
+      prefabs: [],
+      rules: [{ id: 'r-cut', when: { type: 'after', seconds: 1.2 }, condition: null, then: [{ type: 'cut', target: id('driver') }] }],
+    }, {
+      id: 'zones', name: 'zones', width: 720, height: 1280, background: null, music: null, gravity: 2000,
+      objects: [
+        box('floor', 0, 1200, 720, 80, { tags: ['ground'] }),
+        box('upside', 0, 300, 240, 700, { behaviors: [{ type: 'field', kind: 'gravity', direction: -90, strength: 1500 }] }),
+        box('floating', 240, 300, 240, 700, { behaviors: [{ type: 'field', kind: 'gravity', direction: 90, strength: 0 }] }),
+        box('riser', 100, 800, 40, 40, { behaviors: [physics()] }),
+        box('floater', 340, 800, 40, 40, { behaviors: [physics()] }),
+        box('faller', 580, 800, 40, 40, { behaviors: [physics()] }),
+      ],
+      prefabs: [], rules: [],
+    }],
+  };
+  let { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 1.6);
+  let s = await gameState(page);
+  let e = (name) => s.entities.find((x) => x.id === name);
+  check('shapes: a ball over the corner of a plain box lands on the box', Math.abs(e('onBoxy').y + 30 - 500) < 3 && s.variables.boxed >= 1, `bottom ${(e('onBoxy').y + 30).toFixed(0)}`);
+  check('outline: a ball over the empty corner of a traced picture falls past it to the floor', Math.abs(e('onTraced').y + 30 - 1200) < 4, `bottom ${(e('onTraced').y + 30).toFixed(0)}`);
+  check('outline: brushing past the empty corner is not a touch', s.variables.corner === 0, `touches ${s.variables.corner}`);
+  check('triangle: a ball over its corner falls past the slope instead of resting on a box', e('onTri').y + 30 > 600, `bottom ${(e('onTri').y + 30).toFixed(0)}`);
+  check('capsule: a post with round ends tips over, a box post stays standing', Math.abs(e('postCapsule').angle) > 1 && Math.abs(e('postBox').angle) < 0.3, `${e('postCapsule').angle.toFixed(2)} / ${e('postBox').angle.toFixed(2)}`);
+  check('hexagon: lands on a flat side', Math.abs(e('hex').y + 70 - 1200) < 6, `bottom ${(e('hex').y + 70).toFixed(0)}`);
+  check('lab 19 (shapes): no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.screenshot({ path: resolve(shots, '19-shapes.png') });
+  await page.close();
+
+  ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: 'gears' } }));
+  await loaded(page);
+  await untilTime(page, 1);
+  s = await gameState(page);
+  const meshed = e('bigGear').angle / e('driver').angle;
+  check('gear: a gear twice the size turns half as fast, the other way', e('driver').angle > 1.5 && Math.abs(meshed + 0.5) < 0.08, `ratio ${meshed.toFixed(2)}`);
+  const belted = e('beltB').angle / e('beltA').angle;
+  check('gear with a belt: the two turn the same way', e('beltA').angle > 1.5 && Math.abs(belted - 1) < 0.08, `ratio ${belted.toFixed(2)}`);
+  check('rack: a turning pinion pushes the rack along its rail', e('rack').x < 200 - 50 && Math.abs(e('rack').y - 940) < 2, `x ${e('rack').x.toFixed(0)}`);
+  await untilTime(page, 1.8);
+  s = await gameState(page);
+  check('cutting a geared hinge lets go of the gear too, and the game goes on', s.time >= 1.8 && errors.length === 0, errors.join(' | '));
+  await page.screenshot({ path: resolve(shots, '19-gears.png') });
+  await page.close();
+
+  ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: 'zones' } }));
+  await loaded(page);
+  await untilTime(page, 0.6);
+  s = await gameState(page);
+  check('gravity zone: something inside an upside-down zone falls upward', e('riser').y < 700, `y ${e('riser').y.toFixed(0)}`);
+  check('gravity zone: with no strength, something inside floats where it was', Math.abs(e('floater').y - 800) < 3, `y ${e('floater').y.toFixed(1)}`);
+  check('gravity zone: outside any zone the scene\'s gravity still pulls down', e('faller').y > 900, `y ${e('faller').y.toFixed(0)}`);
+  check('lab 19 (zones): no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ── 13i. Lab 20: graphics: walls that cast shadows, weather, words that float up, more particle streams ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#8d6e63' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const presets = ['embers', 'leaves', 'dust', 'magic', 'hearts', 'steam', 'electric', 'portal', 'waterfall', 'fireflies', 'stars', 'drip'];
+  const scene = (id, extra) => ({ id, name: id, width: 720, height: 1280, background: null, music: null, gravity: 0, objects: [], prefabs: [], rules: [], ...extra });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab20', orientation: 'portrait', width: 720, height: 1280, background: '#2a3a4a', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwenty', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {},
+    variables: [{ name: 'score', initial: 7, saved: false }],
+    startScene: 'shadows',
+    scenes: [
+      scene('shadows', {
+        darkness: 1,
+        objects: [
+          box('lamp', 80, 580, 40, 40, { visual: { kind: 'ellipse', color: '#ffe082' }, behaviors: [{ type: 'light', radius: 420, color: '#ffcc80', flicker: false, shadowTag: 'wall' }] }),
+          box('plain', 560, 1100, 40, 40, { behaviors: [{ type: 'light', radius: 200, color: '#ffffff', flicker: false }] }),
+          box('pillar', 250, 500, 40, 200, { tags: ['wall'] }),
+          box('far', 400, 120, 40, 40, { tags: ['wall'] }),
+        ],
+      }),
+      scene('storm', { weather: 'storm' }),
+      scene('fog', { weather: 'fog' }),
+      scene('snow', { weather: 'snow' }),
+      scene('floats', {
+        objects: [
+          box('chest', 300, 700, 120, 80),
+          ...presets.map((p, i) => box('s-' + p, 40 + (i % 4) * 170, 100 + Math.floor(i / 4) * 180, 120, 120, { visual: { kind: 'rect', color: '#37474f' }, behaviors: [{ type: 'particles', preset: p, color: '#ffcc80', rate: 30, size: 16, speed: 1 }] })),
+        ],
+        rules: [{ id: 'r-float', when: { type: 'start' }, condition: null, then: [{ type: 'floatText', target: { by: 'id', id: 'chest' }, text: '+{score}', color: '#ffe066', size: 48 }] }],
+      }),
+    ],
+  };
+  const inside = (x, y, p) => {
+    let ins = false;
+    for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) {
+      const [xi, yi, xj, yj] = [p[i], p[i + 1], p[j], p[j + 1]];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ins = !ins;
+    }
+    return ins;
+  };
+  let { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.4);
+  let s = await gameState(page);
+  const lamp = s.lit.find((l) => l.id === 'lamp');
+  check('shadows: a light with a shadow group is cut to what it can see; a plain light is not', lamp && !s.lit.some((l) => l.id === 'plain'), JSON.stringify(s.lit.map((l) => l.id)));
+  check('shadows: the space in front of a pillar is lit, and the face of the pillar too', inside(200, 600, lamp.points) && inside(255, 600, lamp.points));
+  check('shadows: behind the pillar is dark, but beside it the light still reaches', !inside(420, 600, lamp.points) && inside(380, 380, lamp.points));
+  check('shadows: a wall beyond the light\'s reach changes nothing', !inside(100, 100, lamp.points) && inside(100, 250, lamp.points));
+  await page.screenshot({ path: resolve(shots, '20-shadows.png') });
+  check('lab 20 (shadows): no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+
+  ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: 'storm' } }));
+  await loaded(page);
+  await untilTime(page, 0.3);
+  s = await gameState(page);
+  check('weather: a storm fills the screen with rain', s.weather.kind === 'storm' && s.weather.drops >= 200, JSON.stringify(s.weather));
+  await untilTime(page, 1.3);
+  s = await gameState(page);
+  check('weather: and soon lightning flashes', s.weather.strikes >= 1 && s.weather.flash > 0, JSON.stringify(s.weather));
+  await page.screenshot({ path: resolve(shots, '20-storm.png') });
+  check('lab 20 (storm): no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+
+  for (const kind of ['fog', 'snow']) {
+    ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: kind } }));
+    await loaded(page);
+    await untilTime(page, 0.5);
+    s = await gameState(page);
+    check(`weather: ${kind} is there`, s.weather.kind === kind && (kind === 'fog' ? s.weather.fog >= 3 : s.weather.drops >= 100) && errors.length === 0, JSON.stringify(s.weather) + errors.join(' | '));
+    await page.close();
+  }
+
+  ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: 'floats' } }));
+  await loaded(page);
+  await untilTime(page, 0.1);
+  s = await gameState(page);
+  const first = s.floats[0];
+  check('floating words: the text shows over the object, with the value filled in', s.floats.length === 1 && first.text === '+7' && Math.abs(first.x - 360) < 2, JSON.stringify(s.floats));
+  await untilTime(page, 0.6);
+  s = await gameState(page);
+  check('floating words: they rise', s.floats.length === 1 && s.floats[0].y < first.y - 40, `${first.y.toFixed(0)} → ${s.floats[0]?.y.toFixed(0)}`);
+  await untilTime(page, 1.3);
+  s = await gameState(page);
+  check('floating words: and are gone after a second', s.floats.length === 0);
+  check('particles: the twelve new kinds all stream', s.particles > 60 && errors.length === 0, `${s.particles} ${errors.join(' | ')}`);
+  await page.screenshot({ path: resolve(shots, '20-particles.png') });
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

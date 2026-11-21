@@ -86,6 +86,18 @@ function draw(paint: (k: Kit) => string): string {
 
 // ── Pieces ─────────────────────────────────────────────────────────────────
 
+/** The outline of a cog: `teeth` flat-topped teeth from radius `inner` out to `outer`. */
+function gearPath(cx: number, cy: number, outer: number, inner: number, teeth: number): string {
+  const step = (Math.PI * 2) / teeth;
+  const at = (r: number, a: number) => `${(cx + r * Math.cos(a)).toFixed(1)} ${(cy + r * Math.sin(a)).toFixed(1)}`;
+  const parts: string[] = [];
+  for (let i = 0; i < teeth; i++) {
+    const a = i * step;
+    parts.push(at(inner, a - step * 0.3), at(outer, a - step * 0.17), at(outer, a + step * 0.17), at(inner, a + step * 0.3));
+  }
+  return 'M' + parts.join('L') + 'Z';
+}
+
 /** An outline in a deeper tone of the shape's own colour. */
 const ol = (c: string, w = 4) => `stroke="${dark(c, 0.55)}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
 /** A highlight where the light catches a glossy surface. */
@@ -602,6 +614,30 @@ export const ART_SPRITES: Sprite[] = [
       `<g fill="#e6edf3" stroke="#3d4752" stroke-width="2">${[22, 70, 118, 166, 214, 262, 278].slice(0, 6).map((x) => `<circle cx="${x}" cy="11" r="3.5"/><circle cx="${x + 18}" cy="29" r="3.5"/>`).join('')}</g>` +
       `<rect x="8" y="6" width="284" height="3" rx="1.5" fill="#ffffff" fill-opacity="0.5"/>`,
     ),
+  },
+  {
+    id: 'gear', name: 'چرخ‌دنده', category: 'ground', width: 120, height: 120,
+    body: draw((k) =>
+      `<path d="${gearPath(60, 60, 57, 46, 12)}" fill="${k.lin('#d8a93c', 0.4, 0.32)}" ${ol('#d8a93c', 4)}/>` +
+      `<circle cx="60" cy="60" r="31" fill="none" stroke="${dark('#d8a93c', 0.35)}" stroke-width="5"/>` +
+      [0, 1, 2, 3, 4, 5].map((i) => `<circle cx="${60 + 20 * Math.cos((i * Math.PI) / 3)}" cy="${60 + 20 * Math.sin((i * Math.PI) / 3)}" r="5.5" fill="${dark('#d8a93c', 0.45)}"/>`).join('') +
+      `<circle cx="60" cy="60" r="10" fill="#4a4a52" stroke="#24242a" stroke-width="3"/>`),
+  },
+  {
+    id: 'gear-rack', name: 'دنده‌ی شانه‌ای', category: 'ground', width: 90, height: 360,
+    body: draw((k) =>
+      `<path d="M14 4h62v352H14z" fill="${k.side('#8f99a8')}" ${ol('#8f99a8', 4)}/>` +
+      Array.from({ length: 17 }, (_, i) => `<path d="M14 ${14 + i * 20}l-11 4v8l11 4z" fill="#a9b3c1" ${ol('#8f99a8', 2.5)}/>`).join('') +
+      `<rect x="4" y="2" width="82" height="22" rx="6" fill="${k.lin('#f0b23a', 0.4, 0.3)}" ${ol('#f0b23a', 3)}/>` +
+      `<path d="M8 13h74" stroke="#5b4010" stroke-width="3" stroke-dasharray="10 8"/>`),
+  },
+  {
+    id: 'rescue-pod', name: 'کپسول نجات', category: 'item', width: 120, height: 66,
+    body: draw((k) =>
+      `<rect x="4" y="4" width="112" height="58" rx="29" fill="${k.lin('#f4f1e8', 0.3, 0.25)}" ${ol('#8a8f99', 4)}/>` +
+      `<rect x="36" y="4" width="14" height="58" fill="#e8553e"/><rect x="70" y="4" width="14" height="58" fill="#e8553e"/>` +
+      `<circle cx="60" cy="31" r="13" fill="#7fd0ef" stroke="#2c5b74" stroke-width="3"/>` +
+      shine(k, 30, 18, 14, 5, -8, 0.7)),
   },
   {
     id: 'tnt', name: 'بشکه‌ی انفجاری', category: 'ground', width: 90, height: 110,

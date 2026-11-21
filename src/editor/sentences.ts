@@ -148,6 +148,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     }
     case 'burst': return `از ${who(a.target)} جرقه بپران`;
     case 'shake': return 'صفحه را بلرزان';
+    case 'floatText': return `بالای ${who(a.target)} بنویس «${a.text}» و بپرانش`;
     case 'slowMotion': return a.amount <= 0 ? `بازی را ${fa(a.seconds)} ثانیه نگه دار (ایست ضربه)` : `زمان را ${fa(a.seconds)} ثانیه آهسته کن`;
     case 'effect': return `${who(a.target)}: ${ACTIONS.effect.fields.flatMap((f) => (f.kind === 'choice' ? f.options : [])).find((o) => o.value === a.kind)?.label ?? ''}`;
     case 'damage': return `از جان ${who(a.target)} ${fa(a.amount)} تا کم کن`;
@@ -221,12 +222,13 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
     case 'pulse': return 'آرام بزرگ و کوچک می‌شود';
     case 'trail': return 'پشت سرش رد رنگی می‌گذارد';
     case 'particles': {
-      const kinds = { fire: 'آتش', smoke: 'دود', rain: 'باران', snow: 'برف', sparkle: 'برق و ستاره', bubbles: 'حباب', confetti: 'کاغذ رنگی' };
-      return b.preset === 'rain' || b.preset === 'snow' ? `از آن ${kinds[b.preset]} می‌بارد` : `از آن ${kinds[b.preset]} بیرون می‌آید`;
+      const kinds: Record<typeof b.preset, string> = { fire: 'آتش', smoke: 'دود', rain: 'باران', snow: 'برف', sparkle: 'برق و ستاره', bubbles: 'حباب', confetti: 'کاغذ رنگی', embers: 'جرقه‌ی آتش', leaves: 'برگ پاییزی', dust: 'گرد و خاک', magic: 'ذره‌های جادویی', hearts: 'قلب', steam: 'بخار', electric: 'جرقه‌ی برق', portal: 'ذره‌های چرخان', waterfall: 'آبشار', fireflies: 'کرم شب‌تاب', stars: 'ستاره', drip: 'چکه' };
+      return b.preset === 'rain' || b.preset === 'snow' || b.preset === 'leaves' || b.preset === 'drip' || b.preset === 'waterfall' ? `از آن ${kinds[b.preset]} می‌بارد` : `از آن ${kinds[b.preset]} بیرون می‌آید`;
     }
-    case 'light': return `در تاریکی دورش را روشن می‌کند${b.flicker ? '، مثل شعله‌ای که می‌لرزد' : ''}`;
+    case 'light': return `در تاریکی دورش را روشن می‌کند${b.flicker ? '، مثل شعله‌ای که می‌لرزد' : ''}${b.shadowTag ? `؛ ${group(b.shadowTag)} سایه می‌اندازد` : ''}`;
     case 'field': {
       if (b.kind === 'water') return 'آب است: چیزهای فیزیکی سبک در آن شناور می‌مانند و سنگین‌ها غرق می‌شوند';
+      if (b.kind === 'gravity') return b.strength === 0 ? 'منطقه‌ی بی‌وزنی است: چیزهای فیزیکی داخلش معلق می‌مانند' : `جاذبه‌ی خودش را دارد: چیزهای فیزیکی داخلش ${b.direction <= -60 && b.direction >= -120 ? 'به بالا' : 'به طرف دیگری'} می‌افتند`;
       if (b.kind === 'planet') return 'جاذبه‌ی سیاره‌ای دارد؛ اجسام نزدیک را با نیروی بیشتری به مرکز می‌کشد';
       if (b.kind === 'magnet') return b.strength >= 0 ? 'آهن‌رباست: چیزهای فیزیکی را به وسطش می‌کشد' : 'چیزهای فیزیکی را از وسطش دور می‌کند';
       return 'بادی دارد که چیزهای فیزیکی داخلش را هل می‌دهد';
@@ -240,6 +242,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       if (b.solidTag) parts.push(`روی ${group(b.solidTag)} می‌ایستد`);
       if (b.material && b.material !== 'custom') parts.push(`جنسش ${MATERIAL_LABEL[b.material]} است`);
       if (b.breaks) parts.push('با ضربه‌ی محکم می‌شکند');
+      if (b.shape && b.shape !== 'auto') parts.push({ outline: 'دقیقاً با شکل عکسش به چیزها می‌خورد', capsule: 'شکل کپسولی دارد و به لبه‌ها گیر نمی‌کند', triangle: 'مثل مثلث به چیزها می‌خورد', hexagon: 'مثل شش‌ضلعی به چیزها می‌خورد' }[b.shape]);
       if (b.passTag) parts.push(`از ${group(b.passTag)} رد می‌شود`);
       if (b.bounce >= 0.5) parts.push('بعد از برخورد بالا می‌پرد');
       if (!b.rotates) parts.push('همیشه سرپا می‌ماند');
@@ -253,6 +256,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       if (b.kind === 'spring') return `با فنر به نزدیک‌ترین ${to} وصل است`;
       if (b.kind === 'weld') return `به نزدیک‌ترین ${to} جوش خورده`;
       if (b.kind === 'wheel') return `چرخی است با کمک‌فنر، وصل به نزدیک‌ترین ${to}${b.motor ? '، با موتور' : ''}${b.motor && b.drive === 'player' ? ' که بازیکن مثل پدال گاز روشنش می‌کند' : ''}`;
+      if (b.kind === 'gear') return `چرخ‌دنده است و با نزدیک‌ترین ${to} ${b.belt ? 'هم‌جهت' : 'برعکس'} می‌چرخد`;
       if (b.kind === 'slider') return `روی ریلی کنار نزدیک‌ترین ${to} می‌لغزد${b.motor && b.range ? '، و خودش رفت و برگشت می‌کند' : ''}`;
       if (b.at === 'between') return `با لولا به نزدیک‌ترین ${to} وصل است، مثل حلقه‌ی زنجیر`;
       const pin = b.at === 'other' ? `دور وسط نزدیک‌ترین ${to} می‌چرخد، مثل آونگ` : `با لولا به نزدیک‌ترین ${to} وصل است و دور وسط خودش می‌چرخد، مثل چرخ`;

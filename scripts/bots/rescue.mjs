@@ -28,15 +28,15 @@ try {
   assert.equal(space.variables.score, 100, 'rescuer landed on the mattress');
   await watch.shot('planet');
   await tap(space, 'کاوشگر');
-  for (const [i, name] of ['Mountain trail', 'Rescue ridge', 'Harbor crossing'].entries()) {
+  for (const [i, name] of ['Mountain trail', 'Rescue ridge', 'Harbor crossing', 'Clockwork lift'].entries()) {
     const run = await current(name);
     assert.equal(run.variables.score, 200 + 100 * i);
-    await watch.shot(['bike', 'crawler', 'boat'][i]);
+    await watch.shot(['bike', 'crawler', 'boat', 'gears'][i]);
     await page.keyboard.down('ArrowRight');
   }
   const win = await current('You win');
   await page.keyboard.up('ArrowRight');
-  assert.equal(win.variables.score, 500);
+  assert.equal(win.variables.score, 600);
   assert.deepEqual(errors, []);
   report('rescue', 'You win', watch, { score: win.variables.score, errors });
 } catch (error) {

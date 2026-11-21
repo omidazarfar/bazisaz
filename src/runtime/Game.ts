@@ -1,4 +1,4 @@
-import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
+import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Matrix, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
 import { AdvancedBloomFilter, DropShadowFilter, GlowFilter } from 'pixi-filters';
 import type {
   Action,
@@ -31,6 +31,9 @@ import { tileTexture, type OpenSides } from './tiles';
 import { validateProject } from '../format/validate';
 import { FALLBACK_FONT } from './fonts';
 import { feel, Physics } from './physics';
+import { traceOutline } from './outline';
+import { lightPolygon } from './shadows';
+import { WeatherView } from './weather';
 import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './sound';
 import { applyDirection, fillTemplate } from './text';
 
@@ -373,6 +376,12 @@ export interface GameState {
   /** The things in the player's bag, in the order of their places; and how many are flying into it. */
   bag: string[];
   flights: number;
+  /** The scene's weather: what is falling, and lightning. */
+  weather: ReturnType<WeatherView['state']>;
+  /** Lights that walls are in the way of: the outline of where each reaches, in world points (x, y, x, y, …). */
+  lit: { id: string; points: number[] }[];
+  /** Words floating up from objects ("+30"). */
+  floats: { text: string; x: number; y: number; alpha: number }[];
   entities: ({
     id: string; tags: string[]; visible: boolean; opacity: number; frame: number; flipped: boolean;
     anim: Entity['anim']; scale: number; health: number; grounded: boolean; vx: number; vy: number; angle: number;
@@ -523,6 +532,12 @@ export class Game {
   private nextScene: string | null = null;
   private shownValues = '';
   private particles: Particle[] = [];
+  /** Words floating up from objects, and how long each has left. */
+  private floats: { view: Text; life: number; span: number; from: number }[] = [];
+  /** The weather over the screen. */
+  private readonly weather = new WeatherView(() => (this.lightTexture ??= softSpot(256, 'rgba(255,255,255,1)', 'rgba(255,255,255,0)', 0.25)));
+  /** The outline of each light that walls block, as last drawn. */
+  private lit: { id: string; points: number[] }[] = [];
   private tweens: Tween[] = [];
   private paused = false;
   private soundOn = true;
@@ -618,7 +633,8 @@ export class Game {
     await this.loadImages(this.project);
 
     this.mount.appendChild(this.app.canvas);
-    this.scenery.addChild(this.backdrop, this.world, this.physicsView, this.shade, this.glow, this.vignette, this.hud);
+    this.scenery.addChild(this.backdrop, this.world, this.physicsView, this.weather.view, this.shade, this.glow, this.weather.flash, this.vignette, this.hud);
+    this.weather.onThunder = () => this.sound('boom', 30);
     this.app.stage.addChild(this.scenery, this.stick, this.debugView, this.curtain, this.overlay);
     this.vignette.texture = softSpot(512, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.65)', 0.45);
     this.resetVariables(true);
@@ -634,6 +650,7 @@ export class Game {
       // While editing nothing moves, but particles stream and lights glow, so they can be judged as they are made.
       if (this.emitters) this.animateParticles(Math.min(elapsed, MAX_FRAME));
       this.skyView?.update(this.camera, this.z, this.scene.height, Math.min(elapsed, MAX_FRAME));
+      this.weather.update(Math.min(elapsed, MAX_FRAME), this.camera, this.z);
       this.drawShade();
       return;
     }
@@ -669,6 +686,7 @@ export class Game {
     if (this.physics) this.drawPhysics();
     this.drawHealthBars();
     this.skyView?.update(this.camera, this.z, this.scene.height, this.paused ? 0 : total);
+    this.weather.update(this.paused ? 0 : total, this.camera, this.z);
     this.drawShade();
     this.drawDebug();
   }
@@ -701,6 +719,10 @@ export class Game {
       case 'dot': g.circle(0, 0, w / 2).fill(spec.color); break;
       case 'ring': g.circle(0, 0, w / 2).stroke({ width: Math.max(1.5, w / 8), color: spec.color }); break;
       case 'star': g.poly([0, -h / 2, w * 0.14, -h * 0.14, w / 2, 0, w * 0.14, h * 0.14, 0, h / 2, -w * 0.14, h * 0.14, -w / 2, 0, -w * 0.14, -h * 0.14]).fill(spec.color); break;
+      case 'heart':
+        g.moveTo(0, h * 0.42).bezierCurveTo(-w * 0.62, -h * 0.02, -w * 0.32, -h * 0.62, 0, -h * 0.22).bezierCurveTo(w * 0.32, -h * 0.62, w * 0.62, -h * 0.02, 0, h * 0.42).fill(spec.color);
+        break;
+      case 'leaf': g.ellipse(0, 0, w / 2, h / 2).fill(spec.color).moveTo(-w / 2, 0).lineTo(w / 2, 0).stroke({ width: Math.max(1, h / 8), color: shadeOf(spec.color, -0.3) }); break;
       default: g.rect(-w / 2, -h / 2, w, h).fill(spec.color);
     }
     if (spec.glow) g.blendMode = 'add';
@@ -730,6 +752,38 @@ export class Game {
       if (p.life <= 0) p.view.destroy();
     }
     this.particles = this.particles.filter((p) => p.life > 0);
+    for (const f of this.floats) {
+      f.life -= dt;
+      const age = f.span - f.life;
+      // Pops up bigger than its size and settles, rises fast then slower, and fades at the end.
+      f.view.scale.set(age < 0.12 ? 0.4 + (age / 0.12) * 0.9 : age < 0.24 ? 1.3 - ((age - 0.12) / 0.12) * 0.3 : 1);
+      f.view.y = f.from - 110 * (1 - (1 - Math.min(1, age / f.span)) ** 2);
+      f.view.alpha = Math.min(1, (f.life / f.span) * 2.5);
+      if (f.life <= 0) f.view.destroy();
+    }
+    this.floats = this.floats.filter((f) => f.life > 0);
+  }
+
+  /** Words that pop up over an object and float away. */
+  private floatText(e: Entity, text: string, color: string, size: number): void {
+    const view = new Text({
+      text,
+      style: {
+        fontFamily: [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'],
+        fontSize: size,
+        fontWeight: 'bold',
+        fill: color,
+        stroke: { color: shadeOf(color, -0.6), width: Math.max(3, Math.round(size / 8)), join: 'round' },
+        dropShadow: { color: '#000000', alpha: 0.4, blur: 2, distance: Math.max(2, size / 16), angle: Math.PI / 2 },
+        padding: Math.ceil(size * 0.4),
+      },
+    });
+    view.anchor.set(0.5, 1);
+    const box = this.boxOf(e);
+    view.position.set(box.x + box.width / 2, box.y);
+    view.scale.set(0.4);
+    this.layerOf(e).addChild(view);
+    this.floats.push({ view, life: 1, span: 1, from: box.y });
   }
 
   /** Puts the scene's colour treatment and vignette in place. */
@@ -778,6 +832,7 @@ export class Game {
     (layer.children[0] as Graphics).clear().rect(0, 0, W, H).fill({ color: '#05081a', alpha: dark });
     const z = this.z;
     const origin = this.hudOrigin();
+    this.lit = [];
     for (const e of this.entities) {
       if (!e.alive || (!e.visible && this.mode.kind === 'play')) continue;
       for (const b of e.def.behaviors) {
@@ -787,17 +842,35 @@ export class Game {
         const at = fixed ? { x: origin.x + centre.x * this.hudZ, y: origin.y + centre.y * this.hudZ } : { x: (centre.x - this.camera.x) * z, y: (centre.y - this.camera.y) * z };
         const flicker = b.flicker ? 1 + 0.07 * Math.sin(this.time * 13 + e.homeX) + 0.04 * Math.sin(this.time * 7.3 + e.homeY) : 1;
         const size = b.radius * 2 * (fixed ? this.hudZ : z) * flicker;
-        const hole = new Sprite(this.lightTexture);
-        hole.anchor.set(0.5);
-        hole.position.set(at.x, at.y);
-        hole.width = hole.height = size;
+        // Walls in the way: the light reaches only as far as it can see, and what is behind them stays dark.
+        const walls = b.shadowTag && !fixed
+          ? this.entities.filter((o) => o !== e && o.alive && o.visible && !o.def.fixed && o.def.tags.includes(b.shadowTag!))
+          : [];
+        const points = walls.length ? lightPolygon(centre.x, centre.y, b.radius * flicker, walls) : null;
+        if (points) this.lit.push({ id: e.def.id, points });
+        const spot = (scale: number) => {
+          if (!points) {
+            const s = new Sprite(this.lightTexture!);
+            s.anchor.set(0.5);
+            s.position.set(at.x, at.y);
+            s.width = s.height = size * scale;
+            return s;
+          }
+          // The light's soft circle, painted only inside what it can see.
+          const side = size * scale;
+          const texture = this.lightTexture!;
+          const onScreen = points.map((v, i) => (i % 2 === 0 ? (v - this.camera.x) * z : (v - this.camera.y) * z));
+          return new Graphics().poly(onScreen).fill({
+            texture,
+            textureSpace: 'global',
+            matrix: new Matrix().scale(side / texture.width, side / texture.height).translate(at.x - side / 2, at.y - side / 2),
+          });
+        };
+        const hole = spot(1);
         hole.blendMode = 'erase';
         layer.addChild(hole);
         if (b.color.toLowerCase() !== '#ffffff') {
-          const tint = new Sprite(this.lightTexture);
-          tint.anchor.set(0.5);
-          tint.position.set(at.x, at.y);
-          tint.width = tint.height = size * 0.8;
+          const tint = spot(0.8);
           tint.tint = b.color;
           tint.alpha = 0.2 * dark;
           tint.blendMode = 'add';
@@ -1051,6 +1124,9 @@ export class Game {
       light: this.light,
       bag: this.carried(),
       flights: this.flights.length,
+      weather: this.weather.state(),
+      lit: this.lit.map((l) => ({ id: l.id, points: [...l.points] })),
+      floats: this.floats.map((f) => ({ text: f.view.text, x: f.view.x, y: f.view.y, alpha: f.view.alpha })),
       entities: this.entities.map((e) => ({
         id: e.def.id,
         tags: e.def.tags,
@@ -1090,6 +1166,21 @@ export class Game {
   private sceneFor(mode: GameMode): Scene {
     const id = mode.scene ?? this.project.startScene;
     return this.project.scenes.find((s) => s.id === id) ?? this.project.scenes[0];
+  }
+
+  /** The outline of an object's picture (or the part of it a crop shows), worked out once per picture. */
+  private readonly outlines = new Map<string, { x: number; y: number }[] | null>();
+  private outlineOf(e: Entity): { x: number; y: number }[] | null {
+    const v = e.def.visual;
+    if (v.kind !== 'image') return null;
+    const asset = e.image ?? v.asset;
+    const crop = v.crop;
+    const key = crop ? `${asset}:${crop.x}:${crop.y}:${crop.w}:${crop.h}` : asset;
+    if (!this.outlines.has(key)) {
+      const resource = this.textures.get(asset)?.texture.source.resource as CanvasImageSource | undefined;
+      this.outlines.set(key, resource ? traceOutline(resource, crop) : null);
+    }
+    return this.outlines.get(key)!;
   }
 
   private async loadImages(project: GameProject): Promise<void> {
@@ -1169,6 +1260,7 @@ export class Game {
       o.behaviors.filter((b): b is PhysicsBehavior | JointBehavior => b.type === 'physics' || b.type === 'joint'),
     );
     this.physics = play && physical.length > 0 ? new Physics<Entity>(this.scene.width, this.scene.height, physical) : null;
+    if (this.physics) this.physics.outlineOf = (e) => this.outlineOf(e);
     this.physicsView.clear();
     this.physicsDrawn = false;
     // The painted backdrop goes behind the world, over the plain background colour.
@@ -1179,6 +1271,8 @@ export class Game {
       this.scenery.addChildAt(this.skyView.container, 1);
     }
     this.darkness = clamp(this.scene.darkness ?? 0, 0, 1);
+    this.weather.set(this.scene.weather ?? 'none', this.project.meta.width, this.project.meta.height);
+    for (const f of this.floats.splice(0)) f.view.destroy();
     this.darknessGlide = null;
     this.look = this.scene.look ?? 'none';
     this.applyLook();
@@ -1506,7 +1600,15 @@ export class Game {
         const g = new Graphics();
         const [w, h] = [def.width, def.height];
         const outline = v.outline ? { width: Math.max(3, Math.min(w, h) * 0.06), color: v.outline, alignment: 1 } : null;
-        const draw = () => (v.kind === 'rect' ? g.roundRect(0, 0, w, h, v.radius ?? 0) : g.ellipse(w / 2, h / 2, w / 2, h / 2));
+        // A shape drawn as the shape its physics meets others with: a capsule, a triangle, a hexagon.
+        const shape = v.kind === 'rect' ? def.behaviors.find((b): b is PhysicsBehavior => b.type === 'physics')?.shape : undefined;
+        const hexagon = [0, 1, 2, 3, 4, 5].flatMap((i) => [w / 2 + (w / 2) * Math.cos((i * Math.PI) / 3), h / 2 + (h / 2) * Math.sin((i * Math.PI) / 3)]);
+        const draw = () =>
+          v.kind === 'ellipse' ? g.ellipse(w / 2, h / 2, w / 2, h / 2)
+          : shape === 'capsule' ? g.roundRect(0, 0, w, h, Math.min(w, h) / 2)
+          : shape === 'triangle' ? g.poly([0, h, w, h, w / 2, 0])
+          : shape === 'hexagon' ? g.poly(hexagon)
+          : g.roundRect(0, 0, w, h, v.radius ?? 0);
         if (v.shade) {
           // Lit from above: a lighter top, the colour itself, a deeper bottom; and a soft shine near the top.
           draw().fill(new FillGradient({
@@ -1514,7 +1616,7 @@ export class Game {
             colorStops: [{ offset: 0, color: shadeOf(color, 0.32) }, { offset: 0.5, color }, { offset: 1, color: shadeOf(color, -0.28) }],
           }));
           const inset = Math.min(w, h) * 0.12;
-          if (v.kind === 'rect') g.roundRect(inset, inset * 0.6, w - inset * 2, Math.max(2, h * 0.22), Math.max(0, (v.radius ?? 0) - inset)).fill({ color: '#ffffff', alpha: 0.28 });
+          if (v.kind === 'rect' && shape !== 'triangle' && shape !== 'hexagon') g.roundRect(inset, inset * 0.6, w - inset * 2, Math.max(2, h * 0.22), Math.max(0, (shape === 'capsule' ? Math.min(w, h) / 2 : v.radius ?? 0) - inset)).fill({ color: '#ffffff', alpha: 0.28 });
           else g.ellipse(w / 2, h * 0.28, w * 0.3, h * 0.13).fill({ color: '#ffffff', alpha: 0.3 });
         } else draw().fill(color);
         if (outline) draw().stroke(outline);
@@ -2679,7 +2781,10 @@ export class Game {
         for (const first of this.matching(w.a)) {
           for (const second of seconds) {
             // Bodies resting on each other are pressed together without their boxes quite overlapping.
-            if (first === second || !(overlaps(first, second) || this.physics?.touches(first, second))) continue;
+            // Bodies with a shape of their own (an outline, a capsule) touch only where those shapes do.
+            if (first === second) continue;
+            const touching = this.physics?.exactly(first, second) ? this.physics.touches(first, second) : overlaps(first, second) || this.physics?.touches(first, second);
+            if (!touching) continue;
             const key = `${this.uids.get(first)}|${this.uids.get(second)}`;
             now.add(key);
             if (before.has(key)) continue;
@@ -3089,6 +3194,9 @@ export class Game {
         break;
       case 'burst':
         for (const e of this.targets(action.target, context)) this.burst(e, action.color, action.count);
+        break;
+      case 'floatText':
+        for (const e of this.targets(action.target, context)) this.floatText(e, fillTemplate(action.text, this.variables, e.values, this.textVariables), action.color, action.size);
         break;
       case 'setSound':
         this.soundOn = action.on;

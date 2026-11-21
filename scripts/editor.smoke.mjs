@@ -884,6 +884,26 @@ const carTo = (await gameState(page)).entities.find((e) => e.id === carBody.id).
 check('and drives along while the pedal (the right arrow) is held', carTo > carParked + 120, `${carParked.toFixed(0)} → ${carTo.toFixed(0)}`);
 await click('توقف');
 
+await freshGame();
+await addPart('gears');
+sc = await scene();
+const podDef = sc.objects.find((o) => o.name === 'کپسول نجات');
+const geared = sc.objects.filter((o) => o.behaviors.some((b) => b.type === 'joint' && b.kind === 'gear'));
+check('the gears part adds a crank, a big gear and a rack, coupled by gear joints, with a capsule-shaped pod', geared.length === 2 && podDef?.behaviors.some((b) => b.type === 'physics' && b.shape === 'capsule') && (await page.$('.chip-warn')) === null && (await page.$('.problem')) === null);
+await clickRow('دسته‌ی چرخ‌دنده');
+check('the object panel says in words that it is a gear', (await page.$eval('.about-object', (el) => el.textContent)).includes('چرخ‌دنده است'));
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 1);
+const podFrom = (await gameState(page)).entities.find((e) => e.id === podDef.id).y;
+await page.keyboard.down('ArrowRight');
+const podStart = (await gameState(page)).time;
+await until(page, (t) => window.__game.getState().time > t + 1.5, podStart, 30000);
+await page.keyboard.up('ArrowRight');
+const podTo = (await gameState(page)).entities.find((e) => e.id === podDef.id).y;
+check('in the try-out, holding the pedal winds the gears and the rack lifts the pod', podTo < podFrom - 100, `${podFrom.toFixed(0)} → ${podTo.toFixed(0)}`);
+await page.screenshot({ path: resolve(shots, 'editor-gears.png') });
+await click('توقف');
+
 // ── More physics parts: a rope bridge, a pool, a rope to cut ───────────────
 await freshGame();
 await addPart('bridge');

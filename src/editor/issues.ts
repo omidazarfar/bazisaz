@@ -60,7 +60,7 @@ export function findIssues(project: GameProject): Issue[] {
         say(`«${o.name}» جاذبه دارد ولی روی چیزی نمی‌ایستد و از صفحه پایین می‌افتد. در «جسم فیزیکی» گروه زمین را انتخاب کن.`, { object: o.id });
       }
       const physics = o.behaviors.find((b) => b.type === 'physics');
-      if (physics?.type === 'physics' && physics.kind === 'moving' && physics.gravity !== false && !physics.edges && physics.solidTag === '' && !all.some((x) => x !== o && x.behaviors.some((b) => b.type === 'physics' && b.kind === 'still'))) {
+      if (physics?.type === 'physics' && physics.kind === 'moving' && physics.gravity !== false && !physics.edges && physics.solidTag === '' && !o.behaviors.some((b) => b.type === 'joint') && !all.some((x) => x !== o && x.behaviors.some((b) => b.type === 'physics' && b.kind === 'still'))) {
         say(`«${o.name}» فیزیک واقعی دارد ولی چیزی زیرش نیست که رویش بایستد و از دنیا بیرون می‌افتد. در «فیزیک واقعی» گروه زمین را انتخاب کن یا «لبه‌های دنیا دیوار باشند» را روشن کن.`, { object: o.id });
       }
       if (o.behaviors.some((b) => b.type === 'joint') && !o.behaviors.some((b) => b.type === 'physics')) {

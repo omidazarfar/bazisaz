@@ -1,6 +1,6 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TilesVisual, Visual } from '../format/types';
 import { CRATE, DANGER, GROUND, physics, PLAYER, THROWN, withVariable } from './presets';
-import { addAll, addRescueRig, badge, bagIfNone, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
+import { addAll, addClockwork, addRescueRig, badge, bagIfNone, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
 import { SPRITES, useSprite } from './sprites';
 import { makeObject, newId, updateScene } from './state';
 
@@ -177,6 +177,7 @@ function lifeRules(overId: string, push = 650): Rule[] {
 const prizeRule = (tag: string, points: number, sound: 'coin' | 'powerup', color: string): Rule =>
   rule({ type: 'touch', a: byTag(PLAYER), b: byTag(tag) }, [
     { type: 'burst', target: 'second', color, count: points > 1 ? 22 : 10 },
+    { type: 'floatText', target: 'second', text: `+${points}`, color: points > 1 ? '#9ff3ff' : '#ffe066', size: points > 1 ? 46 : 38 },
     { type: 'destroy', target: 'second' },
     { type: 'setVariable', name: 'score', op: 'add', amount: points },
     { type: 'playSound', sound },
@@ -329,6 +330,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
       { type: 'burst', target: 'second', color: '#8be04e', count: 18 },
       { type: 'effect', target: 'second', kind: 'shrink', seconds: 0.2 },
       { type: 'jump', target: 'first' },
+      { type: 'floatText', target: 'second', text: '+5', color: '#c5f27a', size: 40 },
       { type: 'setVariable', name: 'score', op: 'add', amount: 5 },
       { type: 'playSound', sound: 'pop' },
       { type: 'shake', strength: 5 },
@@ -443,7 +445,7 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
   for (let room = 0; room < 4; room++) {
     for (const [sx, sy] of [[0.05, 0.12], [0.95, 0.12], [0.05, 0.85], [0.95, 0.85]]) {
       objects.push(makeObject(`مشعل ${room + 1}`, { kind: 'image', asset: torch.asset }, 54, 72, at(room, sx, sy), {
-        locked: true, behaviors: [{ type: 'light', radius: 240, color: '#ffb057', flicker: true }, { type: 'particles', preset: 'fire', color: '#ffb057', rate: 6, size: 0.6, speed: 0.6 }],
+        locked: true, behaviors: [{ type: 'light', radius: 240, color: '#ffb057', flicker: true, shadowTag: GROUND }, { type: 'particles', preset: 'fire', color: '#ffb057', rate: 6, size: 0.6, speed: 0.6 }],
       }));
     }
     for (const [sx, sy] of [[0.3, 0.4], [0.7, 0.6]]) objects.push(makeObject(`ستون ${room + 1}`, { kind: 'image', asset: stone.asset }, 80, 80, at(room, sx, sy), { tags: [GROUND] }));
@@ -492,7 +494,7 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
   objects.push(door);
   objects.push(makeObject('صندوق گنج', { kind: 'image', asset: chest.asset }, 130, 110, at(3, 0.5, 0.5), {
     tags: [GOAL], glow: '#ffd23f',
-    behaviors: [{ type: 'pulse', amount: 0.06, seconds: 1.2 }, { type: 'light', radius: 260, color: '#ffe680', flicker: false }, { type: 'particles', preset: 'sparkle', color: '#fff3a8', rate: 8, size: 1.1, speed: 1 }],
+    behaviors: [{ type: 'pulse', amount: 0.06, seconds: 1.2 }, { type: 'light', radius: 260, color: '#ffe680', flicker: false, shadowTag: GROUND }, { type: 'particles', preset: 'magic', color: '#fff3a8', rate: 10, size: 16, speed: 1 }],
   }));
 
   // The knight: steered by a finger dragged anywhere, a lantern's light around it, the camera keeping to its room.
@@ -503,7 +505,7 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
     behaviors: [
       { type: 'body', gravity: false, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false, bumpTag: DANGER },
       { type: 'steer', speed: 330, control: 'stick', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false },
-      { type: 'light', radius: 300, color: '#fff3d6', flicker: false },
+      { type: 'light', radius: 300, color: '#fff3d6', flicker: false, shadowTag: GROUND },
       { type: 'camera', lock: 'free', smooth: 0.2, roomTag: ROOM },
     ],
   });
@@ -617,6 +619,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
     rule({ type: 'touch', a: byId(bolt.id), b: byTag(ENEMY) }, [{ type: 'damage', target: 'second', amount: 1 }, { type: 'flash', target: 'second', color: '#ffffff', seconds: 0.1 }, { type: 'destroy', target: 'first' }]),
     rule({ type: 'dead', target: byTag(ENEMY) }, [
       { type: 'burst', target: 'first', color: '#ff9f1c', count: 26 }, { type: 'playSound', sound: 'boom', volume: 55 }, { type: 'shake', strength: 5 },
+      { type: 'floatText', target: 'first', text: '+5', color: '#ffd166', size: 40 },
       { type: 'setVariable', name: 'score', op: 'add', amount: 5 }, { type: 'destroy', target: 'first' },
     ]),
     // Aliens shoot at the ship from time to time; the boss, once awake, much more often.
@@ -745,7 +748,7 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
   // The barrel stands on the beam, in the middle: the shot to aim for, since its blast throws out the hidden aliens.
   const onBeamFloor = top - 3 * C - 34;
   objects.push(makeObject('بشکه‌ی انفجاری', { kind: 'image', asset: pics.tnt }, 62, 76, { x: x(0.71), y: onBeamFloor - 38 }, {
-    tags: [TNT, CRATE], behaviors: [physics({ material: 'metal', weight: 1 })],
+    tags: [TNT, CRATE], behaviors: [physics({ material: 'metal', weight: 1, shape: 'outline' })],
   }));
   const alienAt = (name: string, ax: number, ay: number) =>
     makeObject(name, { kind: 'image', asset: pics.alien }, 62, 62, { x: ax, y: ay }, { tags: [TARGET], round: true, behaviors: [physics({ weight: 0.5, material: 'rubber' })] });
@@ -764,6 +767,7 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
   p = screen.project;
   const pop: Action[] = [
     { type: 'burst', target: 'first', color: '#8be04e', count: 22 },
+    { type: 'floatText', target: 'first', text: '+30', color: '#b6f36a', size: 52 },
     { type: 'destroy', target: 'first' },
     { type: 'setVariable', name: 'score', op: 'add', amount: 30 },
     { type: 'playSound', sound: 'pop' },
@@ -813,11 +817,12 @@ export async function buildPhysics(project: GameProject, sceneId: string): Promi
 async function buildRescue(project: GameProject, first: string): Promise<GameResult> {
   const { width: W, height: H } = project.meta;
   const orbit = scene('Orbital relay', W, H, 'space', 'music:calm', { gravity: 0 });
-  const trail = scene('Mountain trail', W, H, 'forest', 'music:happy');
+  const trail = scene('Mountain trail', W, H, 'forest', 'music:happy', { weather: 'leaves' });
   const ridge = scene('Rescue ridge', W, H, 'desert', 'music:happy');
-  const harbor = scene('Harbor crossing', W, H, 'day', 'music:calm');
+  const harbor = scene('Harbor crossing', W, H, 'night', 'music:tense', { weather: 'storm' });
+  const clockwork = scene('Clockwork lift', W, H, 'night', 'music:mystery', { gravity: 1600 });
   let p = updateScene(project, first, sc => ({ ...sc, name: 'Cliff rescue', width: Math.max(W, sc.width), height: Math.max(H, sc.height), gravity: 1600, sky: 'sunset', music: 'music:happy' }));
-  p = { ...p, scenes: [...p.scenes, orbit, trail, ridge, harbor] };
+  p = { ...p, scenes: [...p.scenes, orbit, trail, ridge, harbor, clockwork] };
   const menu = await screens(p, first, { name: 'RESCUE RELAY', hero: 'hero', sky: 'forest', music: 'music:happy' });
   p = menu.project;
   function checkpoint(id: string, player: string, goal: GameObject, next: string) {
@@ -854,7 +859,7 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
   ]));
   checkpoint(orbit.id, probe.object.id, relay.object, trail.id);
   p = await banner(p, orbit.id, 'Tap the ship to orbit into the relay');
-  for (const [stage, vehicle, next] of [[trail, 'bike', ridge.id], [ridge, 'tank', harbor.id], [harbor, 'boat', menu.win]] as const) {
+  for (const [stage, vehicle, next] of [[trail, 'bike', ridge.id], [ridge, 'tank', harbor.id], [harbor, 'boat', clockwork.id]] as const) {
     const water = vehicle === 'boat';
     const top = H * 0.7;
     if (!water) p = addAll(p, stage.id, [makeObject('مسیر ترسیمی', { kind: 'terrain', color: vehicle === 'bike' ? '#4b8061' : '#ae7145',
@@ -866,11 +871,23 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
     checkpoint(stage.id, driver, goal.object, next);
     p = await banner(p, stage.id, water ? 'Hold right to reach the harbor' : vehicle === 'bike' ? 'Ride right to the ridge' : 'Drive the rescue crawler to the star');
   }
-  for (const id of [first, orbit.id, trail.id, ridge.id, harbor.id]) {
+  // The last leg: wind a geared lift until the pod reaches the zone where gravity points up, and it falls to the star.
+  const lift = await addClockwork(p, clockwork.id, W * 0.2, H * 0.74);
+  p = lift.project;
+  const zoneBottom = lift.rackTop - 66 - 290;
+  const zone = makeObject('منطقه‌ی جاذبه‌ی وارونه', { kind: 'rect', color: '#8f6cff', radius: 0 }, W * 0.5, zoneBottom, { x: lift.rackX, y: zoneBottom / 2 },
+    { opacity: 0.22, behaviors: [{ type: 'field', kind: 'gravity', direction: -90, strength: 2400 }, { type: 'particles', preset: 'sparkle', color: '#d6c8ff', rate: 14, size: 12, speed: 0.6 }] });
+  const sign = makeObject('نوشته‌ی جاذبه', { kind: 'text', text: 'GRAVITY ↑', color: '#e4dcff', size: 34, weight: 'bold', outline: '#2a1a5e', shadow: true }, 0, 0, { x: lift.rackX, y: zoneBottom - 34 });
+  p = addAll(p, clockwork.id, [zone, sign]);
+  const top = await picture(p, 'star', 'ستاره‌ی بالای برج', 90, 90, { x: lift.rackX, y: 110 }, { glow: '#ffca43' });
+  p = top.project;
+  checkpoint(clockwork.id, lift.pod, top.object, menu.win);
+  p = await banner(p, clockwork.id, 'Hold right to wind the lift', 0.5);
+  for (const id of [first, orbit.id, trail.id, ridge.id, harbor.id, clockwork.id]) {
     const retry = await picture(p, 'btn-restart', 'شروع دوباره‌ی این مرحله', 64, 64, { x: W - 47, y: 47 }, { fixed: true });
     p = withRules(addAll(retry.project, id, [retry.object]), id, rule({ type: 'tapObject', target: byId(retry.object.id) }, [{ type: 'restartScene' }]));
   }
-  return { project: p, select: rig.select, note: 'مسیر امداد آماده است. قلاب را آزاد کن، کاوشگر را به مدار بفرست و با سه وسیله تا بندر بران.' };
+  return { project: p, select: rig.select, note: 'مسیر امداد آماده است. قلاب را آزاد کن، کاوشگر را به مدار بفرست، با سه وسیله تا بندر بران و در آخر با چرخ‌دنده‌ها کپسول را به منطقه‌ی جاذبه‌ی وارونه برسان.' };
 }
 
 /** The genre helper's games, by genre id. Genres without one here still use the helper's simpler start. */

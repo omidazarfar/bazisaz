@@ -105,6 +105,16 @@ export const LOOK_OPTIONS: Option[] = [
   { value: 'vivid', label: 'پررنگ و شاد' },
 ];
 /** The painted backdrops, in words. */
+export const WEATHER_OPTIONS: Option[] = [
+  { value: 'none', label: 'صاف' },
+  { value: 'rain', label: 'باران' },
+  { value: 'storm', label: 'طوفان با رعد و برق' },
+  { value: 'snow', label: 'برف' },
+  { value: 'leaves', label: 'برگ‌ریزان' },
+  { value: 'embers', label: 'جرقه‌های آتش' },
+  { value: 'fog', label: 'مه' },
+];
+
 export const SKY_OPTIONS: Option[] = [
   { value: 'none', label: 'هیچ (فقط رنگ پس‌زمینه)' },
   { value: 'day', label: 'روز آفتابی با ابر و تپه' },
@@ -184,6 +194,13 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'rubber', label: 'لاستیک (فنری)' },
         { value: 'glass', label: 'شیشه' },
       ] },
+      { key: 'shape', label: 'شکل برخورد', hint: 'با چه شکلی به بقیه می‌خورد. «دور عکس» یعنی دقیقاً همان‌جا که عکس کشیده شده، نه گوشه‌های جعبه‌ی دورش؛ برای سنگ، موجود و هر عکس نامنظم. «کپسول» گوشه‌ی تیز ندارد و به لبه‌ها گیر نمی‌کند؛ برای شخصیت یا کُنده‌ی درخت.', kind: 'choice', fallback: 'auto', options: [
+        { value: 'auto', label: 'خودکار: جعبه، یا دایره اگر گرد است' },
+        { value: 'outline', label: 'دور عکس (دقیق)' },
+        { value: 'capsule', label: 'کپسول: دو سر گرد' },
+        { value: 'triangle', label: 'مثلث' },
+        { value: 'hexagon', label: 'شش‌ضلعی' },
+      ] },
       { ...slider('propeller', 'رانش ملخ در آب', 0, 3000, 50, 'با کلید راست یا لمس نیمه‌ی راست روی آب جلو می‌رود و با چپ عقب می‌آید.'), fallback: 0, showIf: moving },
       { ...slider('breaks', 'بشکند با ضربه‌ی', 0, 2000, 50, 'اگر محکم‌تر از این بخورد، تکه‌تکه می‌شود و تکه‌ها پخش می‌شوند؛ مثل شیشه یا جعبه‌ی ترد. صفر یعنی هیچ‌وقت نمی‌شکند. حدود ۴۰۰ یعنی با یک ضربه‌ی معمولی.', 'پیکسل در ثانیه'), fallback: 0 },
       { key: 'passTag', label: 'از این گروه رد شود', hint: 'به اشیای این گروه نمی‌خورد و از میانشان رد می‌شود؛ مثلاً تیرهای خود بازیکن، یا دشمن‌هایی که از هم رد می‌شوند.', kind: 'tag', fallback: '', advanced: true },
@@ -194,7 +211,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
     ],
   },
   field: {
-    title: 'منطقه‌ی نیرو: باد، آب، آهن‌ربا و سیاره',
+    title: 'منطقه‌ی نیرو: باد، آب، آهن‌ربا، سیاره و جاذبه',
     about: 'اشیای «فیزیک واقعی» را تا وقتی داخل این شیء‌اند هل می‌دهد. باد: به یک طرف، مثل پنکه. آب: چیزهای سبک شناور می‌مانند و سنگین‌ها غرق می‌شوند (سنگینی در «فیزیک واقعی» است). آهن‌ربا: به وسطش می‌کشد. خود این شیء به چیزی نمی‌خورد؛ معمولاً یک مستطیل کم‌رنگ است.',
     make: () => ({ type: 'field', kind: 'wind', direction: -90, strength: 3000 }),
     fields: [
@@ -203,9 +220,11 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'water', label: 'آب' },
         { value: 'magnet', label: 'آهن‌ربا' },
         { value: 'planet', label: 'جاذبه‌ی سیاره' },
+        { value: 'gravity', label: 'جاذبه‌ی دیگر: وارونه، کج یا بی‌وزنی' },
       ] },
-      { ...slider('direction', 'به کدام طرف', -180, 180, 5, 'صفر یعنی راست، ۹۰ پایین، ۹۰- بالا، ۱۸۰ چپ.', 'درجه'), showIf: (v) => v.kind === 'wind' },
-      { ...slider('strength', 'قدرت', -8000, 8000, 50, 'هرچه بیشتر، محکم‌تر. برای آهن‌ربا، منفی یعنی دور می‌کند. جاذبه‌ی معمولی حدود ۲۴۰۰ است.'), showIf: (v) => v.kind !== 'water' },
+      { ...slider('direction', 'به کدام طرف', -180, 180, 5, 'صفر یعنی راست، ۹۰ پایین، ۹۰- بالا، ۱۸۰ چپ.', 'درجه'), showIf: (v) => v.kind === 'wind' || v.kind === 'gravity' },
+      { ...slider('strength', 'قدرت', -8000, 8000, 50, 'هرچه بیشتر، محکم‌تر. برای آهن‌ربا، منفی یعنی دور می‌کند. جاذبه‌ی معمولی حدود ۲۴۰۰ است.'), showIf: (v) => v.kind !== 'water' && v.kind !== 'gravity' },
+      { ...slider('strength', 'قدرت جاذبه', 0, 6000, 50, 'جاذبه‌ی جای دیگر صحنه را برمی‌دارد و این را می‌گذارد. صفر یعنی بی‌وزنی، مثل فضا. جاذبه‌ی معمولی حدود ۲۴۰۰ است. برای وارونه، جهت را ۹۰- بگذار.'), showIf: (v) => v.kind === 'gravity' },
       { ...slider('strength', 'چقدر نگه دارد', 0, 4, 0.1, 'یک: چیزهایی با سنگینی معمولی تا نیمه شناورند. سنگین‌تر از ۱٫۵ غرق می‌شود.'), showIf: (v) => v.kind === 'water' },
     ],
   },
@@ -222,6 +241,18 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'sparkle', label: 'برق و ستاره' },
         { value: 'bubbles', label: 'حباب' },
         { value: 'confetti', label: 'کاغذ رنگی' },
+        { value: 'embers', label: 'جرقه‌ی آتش' },
+        { value: 'leaves', label: 'برگ پاییزی' },
+        { value: 'dust', label: 'گرد و خاک' },
+        { value: 'magic', label: 'جادو' },
+        { value: 'hearts', label: 'قلب' },
+        { value: 'steam', label: 'بخار' },
+        { value: 'electric', label: 'برق و جرقه‌ی الکتریکی' },
+        { value: 'portal', label: 'دروازه‌ی چرخان' },
+        { value: 'waterfall', label: 'آبشار' },
+        { value: 'fireflies', label: 'کرم شب‌تاب' },
+        { value: 'stars', label: 'ستاره‌های پران' },
+        { value: 'drip', label: 'چکه' },
       ] },
       { key: 'color', label: 'رنگ', kind: 'color' },
       slider('rate', 'چند تا در ثانیه', 1, 120, 1, 'زیاد کردنش روی گوشی ضعیف سنگین است؛ ۴۰ معمولاً کافی است.'),
@@ -236,6 +267,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
     fields: [
       slider('radius', 'تا کجا روشن کند', 30, 800, 10),
       { key: 'color', label: 'رنگ نور', hint: 'سفید یعنی فقط روشن می‌کند؛ رنگی، یک هاله‌ی رنگی هم دارد.', kind: 'color' },
+      { key: 'shadowTag', label: 'سایه‌ی این گروه بیفتد', hint: 'اشیای این گروه (مثلاً دیوار یا ستون) جلوی نور را می‌گیرند و پشتشان سایه می‌افتد؛ روی خودشان نور می‌خورد. خالی یعنی نور از همه چیز رد می‌شود.', kind: 'tag', fallback: '' },
       { key: 'flicker', label: 'مثل شعله بلرزد', kind: 'bool' },
     ],
   },
@@ -251,7 +283,9 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
         { value: 'rope', label: 'طناب: دورتر نمی‌رود' },
         { value: 'spring', label: 'فنر: کش می‌آید و برمی‌گردد' },
         { value: 'weld', label: 'جوش: محکم به هم می‌چسبند' },
+        { value: 'gear', label: 'چرخ‌دنده: با چرخ یا ریل دیگری با هم می‌چرخند' },
       ] },
+      { key: 'belt', label: 'هم‌جهت بچرخند، مثل زنجیر دوچرخه', hint: 'خاموش: مثل دنده‌هایی که در هم رفته‌اند، برعکس هم می‌چرخند. چرخ‌دنده‌ی بزرگ‌تر آهسته‌تر می‌چرخد. هر دو شیء باید «لولا» هم داشته باشند (یا آن یکی «ریل»، مثل دنده‌ی شانه‌ای آسانسور).', kind: 'bool', fallback: false, showIf: (v) => v.kind === 'gear' },
       { key: 'targetTag', label: 'به نزدیک‌ترین شیء این گروه', kind: 'tag' },
       { key: 'at', label: 'میخ کجا باشد', kind: 'choice', fallback: 'self', showIf: (v) => v.kind === 'hinge' || v.kind === 'weld', options: [
         { value: 'self', label: 'وسط همین شیء، مثل چرخ' },
@@ -965,6 +999,17 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     make: (ctx) => ({ type: 'burst', target: firstRef(ctx), color: '#ffd54a', count: 16 }),
     fields: [{ key: 'target', label: 'از کدام شیء', kind: 'target' }, { key: 'color', label: 'رنگ تکه‌ها', kind: 'color' }, slider('count', 'چند تکه', 4, 40, 1)],
   },
+  floatText: {
+    title: 'نوشته‌ی پران',
+    about: 'یک عدد یا کلمه بالای شیء ظاهر می‌شود، کمی بالا می‌رود و محو می‌شود؛ مثل «+۳۰» وقتی سکه برداشته می‌شود، یا «آخ!» وقتی ضربه می‌خورد. مقدارها را با {score} می‌شود نوشت.',
+    make: (ctx) => ({ type: 'floatText', target: firstRef(ctx), text: '+10', color: '#ffe066', size: 40 }),
+    fields: [
+      { key: 'target', label: 'بالای کدام شیء', kind: 'target' },
+      { key: 'text', label: 'چه بنویسد', kind: 'text' },
+      { key: 'color', label: 'رنگ', kind: 'color' },
+      slider('size', 'اندازه', 16, 120, 2),
+    ],
+  },
   slowMotion: {
     title: 'زمان آهسته',
     about: 'بازی برای چند لحظه آهسته می‌شود، مثل فیلم‌ها؛ برای ضربه‌ی آخر، انفجار بزرگ یا پرش دیدنی. صفر یعنی یک لحظه کاملاً می‌ایستد («ایست ضربه») تا ضربه محکم حس شود.',
@@ -1180,7 +1225,7 @@ export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
-  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'shake', 'slowMotion', 'vibrate', 'setSound'] },
+  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'floatText', 'shake', 'slowMotion', 'vibrate', 'setSound'] },
   { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },
   { title: 'تبلیغ', types: ['showAd', 'showRewardedAd'] },

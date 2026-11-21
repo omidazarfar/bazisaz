@@ -88,9 +88,24 @@ and a Persian guide entry.
    it, looks for two seconds and gives up; Dungeon Escape's skeletons use it).
    Rescue Relay now uses drawn terrain, a five-link chain and a jointed rescue
    figure, a local planetary field, and a trail bike, four-wheel rescue crawler
-   and powered boat. Still open in Phase 1: polygon and capsule collision shapes,
-   gears, and configurable gravity zones.
-2. **Graphics.** Real lights and shadows cast by walls, flickering torches,
+   and powered boat. **Phase 1 is DONE (2026-11-21, Claude):** `physics.shape`
+   ('outline' traces the picture's convex outline, 'capsule', 'triangle',
+   'hexagon'; touch rules between shaped bodies use real contact, not boxes;
+   rect visuals are drawn as their shape), `joint.kind: 'gear'` (couples a
+   hinge to another hinge, or to a slider as a rack; `belt` for same-way;
+   ratio from the sizes), and `field.kind: 'gravity'` (replaces the scene's
+   gravity inside the zone: upside down, sideways, or 0 for weightless).
+   Rescue Relay's sixth leg, "Clockwork lift", uses all three; the "gears"
+   part is the same rig.
+2. **Graphics.** Started 2026-11-21 (Claude). Done: `light.shadowTag` (walls
+   cast shadows: a visibility polygon per light, `src/runtime/shadows.ts`;
+   Dungeon Escape uses it), `scene.weather` (rain, storm with lightning and
+   thunder, snow, leaves, embers, fog; `src/runtime/weather.ts`; Rescue Relay
+   uses leaves and storm), the `floatText` action ("+10" popping up; used in
+   all genre games), and 12 more particle presets (19 in all). Still open:
+   day/night cycle, a particle editor with 30+ presets, directional shake,
+   impact zoom, dissolve, ripple, outline glow, retro/pixel filters, layered
+   maps, animated tiles, autotile edges. Original list: Real lights and shadows cast by walls, flickering torches,
    day/night; rain, snow, fog, wind; a particle editor with 30+ presets;
    hit-stop, directional shake, impact zoom, flash, floating damage numbers;
    dissolve, ripple, outline glow, retro/pixel filters; layered maps,
@@ -267,9 +282,9 @@ The ticker was advancing. The editor now searches using the new object's
 bounds and a gap. Existing scenes keep their authored positions. To repair an
 already overlapping pair, move the patrol clear of the player's start.
 
-### Next Phase 1 work
+### Next work
 
-Continue the professional-engine plan above. Polygon and capsule shapes, gear joints and configurable gravity zones are still open. Use a playable scene, collision tests, a bot, visual inspection and a Persian guide entry for each. Verify touch driving and terrain drawing on a real phone when the owner has one available.
+Phase 1 is done. Continue Phase 2 (graphics) with what is still open in the plan above, then Phase 3. Use a playable scene, tests, a bot, visual inspection and a Persian guide entry for each. Verify touch driving, terrain drawing, wall shadows and weather speed on a real phone when the owner has one available. Debug helpers: `node scripts/bots/peek-scene.mjs <genre> "<scene>" [seconds] [hold|none] [names]` opens one scene of an exported game and prints objects over time; `node scripts/bots/probe-joints.mjs <genre> "<scene>"` lists its physics joints.
 
 ### Historical "complex games" roadmap (agreed by the owner 2026-11-19)
 
@@ -391,6 +406,13 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-21 — Claude, review of Codex's work, end of Phase 1, start of Phase 2
+
+- Reviewed Codex's commit 5130ebd and accepted it. Small fixes: the guide's genre table gained the Rescue Relay row, its section moved next to the physics section, the library card is now «نجات: Rescue Relay».
+- Phase 1 finished: collision shapes, gear joints (with racks) and gravity zones (see the plan). A joint behavior is no longer made twice when another joint of the same object is still waiting for its target (that used to happen every step). Gear joints are destroyed before the hinges they couple (cut, snap, removal).
+- Rescue Relay has a sixth leg, "Clockwork lift": hold right, the crank turns the big gear, the rack lifts a capsule pod into an upward gravity zone and it falls up to the star. The rescue bot plays it (600 points). Rock Smash's TNT barrel uses the outline shape.
+- Phase 2 started: wall shadows, weather, floating words, 12 particle presets (see the plan). New labs 19 (shapes, gears, zones) and 20 (shadows, weather, floats, particles) in `scripts/smoke.mjs`, and a gears-part check in `scripts/editor.smoke.mjs`.
 
 ### 2026-11-21 — Codex, professional engine Phase 1 (started November 20)
 

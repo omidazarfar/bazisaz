@@ -1,6 +1,6 @@
 import {
-  Box, Chain, Circle, DistanceJoint, MouseJoint, Polygon, PrismaticJoint, RevoluteJoint, RopeJoint, WeldJoint, WheelJoint, World,
-  type Body, type Contact, type Joint,
+  Box, Chain, Circle, DistanceJoint, GearJoint, MouseJoint, Polygon, PrismaticJoint, RevoluteJoint, RopeJoint, WeldJoint, WheelJoint, World,
+  type Body, type Contact, type Joint, type Shape,
 } from 'planck';
 import { MATERIALS, type FieldBehavior, type GameObject, type JointBehavior, type PhysicsBehavior } from '../format/types';
 
@@ -106,6 +106,8 @@ interface JointRec<T> {
   a: T;
   b: T;
   joint: Joint;
+  /** A gear: the two hinges (or slider) it couples; it must go before either of them does. */
+  uses?: Joint[];
 }
 
 export interface Hit<T> {
@@ -148,6 +150,10 @@ export class Physics<T extends Thing> {
   rested: T[] = [];
   /** Joints cut by a rule, handed to the rules with the next step's events, so every rule hears of them. */
   private readonly cuts: { a: T; b: T }[] = [];
+  /** The outline of a thing's picture, as points from 0 to 1 across its box, for the "outline" shape. Set by the game. */
+  outlineOf: ((t: T) => Point[] | null) | null = null;
+  /** Bodies a gravity zone has already taken over this step, so two zones that overlap do not both cancel the scene's gravity. */
+  private readonly regravitated = new Set<Rec<T>>();
 
   /** Forgets what happened, once the rules have heard of it. */
   endStep(): void {
@@ -199,6 +205,7 @@ export class Physics<T extends Thing> {
     }
     for (const [t, rec] of this.recs) {
       if (t.alive) continue;
+      for (let edge = rec.body.getJointList(); edge; edge = edge.next) if (edge.joint) this.unhookGears(edge.joint);
       this.world.destroyBody(rec.body);
       this.recs.delete(t);
     }
@@ -206,6 +213,7 @@ export class Physics<T extends Thing> {
     for (let i = this.joints.length - 1; i >= 0; i--) {
       if (!this.joints[i].a.alive || !this.joints[i].b.alive) this.joints.splice(i, 1);
     }
+    this.regravitated.clear();
     for (const { thing, field } of fields) this.push(thing, field, dt);
     for (const rec of this.recs.values()) if (rec.role === 'moving' && !rec.held && !rec.ready && rec.body.isAwake()) this.resistRolling(rec, dt);
     this.driveSliders();
@@ -414,6 +422,8 @@ export class Physics<T extends Thing> {
     for (let i = this.joints.length - 1; i >= 0; i--) {
       const j = this.joints[i];
       if (j.a !== t && j.b !== t) continue;
+      this.unhookGears(j.joint);
+      i = this.joints.indexOf(j);
       this.world.destroyJoint(j.joint);
       this.joints.splice(i, 1);
       this.cuts.push({ a: j.a, b: j.b });
@@ -502,8 +512,10 @@ export class Physics<T extends Thing> {
     const hw = Math.max(1, t.width / 2 - inset) / M;
     const hh = Math.max(1, t.height / 2 - inset) / M;
     const def = t.def;
+    const shapes = this.shapesOf(t, physics, hw, hh);
     const shape =
-      def.visual.kind === 'terrain' ? new Chain([
+      shapes ? null
+      : def.visual.kind === 'terrain' ? new Chain([
         ...def.visual.heights.map((y, i, all) => ({ x: hw * (2 * i / (all.length - 1) - 1), y: hh * (2 * y - 1) })),
         { x: hw, y: hh }, { x: -hw, y: hh },
       ], true)
@@ -511,15 +523,61 @@ export class Physics<T extends Thing> {
       : def.slope === 'rise' ? new Polygon([{ x: -hw, y: hh }, { x: hw, y: hh }, { x: hw, y: -hh }])
       : def.slope === 'fall' ? new Polygon([{ x: -hw, y: -hh }, { x: -hw, y: hh }, { x: hw, y: hh }])
       : new Box(hw, hh);
-    const fixture = body.createFixture({
-      shape,
-      density: physics ? Math.max(0.01, feel(physics).weight) : 1,
-      friction: physics ? feel(physics).friction : 0.6,
-      restitution: physics ? feel(physics).bounce : 0,
-    });
-    fixture.shouldCollide = (that) => this.allowed(rec, that.getBody().getUserData());
+    for (const piece of shapes ?? [shape!]) {
+      const fixture = body.createFixture({
+        shape: piece,
+        density: physics ? Math.max(0.01, feel(physics).weight) : 1,
+        friction: physics ? feel(physics).friction : 0.6,
+        restitution: physics ? feel(physics).bounce : 0,
+      });
+      fixture.shouldCollide = (that) => this.allowed(rec, that.getBody().getUserData());
+    }
     rec.width = t.width;
     rec.height = t.height;
+  }
+
+  /** The pieces of a chosen shape (outline, capsule, triangle, hexagon), half-sizes in metres; null for the usual one. */
+  private shapesOf(t: T, physics: PhysicsBehavior | null, hw: number, hh: number): Shape[] | null {
+    const kind = physics?.shape ?? 'auto';
+    if (kind === 'auto' || t.def.visual.kind === 'terrain') return null;
+    if (kind === 'outline') {
+      const points = this.outlineOf?.(t);
+      if (!points || points.length < 3) return null;
+      return [new Polygon(points.map((p) => ({ x: (2 * p.x - 1) * hw, y: (2 * p.y - 1) * hh })))];
+    }
+    if (kind === 'capsule') {
+      // A box between two round ends, along its longer side.
+      const r = Math.min(hw, hh);
+      const reach = Math.max(hw, hh) - r;
+      if (reach < 0.02) return [new Circle(r)];
+      const along = hw >= hh;
+      const end = (s: number) => new Circle(along ? { x: s * reach, y: 0 } : { x: 0, y: s * reach }, r);
+      return [along ? new Box(reach, r) : new Box(r, reach), end(-1), end(1)];
+    }
+    if (kind === 'triangle') return [new Polygon([{ x: -hw, y: hh }, { x: hw, y: hh }, { x: 0, y: -hh }])];
+    return [new Polygon([0, 1, 2, 3, 4, 5].map((i) => ({ x: hw * Math.cos((i * Math.PI) / 3), y: hh * Math.sin((i * Math.PI) / 3) })))];
+  }
+
+  /**
+   * Whether two things meet only where their real shapes touch: both have
+   * bodies, they may meet, and one has a shape other than its box. Their boxes
+   * overlapping is then not a touch; the corners of a box are not there.
+   */
+  exactly(a: T, b: T): boolean {
+    const [ra, rb] = [this.recs.get(a), this.recs.get(b)];
+    if (!ra || !rb || !this.allowed(ra, rb)) return false;
+    const shaped = (r: Rec<T>) => (r.physics?.shape ?? 'auto') !== 'auto';
+    return shaped(ra) || shaped(rb);
+  }
+
+  /** A gear joint must be destroyed before either joint it couples; this does that for one joint. */
+  private unhookGears(joint: Joint): void {
+    for (let i = this.joints.length - 1; i >= 0; i--) {
+      const j = this.joints[i];
+      if (!j.uses?.includes(joint)) continue;
+      this.world.destroyJoint(j.joint);
+      this.joints.splice(i, 1);
+    }
   }
 
   /** Makes the world look again at which pairs may meet, after a change to what a body ignores. */
@@ -692,7 +750,14 @@ export class Physics<T extends Thing> {
       if (!inside) continue;
       const body = rec.body;
       const mass = body.getMass();
-      if (b.kind === 'wind') {
+      if (b.kind === 'gravity') {
+        // Its own gravity instead of the scene's: what the scene pulls is taken back, and this zone's pull given.
+        if (this.regravitated.has(rec)) continue;
+        this.regravitated.add(rec);
+        const angle = (b.direction * Math.PI) / 180;
+        const own = this.gravity * body.getGravityScale();
+        body.applyForceToCenter({ x: Math.cos(angle) * (b.strength / M) * mass, y: (Math.sin(angle) * (b.strength / M) - own) * mass }, true);
+      } else if (b.kind === 'wind') {
         const angle = (b.direction * Math.PI) / 180;
         body.applyForceToCenter({ x: Math.cos(angle) * (b.strength / M) * mass, y: Math.sin(angle) * (b.strength / M) * mass }, true);
       } else if (b.kind === 'planet') {
@@ -728,7 +793,6 @@ export class Physics<T extends Thing> {
     }
   }
 
-  /** A slider with a motor and a range goes back and forth between the ends of its range. */
   /** The player's pedal for motors driven by the player: 1 forward, -1 backward, 0 rolling freely. */
   throttle = 0;
 
@@ -744,6 +808,7 @@ export class Physics<T extends Thing> {
     }
   }
 
+  /** A slider with a motor and a range goes back and forth between the ends of its range. */
   private driveSliders(): void {
     for (const j of this.joints) {
       if (j.behavior.kind !== 'slider' || !j.behavior.motor || !j.behavior.range) continue;
@@ -768,6 +833,8 @@ export class Physics<T extends Thing> {
       const mass = ra?.body.getMass() || rb?.body.getMass() || 1;
       const force = j.joint.getReactionForce(1 / dt);
       if (Math.hypot(force.x, force.y) <= strength * mass * g) continue;
+      this.unhookGears(j.joint);
+      i = this.joints.indexOf(j);
       this.world.destroyJoint(j.joint);
       this.joints.splice(i, 1);
       this.snapped.push({ a: j.a, b: j.b });
@@ -786,6 +853,8 @@ export class Physics<T extends Thing> {
       let waiting = false;
       for (const b of t.def.behaviors) {
         if (b.type !== 'joint') continue;
+        // Still waiting for another of its joints: the ones already made stay as they are.
+        if (this.joints.some((j) => j.a === t && j.behavior === b)) continue;
         const other = nearest(t, things.filter((o) => o !== t && o.alive && o.def.tags.includes(b.targetTag)));
         if (!other) {
           waiting = true;
@@ -798,11 +867,44 @@ export class Physics<T extends Thing> {
           this.ignored.delete(other);
           otherRec = this.make(other, 'wall');
         }
+        if (b.kind === 'gear') {
+          const gear = this.gear(b, t, other);
+          if (gear) this.joints.push(gear);
+          else waiting = true;
+          continue;
+        }
         const joint = this.join(b, rec, otherRec);
         if (joint) this.joints.push({ behavior: b, a: t, b: other, joint });
       }
       if (!waiting) this.pendingJoints.splice(i, 1);
     }
+  }
+
+  /**
+   * Couples this thing's own hinge to the other's hinge or slider, once both
+   * are made. Meshed teeth: the bigger turns slower, the other way round. A
+   * slider beside it is pushed along as the teeth go past it (a rack).
+   */
+  private gear(b: JointBehavior, t: T, other: T): JointRec<T> | null {
+    const own = (x: T, kinds: JointBehavior['kind'][]) => this.joints.find((j) => j.a === x && kinds.includes(j.behavior.kind));
+    const mine = own(t, ['hinge']);
+    const theirs = own(other, ['hinge', 'slider']);
+    if (!mine || !theirs) return null;
+    const radius = (x: T) => Math.max(1, Math.min(x.width, x.height) / 2) / M;
+    let ratio: number;
+    if (theirs.behavior.kind === 'slider') {
+      // Which way the teeth on the slider's side go as this one turns clockwise, along the slider's line.
+      const [dx, dy] = [other.x + other.width / 2 - (t.x + t.width / 2), other.y + other.height / 2 - (t.y + t.height / 2)];
+      const d = Math.hypot(dx, dy) || 1;
+      const axis = ((theirs.behavior.axis ?? 0) * Math.PI) / 180;
+      const way = (-dy / d) * Math.cos(axis) + (dx / d) * Math.sin(axis);
+      ratio = -(way < 0 ? -1 : 1) / radius(t);
+    } else {
+      ratio = (radius(other) / radius(t)) * (b.belt ? -1 : 1);
+    }
+    const joint = this.world.createJoint(new GearJoint({}, mine.joint.getBodyB(), theirs.joint.getBodyB(), mine.joint as RevoluteJoint, theirs.joint as RevoluteJoint | PrismaticJoint, ratio));
+    if (!joint) return null;
+    return { behavior: b, a: t, b: other, joint, uses: [mine.joint, theirs.joint] };
   }
 
   private join(b: JointBehavior, mine: Rec<T>, theirs: Rec<T>): Joint | null {
@@ -847,6 +949,8 @@ export class Physics<T extends Thing> {
         return this.world.createJoint(new DistanceJoint({ frequencyHz: 2.5, dampingRatio: 0.15, collideConnected: true }, theirs.body, mine.body, o, a));
       case 'weld':
         return this.world.createJoint(new WeldJoint({}, theirs.body, mine.body, pin));
+      case 'gear':
+        return null;
     }
   }
 

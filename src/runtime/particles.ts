@@ -15,7 +15,7 @@ export interface ParticleSpec {
   spin: number;
   /** Side-to-side drift, like a snowflake or a bubble, in pixels per second. */
   wobble: number;
-  shape: 'dot' | 'ring' | 'streak' | 'square' | 'star';
+  shape: 'dot' | 'ring' | 'streak' | 'square' | 'star' | 'heart' | 'leaf';
   width: number;
   height: number;
   color: string;
@@ -27,6 +27,10 @@ export interface ParticleSpec {
 }
 
 const CONFETTI = ['#ff5a5f', '#ffd54a', '#43a047', '#26c6da', '#7e57c2', '#ff9f1c'];
+/** Autumn: the chosen colour and a few of its neighbours, so a fall of leaves is not all one colour. */
+const AUTUMN = ['#e07b39', '#c94f2c', '#e9b949', '#9a6b2f'];
+/** A colour or, now and then, one of a few others, for streams that look better mixed. */
+const mixed = (own: string, others: string[]) => (Math.random() < 0.5 ? own : others[Math.floor(Math.random() * others.length)]);
 const between = (low: number, high: number) => low + Math.random() * (high - low);
 /** A direction around `degrees` (0 is right, 90 down), up to `spread` degrees either side. */
 const aim = (degrees: number, spread: number) => ((degrees + between(-spread, spread)) * Math.PI) / 180;
@@ -52,6 +56,37 @@ export function particle(b: ParticlesBehavior): ParticleSpec {
       return { ...base, at: { x: between(0.3, 0.7), y: 0.8 }, ...fly(aim(-90, 8), between(60, 120)), gravity: -20, life: between(2, 3), wobble: 25, shape: 'ring', alpha: 0.85 };
     case 'confetti':
       return { ...base, at: { x: 0.5, y: 0.5 }, ...fly(aim(-90, 45), between(450, 750)), gravity: 900, life: 2.4, spin: between(-9, 9), shape: 'square', height: s * 0.55, color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)] };
+    case 'embers':
+      // Sparks off a fire: small, bright, rising and swaying, dying out.
+      return { ...base, at: { x: between(0.2, 0.8), y: 0.7 }, ...fly(aim(-90, 30), between(60, 150)), gravity: -40, life: between(1, 1.8), grow: 0.3, wobble: 30, shape: 'dot', width: s * 0.35, height: s * 0.35, glow: true };
+    case 'leaves':
+      return { ...base, at: { x: Math.random(), y: 0 }, ...fly(aim(70, 15), between(50, 100)), gravity: 10, life: between(4, 6), spin: between(-3, 3), wobble: 40, shape: 'leaf', height: s * 0.55, color: mixed(b.color, AUTUMN), alpha: 0.95 };
+    case 'dust':
+      // Kicked up from the ground: low, slow, spreading and fading.
+      return { ...base, at: { x: between(0.1, 0.9), y: 0.95 }, ...fly(aim(-90, 70), between(20, 60)), gravity: -8, life: between(0.8, 1.4), grow: 2.4, shape: 'dot', alpha: 0.35, behind: true };
+    case 'magic':
+      return { ...base, at: { x: between(0.2, 0.8), y: between(0.2, 0.8) }, ...fly(aim(-90, 180), between(20, 70)), gravity: -30, life: between(0.7, 1.3), grow: 0, spin: between(-4, 4), shape: Math.random() < 0.6 ? 'star' : 'dot', width: s * (Math.random() < 0.6 ? 1 : 0.4), height: s * (Math.random() < 0.6 ? 1 : 0.4), glow: true, color: mixed(b.color, ['#ffffff', '#b388ff', '#80d8ff']) };
+    case 'hearts':
+      return { ...base, at: { x: between(0.3, 0.7), y: 0.4 }, ...fly(aim(-90, 25), between(50, 110)), gravity: -20, life: between(1.2, 1.8), grow: 1.3, wobble: 18, shape: 'heart' };
+    case 'steam':
+      return { ...base, at: { x: between(0.3, 0.7), y: 0.3 }, ...fly(aim(-90, 12), between(50, 100)), gravity: -30, life: between(1, 1.6), grow: 3.2, wobble: 14, shape: 'dot', alpha: 0.3 };
+    case 'electric':
+      // Short bright crackles in every direction from near the middle.
+      return { ...base, at: { x: between(0.35, 0.65), y: between(0.35, 0.65) }, ...fly(aim(0, 180), between(250, 420)), gravity: 0, life: between(0.08, 0.18), shape: 'streak', width: Math.max(2, s * 0.15), height: s * 1.6, glow: true };
+    case 'portal': {
+      // Specks swirling in toward the middle.
+      const angle = Math.random() * Math.PI * 2;
+      const r = 0.5;
+      return { ...base, at: { x: 0.5 + Math.cos(angle) * r, y: 0.5 + Math.sin(angle) * r }, vx: (-Math.cos(angle) * 90 - Math.sin(angle) * 120) * f, vy: (-Math.sin(angle) * 90 + Math.cos(angle) * 120) * f, gravity: 0, life: between(0.6, 1), grow: 0.2, shape: 'dot', width: s * 0.5, height: s * 0.5, glow: true };
+    }
+    case 'waterfall':
+      return { ...base, at: { x: Math.random(), y: 0 }, ...fly(aim(90, 3), between(380, 520)), gravity: 600, life: between(0.7, 1), shape: 'streak', width: Math.max(3, s * 0.35), height: s * 1.8, alpha: 0.7 };
+    case 'fireflies':
+      return { ...base, at: { x: Math.random(), y: Math.random() }, ...fly(aim(0, 180), between(8, 25)), gravity: 0, life: between(2.5, 4), wobble: 22, shape: 'dot', width: s * 0.35, height: s * 0.35, glow: true };
+    case 'stars':
+      return { ...base, at: { x: 0.5, y: 0.5 }, ...fly(aim(-90, 60), between(120, 260)), gravity: 380, life: between(0.8, 1.3), grow: 0.4, spin: between(-6, 6), shape: 'star', glow: true };
+    case 'drip':
+      return { ...base, at: { x: between(0.1, 0.9), y: 1 }, ...fly(aim(90, 0), 10), gravity: 1100, life: 1.2, shape: 'dot', width: s * 0.45, height: s * 0.45, alpha: 0.85 };
   }
 }
 
@@ -64,4 +99,16 @@ export const PARTICLE_COLORS: Record<ParticlesBehavior['preset'], string> = {
   sparkle: '#fff59d',
   bubbles: '#b3e5fc',
   confetti: '#ff5a5f',
+  embers: '#ffb347',
+  leaves: '#e07b39',
+  dust: '#c8b89a',
+  magic: '#ce93d8',
+  hearts: '#ff6b9a',
+  steam: '#eceff1',
+  electric: '#80d8ff',
+  portal: '#b388ff',
+  waterfall: '#81d4fa',
+  fireflies: '#e6ee9c',
+  stars: '#ffe066',
+  drip: '#4fc3f7',
 };

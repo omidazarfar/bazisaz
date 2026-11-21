@@ -141,6 +141,8 @@ export interface Scene {
   sky?: Sky;
   /** Bright things (fire, lights, sparkles, the sun) give off a soft glow over what is around them. Costs a little speed on a weak phone. */
   bloom?: boolean;
+  /** Weather over the whole screen: rain, a storm with lightning, snow, falling leaves, rising embers or drifting fog. 'none' or absent for clear. */
+  weather?: Weather;
   /** Objects placed in the scene. Later objects draw on top of earlier ones. */
   objects: GameObject[];
   /** Objects that are not placed but can be created during play, by a spawner or a rule. */
@@ -159,6 +161,9 @@ export type Ease = (typeof EASES)[number];
 /** The painted backdrops a scene can have. */
 export const SKIES = ['none', 'day', 'sunset', 'night', 'space', 'underwater', 'forest', 'desert', 'city', 'cave', 'snow'] as const;
 export type Sky = (typeof SKIES)[number];
+
+export const WEATHERS = ['none', 'rain', 'storm', 'snow', 'leaves', 'embers', 'fog'] as const;
+export type Weather = (typeof WEATHERS)[number];
 
 /** How the cells of a tile map are drawn: a plain colour, or a material with its own look (grass grows on cells with nothing above them). */
 export const TILE_STYLES = ['flat', 'grass', 'dirt', 'stone', 'brick', 'wood', 'ice', 'metal', 'sand', 'snow'] as const;
@@ -412,7 +417,7 @@ export type Behavior = StateGate & (
  */
 export interface ParticlesBehavior {
   type: 'particles';
-  preset: 'fire' | 'smoke' | 'rain' | 'snow' | 'sparkle' | 'bubbles' | 'confetti';
+  preset: ParticlePreset;
   color: string;
   /** Particles per second. */
   rate: number;
@@ -422,6 +427,12 @@ export interface ParticlesBehavior {
   speed: number;
 }
 
+export const PARTICLE_PRESETS = [
+  'fire', 'smoke', 'rain', 'snow', 'sparkle', 'bubbles', 'confetti',
+  'embers', 'leaves', 'dust', 'magic', 'hearts', 'steam', 'electric', 'portal', 'waterfall', 'fireflies', 'stars', 'drip',
+] as const;
+export type ParticlePreset = (typeof PARTICLE_PRESETS)[number];
+
 /** Lights up a circle around the object when the scene is dark (`Scene.darkness`), optionally in a colour and flickering like a flame. */
 export interface LightBehavior {
   type: 'light';
@@ -429,6 +440,8 @@ export interface LightBehavior {
   radius: number;
   color: string;
   flicker: boolean;
+  /** Objects of this group (walls, pillars) block the light and cast shadows behind them; their own faces toward it are lit. Empty for none. */
+  shadowTag?: string;
 }
 
 /**
@@ -488,7 +501,17 @@ export interface PhysicsBehavior {
   breaks?: number;
   /** Passes through the objects of this group without meeting them: a player's own shots, enemies that walk through each other. Empty for none. */
   passTag?: string;
+  /**
+   * The shape it meets others with. auto: a circle if it is round, a ramp's
+   * triangle, otherwise its box. outline: the outline of its picture, so a
+   * rock or a creature touches where it is drawn and not at the corners of
+   * its box. capsule: a box with round ends, for a character or a log that
+   * should not catch on edges. triangle (pointing up) and hexagon are cut to the box.
+   */
+  shape?: BodyShape;
 }
+
+export type BodyShape = 'auto' | 'outline' | 'capsule' | 'triangle' | 'hexagon';
 
 /**
  * Pushes objects with real physics while they are inside this object's area.
@@ -498,8 +521,9 @@ export interface PhysicsBehavior {
  */
 export interface FieldBehavior {
   type: 'field';
-  kind: 'wind' | 'water' | 'magnet' | 'planet';
-  /** Wind: the way it blows, in degrees: 0 right, 90 down, -90 up, 180 left. */
+  /** gravity: inside it the scene's gravity is replaced by this one (direction and strength); 0 strength floats, -90 falls upward. */
+  kind: 'wind' | 'water' | 'magnet' | 'planet' | 'gravity';
+  /** Wind and gravity: the way it pulls, in degrees: 0 right, 90 down, -90 up, 180 left. */
   direction: number;
   /** Wind and magnet: how hard, in pixels per second squared. Water: how strongly it holds things up; 1 floats things of ordinary weight. */
   strength: number;
@@ -520,7 +544,13 @@ export interface JointBehavior {
    * its middle and nothing else, like a lift or a piston. wheel: a wheel on a
    * springy axle, which turns freely and gives a little over bumps.
    */
-  kind: 'hinge' | 'rope' | 'spring' | 'weld' | 'slider' | 'wheel';
+  /**
+   * gear: this object's own hinge and the target's hinge (or slider) turn
+   * together, like teeth that mesh: the bigger one turns slower, and in the
+   * other direction (the same direction with `belt`, like a bicycle chain).
+   * A gear meshed with a slider pushes it along, like a rack.
+   */
+  kind: 'hinge' | 'rope' | 'spring' | 'weld' | 'slider' | 'wheel' | 'gear';
   targetTag: string;
   /** Where a hinge's or weld's pin is: the middle of this object (a wheel), of the other (a pendulum on a nail), or halfway between (the links of a chain or a bridge). */
   at: 'self' | 'other' | 'between';
@@ -540,6 +570,8 @@ export interface JointBehavior {
    * or the left (backward), like a car's pedal; let go and it rolls freely.
    */
   drive?: 'always' | 'player';
+  /** Gear only: the two turn the same way, as if joined by a belt or chain, instead of the other way like meshed teeth. */
+  belt?: boolean;
 }
 
 /** Gives the object weight and makes it stop at objects of one group. */
@@ -1008,6 +1040,8 @@ export type Action =
   | { type: 'shake'; strength: number }
   /** Time runs slower for a while (real seconds): 0.3 is a third of the speed; 0 freezes the game for a moment, a "hit stop". */
   | { type: 'slowMotion'; amount: number; seconds: number }
+  /** Words or a number that pop up over an object and float away: "+30", "OUCH", "{score}". */
+  | { type: 'floatText'; target: Target; text: string; color: string; size: number }
   /**
    * A short, smooth change of looks. pop: swells and settles. grow: appears
    * from nothing. shrink: dwindles away and is removed. fadeIn / fadeOut:
