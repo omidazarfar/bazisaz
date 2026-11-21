@@ -265,6 +265,7 @@ look:
 
 ## Current state (keep this up to date)
 
+- Updated 2026-11-21 (end of day) by Claude: phases 4 to 7 started (see the plan); ten genre games. Verified on commit 40b691f: `npm run build` passed; `npm test` **584 PASS, 0 FAIL** (312 runtime, 248 editor, 24 server); `npm run bots` **10 of 10 on the first try**. Memory on this computer is tight: `npm run check` in one go was stopped twice for low memory, so run `npm test` and `npm run bots` one after the other.
 - Updated 2026-11-21 (later) by Claude: Phase 2 mostly done and Phase 3 started (see the plan). Verified after the last change: `npm test` **567 PASS, 0 FAIL** (301 runtime, 242 editor, 24 server); `npm run bots` 6 of 6 on the first try (the shooter met the boss and kept all three lives).
 - Updated 2026-11-21 by Claude: Phase 1 done, Phase 2 started (see the plan). Verified after the last change: `npm run build` passed; `npm test` **544 PASS, 0 FAIL** (278 runtime, 242 editor, 24 server); `npm run bots` **6 of 6 games played through on the first try** (rescue 600 points, shooter 35 s with a life left).
 - Updated 2026-11-21 by Codex. Phase 0 is complete. Phase 1 includes the new editable rescue game in Library → «راهنمای سبک» → «عملیات نجات». The terrain editor is in «شکل، متن و عکس خودت». The chain, bike, rescue crawler and boat are also independent parts.
