@@ -2185,3 +2185,11 @@ ol.rule-then li::before {
   border-radius: 10px;
   background: repeating-conic-gradient(#2a3463 0 25%, #1c2550 0 50%) 0 0 / 14px 14px;
 }
+
+/* The map of scenes in the game panel. */
+.scene-map {
+  display: block;
+  background: #18202f;
+  border-radius: 12px;
+  margin: 4px 0 8px;
+}

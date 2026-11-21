@@ -1386,6 +1386,39 @@ check('quest: tapping updates the label and live debugger', await until(page, ()
 await page.screenshot({ path: resolve(shots, 'editor-quest.png') });
 await click('توقف');
 
+// ── The game panel's tools: making a sound, the map of scenes, versions to go back to ──
+await freshGame();
+await openLibrary('راهنمای سبک');
+await page.click('.modal [data-genre="puzzle"]');
+await until(page, () => !document.querySelector('.modal'), null, 30000);
+await click('بازی', '.tabs');
+const sceneCount = (await editor()).project.scenes.length;
+check('scene map: a card for every scene, and arrows where rules lead from one to another',
+  (await page.$$eval('[data-scene-card]', (c) => c.length)) === sceneCount && (await page.$$eval('[data-link]', (l) => l.length)) >= 3,
+  `${await page.$$eval('[data-scene-card]', (c) => c.length)} cards for ${sceneCount}, ${await page.$$eval('[data-link]', (l) => l.length)} links`);
+const lastScene = (await editor()).project.scenes.at(-1);
+await page.click(`[data-scene-card="${lastScene.id}"]`);
+check('scene map: a card opens its scene', await until(page, (id) => window.__editor.getState().sceneId === id, lastScene.id, 5000));
+
+const soundsBefore = Object.values((await editor()).project.assets).filter((a) => a.type === 'sound').length;
+await page.click('[data-make-sound]');
+await page.waitForSelector('[data-sfx="laser"]');
+await page.click('[data-sfx="laser"]');
+await page.click('[data-sfx-add]');
+await until(page, () => !document.querySelector('[data-sfx-add]'), null, 5000);
+const sounds = Object.values((await editor()).project.assets).filter((a) => a.type === 'sound');
+check('sound maker: a made sound is added to the game as a WAV file', sounds.length === soundsBefore + 1 && sounds.some((a) => a.name === 'laser' && a.src.startsWith('data:audio/wav;base64,') && a.src.length > 2000), `${soundsBefore} → ${sounds.length}`);
+
+await page.click('[data-keep-version]');
+check('versions: keeping one lists it', await until(page, () => document.querySelectorAll('[data-restore]').length >= 1, null, 5000));
+const keptObjects = (await editor()).project.scenes.reduce((n, s) => n + s.objects.length, 0);
+await click('+ متن', '.object-list');
+check('(a change after it)', (await editor()).project.scenes.reduce((n, s) => n + s.objects.length, 0) === keptObjects + 1);
+await click('بازی', '.tabs');
+await page.click('[data-restore]');
+check('versions: going back to a kept version undoes what came after', await until(page, (n) => window.__editor.getState().project.scenes.reduce((m, s) => m + s.objects.length, 0) === n, keptObjects, 5000));
+await page.screenshot({ path: resolve(shots, 'editor-game-tools.png') });
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

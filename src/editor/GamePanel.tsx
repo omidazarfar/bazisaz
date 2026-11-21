@@ -8,7 +8,9 @@ import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextFi
 import type { GameProject } from '../format/types';
 import type { Editor } from './editor';
 import { pickFile, pickFiles, readDataUrl, readImage } from './images';
-import { isVariableUsed, newId, removeScene, updateScene } from './state';
+import { isVariableUsed, keepVersion, listVersions, newId, removeScene, updateScene, type Version } from './state';
+import { SfxMaker } from './SfxMaker';
+import { SceneMap } from './SceneMap';
 import { SpriteGrid } from './Library';
 import { Dialog } from './Pick';
 import { useSprite } from './sprites';
@@ -110,6 +112,10 @@ export function GamePanel({ editor }: { editor: Editor }) {
     }
     if (Object.keys(added).length > 0) change({ ...project, assets: { ...project.assets, ...added } }, `sound.add.${Object.keys(added)[0]}`);
   };
+  const [makingSound, setMakingSound] = useState(false);
+  const [versions, setVersions] = useState<Version[]>([]);
+  const refreshVersions = () => void listVersions().then(setVersions);
+  useEffect(refreshVersions, []);
   const isSoundUsed = (id: string) =>
     project.scenes.some((s) => s.music === id || s.rules.some((r) => ruleActions(r).some((a) => (a.type === 'playSound' && a.sound === id) || (a.type === 'playMusic' && a.music === id))));
   const removeSound = (id: string) => {
@@ -256,8 +262,37 @@ export function GamePanel({ editor }: { editor: Editor }) {
         })}
         <div className="adders">
           <button type="button" className="chip" onClick={() => void addSounds()}>+ صدا یا موسیقی</button>
+          <button type="button" className="chip" data-make-sound onClick={() => setMakingSound(true)}>🔊 ساختن صدا</button>
         </div>
         {soundError && <p className="field-error">{soundError}</p>}
+      </Section>
+
+      {makingSound && (
+        <SfxMaker
+          onClose={() => setMakingSound(false)}
+          onAdd={(name, src) => {
+            const id = newId('snd');
+            change({ ...project, assets: { ...project.assets, [id]: { type: 'sound', name, src } } }, `sound.add.${id}`);
+            setMakingSound(false);
+          }}
+        />
+      )}
+
+      <Section title="نقشه‌ی صحنه‌ها" about="همه‌ی صحنه‌های بازی و اینکه کدام به کدام می‌رود (با کار «رفتن به صحنه» یا «صحنه‌ی بعد»). صحنه‌ی شروع ستاره دارد. روی هر صحنه بزن تا بازش کنی.">
+        <SceneMap project={project} current={scene.id} onOpen={(id) => editor.setScene(id)} />
+      </Section>
+
+      <Section title="نسخه‌های قبلی" about="بازی هر چند دقیقه یک بار خودش یک نسخه نگه می‌دارد؛ قبل از یک تغییر بزرگ، خودت هم «نگه داشتن این نسخه» را بزن. «برگرداندن» بازی را به همان نسخه برمی‌گرداند، و با «واگرد» می‌شود دوباره برگشت.">
+        <div className="adders">
+          <button type="button" className="chip" data-keep-version onClick={() => void keepVersion(project, 'دستی').then(refreshVersions)}>💾 نگه داشتن این نسخه</button>
+        </div>
+        {versions.map((v) => (
+          <div key={v.at} className="variable-head" data-version={v.at}>
+            <span className="variable-name">{new Date(v.at).toLocaleString('fa-IR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · {v.label} · {v.project.scenes.reduce((n, s) => n + s.objects.length, 0).toLocaleString('fa-IR')} شیء</span>
+            <button type="button" className="link" data-restore={v.at} onClick={() => change(v.project, `version.restore.${v.at}`)}>برگرداندن</button>
+          </div>
+        ))}
+        {versions.length === 0 && <p className="hint">هنوز نسخه‌ای نگه داشته نشده.</p>}
       </Section>
 
       <Section

@@ -472,13 +472,60 @@ export async function loadSaved(): Promise<GameProject | null> {
   }
 }
 
-/** Resolves to false when the project could not be saved. */
+/** Resolves to false when the project could not be saved. Every few minutes the save also keeps a version to go back to. */
 export async function saveProject(project: GameProject): Promise<boolean> {
   try {
     const db = await openDb();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
       tx.objectStore(STORE).put(project, KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    const versions = await listVersions();
+    if (!versions.length || Date.now() - versions[0].at > AUTO_VERSION_MS) await keepVersion(project, 'خودکار');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ── Versions to go back to ─────────────────────────────────────────────────
+
+export interface Version {
+  at: number;
+  label: string;
+  project: GameProject;
+}
+
+const HISTORY = 'history-v1';
+/** A version is kept on its own at most this often while working. */
+const AUTO_VERSION_MS = 3 * 60 * 1000;
+const MOST_VERSIONS = 15;
+
+/** Kept versions, newest first. */
+export async function listVersions(): Promise<Version[]> {
+  try {
+    const db = await openDb();
+    const list = await new Promise<Version[] | undefined>((resolve, reject) => {
+      const request = db.transaction(STORE).objectStore(STORE).get(HISTORY);
+      request.onsuccess = () => resolve(request.result as Version[] | undefined);
+      request.onerror = () => reject(request.error);
+    });
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Keeps the project as a version; the oldest go once there are too many. */
+export async function keepVersion(project: GameProject, label: string): Promise<boolean> {
+  try {
+    const list = [{ at: Date.now(), label, project }, ...(await listVersions())].slice(0, MOST_VERSIONS);
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(list, HISTORY);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
