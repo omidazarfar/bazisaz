@@ -2038,6 +2038,9 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   s = await gameState(page);
   check('weather: and soon lightning flashes', s.weather.strikes >= 1 && s.weather.flash > 0, JSON.stringify(s.weather));
   await page.screenshot({ path: resolve(shots, '20-storm.png') });
+  await page.evaluate(() => window.__game.lighten());
+  s = await gameState(page);
+  check('a slow phone: the storm keeps half its rain', s.weather.drops === 110, JSON.stringify(s.weather));
   check('lab 20 (storm): no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
 

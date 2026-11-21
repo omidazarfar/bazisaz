@@ -901,7 +901,7 @@ export class Game {
         const flicker = b.flicker ? 1 + 0.07 * Math.sin(this.time * 13 + e.homeX) + 0.04 * Math.sin(this.time * 7.3 + e.homeY) : 1;
         const size = b.radius * 2 * (fixed ? this.hudZ : z) * flicker;
         // Walls in the way: the light reaches only as far as it can see, and what is behind them stays dark.
-        const walls = b.shadowTag && !fixed
+        const walls = b.shadowTag && !fixed && !this.light
           ? this.entities.filter((o) => o !== e && o.alive && o.visible && !o.def.fixed && o.def.tags.includes(b.shadowTag!))
           : [];
         const points = walls.length ? lightPolygon(centre.x, centre.y, b.radius * flicker, walls) : null;
@@ -1585,6 +1585,8 @@ export class Game {
     if (this.light) return;
     this.light = true;
     this.applyLook();
+    // Half the rain and snow, and lights shine through walls again: both cost time every frame.
+    this.weather.thin();
     for (const e of this.entities) {
       for (const f of e.fx) f.destroy();
       e.fx = [];

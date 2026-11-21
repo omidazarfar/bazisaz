@@ -40,6 +40,7 @@ export class WeatherView {
   private strikes = 0;
   private last: { x: number; y: number } | null = null;
   private time = 0;
+  private thinned = false;
   /** Called on each lightning strike, for the thunder. */
   onThunder: (() => void) | null = null;
 
@@ -64,7 +65,7 @@ export class WeatherView {
     this.glowing.clear();
     this.flash.clear();
     const count = { none: 0, rain: 130, storm: 220, snow: 120, leaves: 26, embers: 60, fog: 0 }[kind];
-    this.drops = Array.from({ length: count }, () => this.drop(true));
+    this.drops = Array.from({ length: this.thinned ? Math.ceil(count / 2) : count }, () => this.drop(true));
     if (kind === 'fog') {
       for (let i = 0; i < 5; i++) {
         const s = new Sprite(this.softTexture());
@@ -211,6 +212,12 @@ export class WeatherView {
       f.poly(this.bolt, false).stroke({ width: 14, color: 0xb0c8ff, alpha: 0.35 });
     }
     this.strike = Math.max(0, this.strike - dt * 1.6);
+  }
+
+  /** A slow phone: half as much falling from now on (this scene and the next ones). */
+  thin(): void {
+    this.thinned = true;
+    this.drops = this.drops.slice(0, Math.ceil(this.drops.length / 2));
   }
 
   /** For the tests: what is falling, and the lightning. */

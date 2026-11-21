@@ -14,7 +14,8 @@
     "start": "npm run build && cap sync android && node server/index.mjs",
     "server": "node server/index.mjs",
     "prebuild": "node scripts/clean-stale.mjs",
-    "bots": "node scripts/bots/all.mjs"
+    "bots": "node scripts/bots/all.mjs",
+    "check": "npm run build && npm test && npm run bots"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.3.0",
