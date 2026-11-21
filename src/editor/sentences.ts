@@ -149,6 +149,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'burst': return `از ${who(a.target)} جرقه بپران`;
     case 'shake': return a.axis === 'side' ? 'صفحه را چپ و راست بلرزان' : a.axis === 'up' ? 'صفحه را بالا و پایین بلرزان' : 'صفحه را بلرزان';
     case 'zoomPunch': return 'دوربین را یک لحظه جلو بپران';
+    case 'shoot': return `از ${who(a.from)} ${{ single: 'یک تیر', spread: `${fa(a.count)} تیر بادبزنی`, ring: `${fa(a.count)} تیر دور تا دور`, aimed: `${fa(a.count)} تیر رو به هدف` }[a.pattern]} شلیک کن`;
     case 'shockwave': return `از ${who(a.at)} موج انفجار بفرست`;
     case 'floatText': return `بالای ${who(a.target)} بنویس «${a.text}» و بپرانش`;
     case 'slowMotion': return a.amount <= 0 ? `بازی را ${fa(a.seconds)} ثانیه نگه دار (ایست ضربه)` : `زمان را ${fa(a.seconds)} ثانیه آهسته کن`;
@@ -207,6 +208,11 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       const what = b.away ? `از ${group(b.targetTag)} فرار می‌کند` : `دنبال ${group(b.targetTag)} می‌رود`;
       return `${what}${b.range ? `، وقتی نزدیک‌تر از ${fa(b.range)} پیکسل باشد` : ''}${b.avoidTag && !b.away ? `، و دیوارهای ${group(b.avoidTag)} را دور می‌زند` : ''}${b.sight && !b.away ? '، فقط وقتی ببیندش' : ''}`;
     }
+    case 'moves': {
+      const can = [b.wallJump ? 'از دیوار می‌پرد' : '', b.dash ? 'تیز می‌رود' : '', b.climbTag ? `از ${group(b.climbTag)} بالا می‌رود` : '', b.pound ? 'به زمین می‌کوبد' : ''].filter(Boolean);
+      return can.length ? can.join('، ') : 'حرکت ویژه‌ای ندارد';
+    }
+    case 'homing': return `به طرف نزدیک‌ترین ${group(b.targetTag)} می‌پیچد، مثل موشک`;
     case 'route': return `روی نشانه‌های ${group(b.tag)} راه می‌رود`;
     case 'rotate': return 'دور خودش می‌چرخد';
     case 'draggable': return 'بازیکن می‌تواند آن را با انگشت بکشد';

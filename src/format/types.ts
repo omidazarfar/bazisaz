@@ -408,6 +408,8 @@ export type Behavior = StateGate & (
   | PulseBehavior
   | TrailBehavior
   | SteerBehavior
+  | MovesBehavior
+  | HomingBehavior
   | RouteBehavior
   | PhysicsBehavior
   | JointBehavior
@@ -703,6 +705,34 @@ export interface SteerBehavior {
   rightTag: string;
   /** Turns the object to point the way it is going. */
   face: boolean;
+  /** A dodge roll: a quick dash the way it is going, during which nothing can hurt it. On a button of `rollTag`, or Shift or X. */
+  roll?: boolean;
+  rollTag?: string;
+}
+
+/**
+ * A platform hero's special moves, on top of walking and jumping.
+ * wallJump: pressed against a wall in the air it slides down slowly, and a jump kicks it off the wall.
+ * dash: a quick burst the way it faces, on a button of `dashTag` (or Shift or X).
+ * climbTag: climbs objects of this group (ladders, vines) with up and down (the jump button and `poundTag`'s button, or the arrows).
+ * pound: in the air, a button of `poundTag` (or the down arrow) drives it straight down hard; the landing shakes the ground.
+ */
+export interface MovesBehavior {
+  type: 'moves';
+  wallJump: boolean;
+  dash: boolean;
+  dashTag: string;
+  climbTag: string;
+  pound: boolean;
+  poundTag: string;
+}
+
+/** Turns toward the nearest object of a group as it flies, like a homing missile, keeping its speed. Picture pointing up. */
+export interface HomingBehavior {
+  type: 'homing';
+  targetTag: string;
+  /** How fast it can turn, in degrees per second. */
+  turn: number;
 }
 
 /** Travels from one marker object to the next: every object of a group, in the order of their names. */
@@ -1047,6 +1077,12 @@ export type Action =
   /** Shakes the whole screen for a moment. */
   /** `axis`: 'side' shakes only left and right (a hit from the side), 'up' only up and down (a heavy landing); absent for every way. */
   | { type: 'shake'; strength: number; axis?: 'both' | 'side' | 'up' }
+  /**
+   * Fires copies of a prefab from an object. single: one, toward `direction` (degrees: -90 up, 90 down, 0 right).
+   * spread: `count` fanned over `spread` degrees. ring: `count` all the way round. aimed: like spread, but at the
+   * nearest object of `aimTag`. The prefab's picture should point up; it is turned to fly the way it goes.
+   */
+  | { type: 'shoot'; from: Target; prefab: string; pattern: 'single' | 'spread' | 'ring' | 'aimed'; count: number; direction: number; spread: number; speed: number; aimTag: string }
   /** The view jumps in a little closer and settles back, for the weight of a big hit. `amount` 1.1 is 10% closer. */
   | { type: 'zoomPunch'; amount: number; seconds: number }
   /** A ring that ripples out over the picture from an object, bending what is behind it, like the air after an explosion. */

@@ -102,15 +102,28 @@ and a Persian guide entry.
    Dungeon Escape uses it), `scene.weather` (rain, storm with lightning and
    thunder, snow, leaves, embers, fog; `src/runtime/weather.ts`; Rescue Relay
    uses leaves and storm), the `floatText` action ("+10" popping up; used in
-   all genre games), and 12 more particle presets (19 in all). Still open:
-   day/night cycle, a particle editor with 30+ presets, directional shake,
-   impact zoom, dissolve, ripple, outline glow, retro/pixel filters, layered
-   maps, animated tiles, autotile edges. Original list: Real lights and shadows cast by walls, flickering torches,
+   all genre games), and 23 more particle presets (30 in all); later the same
+   day: `scene.dayLength` (day and night cycle; Rescue ridge, with headlights),
+   `scene.retro` ('pixel', 'crt' on Star Raiders, 'film'; crt and film are
+   dropped by lighten()), the `shockwave` action (ShockwaveFilter ripple), the
+   `zoomPunch` action (scales `scenery` about the screen centre) and
+   `shake.axis` ('side' or 'up'). Rock Smash's barrel and the Star Raiders
+   boss use the ripple and punch. Outline glow already existed (object glow).
+   Not done: a separate particle editor, dissolve, layered maps, animated
+   tiles, autotile edges (tile materials already draw open edges). Original list: Real lights and shadows cast by walls, flickering torches,
    day/night; rain, snow, fog, wind; a particle editor with 30+ presets;
    hit-stop, directional shake, impact zoom, flash, floating damage numbers;
    dissolve, ripple, outline glow, retro/pixel filters; layered maps,
    animated tiles, autotile edges.
-3. **Character and combat kits.** Wall jump/slide, dash, ladders, crouch,
+3. **Character and combat kits.** Started 2026-11-21 (Claude). Done: the
+   `moves` behavior (wallJump with slide, dash, climbTag ladders, ground
+   pound; keys X/Shift and the down arrow, or button groups), `steer.roll`
+   (dodge roll, `safeUntil` makes damage miss), the `shoot` action (single,
+   spread, ring, aimed; prefab picture points up) and the `homing` behavior.
+   Sky Quest's hero has wall jump, dash and pound buttons; Dungeon Escape's
+   knight has a roll button; Star Raiders' bolts home in a little and the boss
+   fires rings and aimed fans. Not done: crouch, ladders in a genre game, ready
+   boss patterns as a part, a wave maker. Original list: Wall jump/slide, dash, ladders, crouch,
    ground pound; top-down 8-way with dodge roll; weapons (gun, spread, bow,
    homing); ready smart enemies and bosses with attack patterns; a wave maker.
 4. **Professional editor.** Drag-and-drop rule blocks, keyframe animation

@@ -359,6 +359,13 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   p = await hearts(p, sceneId);
   p = await part(p, sceneId, 'pause-menu');
   p = await part(p, sceneId, 'controls');
+  const [DASH, DOWN] = ['دکمه‌ی تیز رفتن', 'دکمه‌ی کوبیدن'];
+  const dash = await picture(p, 'btn-dash', DASH, 120, 120, { x: W - 255, y: H - 110 }, { fixed: true, opacity: 0.85, tags: [DASH] });
+  const down = await picture(dash.project, 'btn-down', DOWN, 120, 120, { x: W - 100, y: H - 265 }, { fixed: true, opacity: 0.85, tags: [DOWN] });
+  p = addAll(down.project, sceneId, [dash.object, down.object]);
+  p = updateScene(p, sceneId, (sc) => ({ ...sc, objects: sc.objects.map((o) => (o.id === player.id
+    ? { ...o, behaviors: [...o.behaviors, { type: 'moves', wallJump: true, dash: true, dashTag: DASH, climbTag: '', pound: true, poundTag: DOWN }] }
+    : o)) }));
   return {
     project: p,
     select: player.id,
@@ -504,7 +511,7 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
     tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
     behaviors: [
       { type: 'body', gravity: false, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false, bumpTag: DANGER },
-      { type: 'steer', speed: 330, control: 'stick', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false },
+      { type: 'steer', speed: 330, control: 'stick', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false, roll: true, rollTag: 'دکمه‌ی غلت' },
       { type: 'light', radius: 300, color: '#fff3d6', flicker: false, shadowTag: GROUND },
       { type: 'camera', lock: 'free', smooth: 0.2, roomTag: ROOM },
     ],
@@ -544,6 +551,8 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
   p = await hearts(p, sceneId);
   p = await part(p, sceneId, 'pause-menu');
   p = await part(p, sceneId, 'sword');
+  const rollButton = await picture(p, 'btn-roll', 'دکمه‌ی غلت', 110, 110, { x: W - 250, y: H - 160 }, { fixed: true, opacity: 0.9, tags: ['دکمه‌ی غلت'] });
+  p = addAll(rollButton.project, sceneId, [rollButton.object]);
   p = addAll(p, sceneId, bagIfNone(p, sceneId));
   return {
     project: p,
@@ -579,14 +588,17 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
   const alien = enemy('موجود فضایی', 'alien', 84, 84, 2, [{ type: 'mover', vx: 0, vy: 130, speedVariable: '', atEdge: 'remove' }, { type: 'wave', axis: 'x', distance: 120, seconds: 2 }]);
   const saucer = enemy('بشقاب‌پرنده', 'ufo', 130, 84, 3, [{ type: 'mover', vx: 0, vy: 90, speedVariable: '', atEdge: 'remove' }, { type: 'wave', axis: 'x', distance: 220, seconds: 3 }]);
   const bolt = makeObject('تیر بازیکن', { kind: 'ellipse', color: '#6cf2ff', shade: true }, 14, 46, { x: 0, y: 0 }, {
-    x: 0, y: 0, glow: '#6cf2ff', behaviors: [{ type: 'launch', vx: 0, vy: -950 }, { type: 'lifetime', seconds: 1.4 }],
+    x: 0, y: 0, glow: '#6cf2ff', behaviors: [{ type: 'launch', vx: 0, vy: -950 }, { type: 'homing', targetTag: ENEMY, turn: 90 }, { type: 'lifetime', seconds: 1.4 }],
+  });
+  const orb = makeObject('گوی غول', { kind: 'ellipse', color: '#c77dff', shade: true }, 26, 26, { x: 0, y: 0 }, {
+    x: 0, y: 0, tags: [SHOT], round: true, glow: '#c77dff', behaviors: [{ type: 'lifetime', seconds: 5 }],
   });
   const enemyShot = makeObject('گلوله‌ی دشمن', { kind: 'ellipse', color: '#ff4d6d', shade: true }, 24, 24, { x: 0, y: 0 }, {
     x: 0, y: 0, tags: [SHOT], round: true, glow: '#ff4d6d', behaviors: [{ type: 'launch', vx: 0, vy: 0, toward: 'group', targetTag: PLAYER, speed: 260 }, { type: 'lifetime', seconds: 4 }],
   });
   const heal = makeObject('قلب', image('heart'), 64, 58, { x: 0, y: 0 }, { x: 0, y: 0, tags: [HEAL], glow: '#ff6b8a', behaviors: [{ type: 'mover', vx: 0, vy: 170, speedVariable: '', atEdge: 'remove' }, { type: 'pulse', amount: 0.12, seconds: 0.6 }] });
   const bonus = makeObject('ستاره', image('star'), 66, 66, { x: 0, y: 0 }, { x: 0, y: 0, tags: [BONUS], glow: '#ffd23f', behaviors: [{ type: 'mover', vx: 0, vy: 190, speedVariable: '', atEdge: 'remove' }, { type: 'rotate', speed: 120 }] });
-  const prefabs = [rock, alien, saucer, bolt, enemyShot, heal, bonus];
+  const prefabs = [rock, alien, saucer, bolt, enemyShot, orb, heal, bonus];
 
   // Waves come from above the screen until the boss arrives (the maker's state 1 stops it).
   const waves = makeObject('سازنده‌ی دشمن', { kind: 'rect', color: '#000000' }, 40, 40, { x: 0, y: 0 }, {
@@ -624,7 +636,9 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
     ]),
     // Aliens shoot at the ship from time to time; the boss, once awake, much more often.
     rule({ type: 'eachEvery', target: byId(alien.id), seconds: 2.4 }, [{ type: 'spawn', prefab: enemyShot.id, at: 'first' }]),
-    rule({ type: 'eachEvery', target: awake, seconds: 0.9 }, [{ type: 'spawn', prefab: enemyShot.id, at: 'first' }, { type: 'playSound', sound: 'laser', volume: 30 }]),
+    // The boss's attack: a ring of orbs all round, and a fan of three aimed at the ship.
+    rule({ type: 'eachEvery', target: awake, seconds: 2.4 }, [{ type: 'shoot', from: 'first', prefab: orb.id, pattern: 'ring', count: 10, direction: 90, spread: 0, speed: 210, aimTag: '' }, { type: 'playSound', sound: 'laser', volume: 30 }]),
+    rule({ type: 'eachEvery', target: awake, seconds: 1.3 }, [{ type: 'shoot', from: 'first', prefab: orb.id, pattern: 'aimed', count: 3, direction: 90, spread: 30, speed: 280, aimTag: PLAYER }]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY) }, [{ type: 'send', name: HURT }, { type: 'damage', target: 'second', amount: 2 }]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(SHOT) }, [{ type: 'destroy', target: 'second' }, { type: 'send', name: HURT }]),
     // Gifts: a heart gives back a life (or points if all are there), a star is worth twenty.

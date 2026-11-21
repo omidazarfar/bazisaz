@@ -49,7 +49,7 @@ export function findIssues(project: GameProject): Issue[] {
         return info.fields.filter((f) => f.kind === 'tag' && (!f.showIf || f.showIf(value))).map((f) => ({ behavior: info.title, label: f.label, key: f.key, tag: String(value[f.key] ?? f.fallback ?? '') }));
       });
     // Groups that may well be left empty: nothing solid, no walls to go around.
-    const optional = new Set(['solidTag', 'avoidTag', 'roomTag', 'bumpTag', 'passTag']);
+    const optional = new Set(['solidTag', 'avoidTag', 'roomTag', 'bumpTag', 'passTag', 'shadowTag', 'dashTag', 'poundTag', 'climbTag', 'rollTag']);
     for (const o of all) {
       for (const f of tagFields(o)) {
         if (f.tag === '' && !optional.has(f.key)) say(`«${o.name}»: در رفتار «${f.behavior}» هنوز گروهی برای «${f.label}» انتخاب نشده.`, { object: o.id });

@@ -447,6 +447,30 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { key: 'leftTag', label: 'گروه دکمه‌ی چپ', kind: 'tag', showIf: (v) => v.control === 'buttons' },
       { key: 'rightTag', label: 'گروه دکمه‌ی راست', kind: 'tag', showIf: (v) => v.control === 'buttons' },
       { key: 'face', label: 'رو به جهت حرکت بچرخد', hint: 'عکس را رو به راست بکش.', kind: 'bool', fallback: false, advanced: true },
+      { key: 'roll', label: 'غلت زدن برای فرار', hint: 'با یک دکمه (یا Shift و X) تند به همان طرف غلت می‌زند و در این مدت هیچ چیز به آن آسیب نمی‌زند.', kind: 'bool', fallback: false },
+      { key: 'rollTag', label: 'گروه دکمه‌ی غلت', kind: 'tag', fallback: '', showIf: (v) => Boolean(v.roll) },
+    ],
+  },
+  moves: {
+    title: 'حرکت‌های ویژه: پرش از دیوار، تیز رفتن، نردبان، کوبیدن',
+    about: 'برای قهرمان بازی پرشی، کنار «حرکت چپ و راست» و «پرش». پرش از دیوار: در هوا به دیوار بچسبد آرام سُر می‌خورد و با پرش از دیوار جدا می‌شود. تیز رفتن: یک لحظه خیلی سریع جلو می‌رود. نردبان: از اشیای یک گروه بالا و پایین می‌رود. کوبیدن: در هوا محکم پایین می‌آید و زمین را می‌لرزاند. روی کامپیوتر: Shift یا X برای تیز رفتن، فلش پایین برای کوبیدن.',
+    make: () => ({ type: 'moves', wallJump: true, dash: true, dashTag: '', climbTag: '', pound: true, poundTag: '' }),
+    fields: [
+      { key: 'wallJump', label: 'پرش از دیوار', hint: 'به دیوار که بچسبد آرام سُر می‌خورد و با پرش، از دیوار دور می‌شود.', kind: 'bool' },
+      { key: 'dash', label: 'تیز رفتن (دش)', kind: 'bool' },
+      { key: 'dashTag', label: 'گروه دکمه‌ی تیز رفتن', kind: 'tag', fallback: '', showIf: (v) => Boolean(v.dash) },
+      { key: 'pound', label: 'کوبیدن به زمین', kind: 'bool' },
+      { key: 'poundTag', label: 'گروه دکمه‌ی پایین (کوبیدن و پایین رفتن از نردبان)', kind: 'tag', fallback: '' },
+      { key: 'climbTag', label: 'از این گروه بالا برود (نردبان)', hint: 'وقتی روی نردبان است، دکمه‌ی پرش بالا و دکمه‌ی پایین پایین می‌برد؛ ول کند همان‌جا می‌ماند.', kind: 'tag', fallback: '' },
+    ],
+  },
+  homing: {
+    title: 'تعقیب هدف (موشک)',
+    about: 'وقتی پرواز می‌کند آرام به طرف نزدیک‌ترین شیء یک گروه می‌چرخد و سرعتش را نگه می‌دارد؛ مثل موشک. برای تیر و گلوله. عکسش رو به بالا باشد.',
+    make: () => ({ type: 'homing', targetTag: '', turn: 180 }),
+    fields: [
+      { key: 'targetTag', label: 'به طرف این گروه', kind: 'tag' },
+      slider('turn', 'تندی چرخش', 20, 720, 10, 'هرچه بیشتر، تیزتر می‌پیچد.', 'درجه در ثانیه'),
     ],
   },
   route: {
@@ -1017,6 +1041,26 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     make: (ctx) => ({ type: 'burst', target: firstRef(ctx), color: '#ffd54a', count: 16 }),
     fields: [{ key: 'target', label: 'از کدام شیء', kind: 'target' }, { key: 'color', label: 'رنگ تکه‌ها', kind: 'color' }, slider('count', 'چند تکه', 4, 40, 1)],
   },
+  shoot: {
+    title: 'شلیک با الگو',
+    about: 'از یک شیء چند نمونه از یک شیء ساختنی را با سرعت پرتاب می‌کند: یکی، بادبزنی، حلقه‌ای دور تا دور، یا رو به نزدیک‌ترین هدف. برای اسلحه و حمله‌ی غول آخر. عکس تیر رو به بالا باشد.',
+    make: (ctx) => ({ type: 'shoot', from: firstRef(ctx), prefab: '', pattern: 'spread', count: 3, direction: -90, spread: 40, speed: 700, aimTag: '' }),
+    fields: [
+      { key: 'from', label: 'از کدام شیء', kind: 'target' },
+      { key: 'prefab', label: 'چه چیزی', kind: 'prefab' },
+      { key: 'pattern', label: 'الگو', kind: 'choice', options: [
+        { value: 'single', label: 'یکی' },
+        { value: 'spread', label: 'بادبزنی' },
+        { value: 'ring', label: 'حلقه، دور تا دور' },
+        { value: 'aimed', label: 'رو به نزدیک‌ترین هدف' },
+      ] },
+      { ...slider('count', 'چند تا', 1, 24, 1), showIf: (v) => v.pattern !== 'single' },
+      { ...slider('direction', 'به کدام طرف', -180, 180, 5, '۹۰- یعنی بالا، ۹۰ پایین، صفر راست.', 'درجه'), showIf: (v) => v.pattern !== 'aimed' },
+      { ...slider('spread', 'باز شدن بادبزن', 5, 180, 5, undefined, 'درجه'), showIf: (v) => v.pattern === 'spread' || v.pattern === 'aimed' },
+      slider('speed', 'سرعت', 100, 2000, 20, undefined, 'پیکسل در ثانیه'),
+      { key: 'aimTag', label: 'هدف از این گروه', kind: 'tag', fallback: '', showIf: (v) => v.pattern === 'aimed' },
+    ],
+  },
   zoomPunch: {
     title: 'ضربه‌ی دوربین',
     about: 'دوربین یک لحظه جلو می‌پرد و برمی‌گردد؛ ضربه و انفجار را سنگین‌تر نشان می‌دهد. با «لرزش صفحه» و «زمان آهسته» عالی است.',
@@ -1241,8 +1285,8 @@ export const COMMON_TRIGGERS: Trigger['type'][] = ['tap', 'touch', 'tapObject', 
 export const COMMON_ACTIONS: Action['type'][] = ['setVariable', 'destroy', 'spawn', 'playSound', 'goToScene', 'restartScene', 'show', 'hide', 'effect', 'burst', 'flash', 'wait'];
 
 export const BEHAVIOR_GROUPS: BlockGroup<Behavior['type']>[] = [
-  { title: 'کنترل با انگشت', types: ['jumper', 'walker', 'steer', 'followFinger', 'draggable'] },
-  { title: 'حرکت خودکار', types: ['mover', 'patrol', 'route', 'chase', 'launch', 'wave', 'attach'] },
+  { title: 'کنترل با انگشت', types: ['jumper', 'walker', 'moves', 'steer', 'followFinger', 'draggable'] },
+  { title: 'حرکت خودکار', types: ['mover', 'homing', 'patrol', 'route', 'chase', 'launch', 'wave', 'attach'] },
   { title: 'فیزیک و دوربین', types: ['body', 'physics', 'joint', 'field', 'camera'] },
   { title: 'ساختن و از بین رفتن', types: ['spawner', 'lifetime'] },
   { title: 'جلوه‌ی ظاهری', types: ['particles', 'light', 'rotate', 'pulse', 'blink', 'trail', 'scrollImage'] },
@@ -1261,7 +1305,7 @@ export const TRIGGER_GROUPS: BlockGroup<Trigger['type']>[] = [
 export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'امتیاز و مقدارها', types: ['setVariable', 'setTextVariable', 'resetVariables'] },
   { title: 'کوله‌پشتی', types: ['give', 'take'] },
-  { title: 'اشیا', types: ['destroy', 'spawn', 'show', 'hide', 'damage'] },
+  { title: 'اشیا', types: ['destroy', 'spawn', 'shoot', 'show', 'hide', 'damage'] },
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },

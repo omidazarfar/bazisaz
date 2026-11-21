@@ -10,9 +10,14 @@ import type {
   Ease,
   GameObject,
   GameProject,
+  HomingBehavior,
   JointBehavior,
   JumperBehavior,
   Look,
+  MoverBehavior,
+  MovesBehavior,
+  SteerBehavior,
+  WalkerBehavior,
   ParticlesBehavior,
   PhysicsBehavior,
   Ref,
@@ -182,6 +187,21 @@ interface Entity extends Box {
   jumpAsked: number;
   /** Going up from a jump that letting go can still cut short. */
   rising: boolean;
+  /** Special moves: the side of a wall it pressed against last step (1 right, -1 left, 0 none); a kick off a wall; a dash; climbing; a ground pound. */
+  wallSide?: number;
+  kick?: { vx: number; left: number } | null;
+  dashLeft?: number;
+  dashCool?: number;
+  dashDir?: number;
+  climbing?: boolean;
+  pounding?: boolean;
+  /** A dodge roll under way, its way, the wait before the next, and until when nothing can hurt it. */
+  rollLeft?: number;
+  rollCool?: number;
+  rollDir?: Point;
+  safeUntil?: number;
+  /** A homing object has taken over its own speed. */
+  homing?: boolean;
   /** Seconds until the trail behavior drops its next dot. */
   trailIn: number;
   /**
@@ -598,6 +618,8 @@ export class Game {
   private taps: Point[] = [];
   private swipes: string[] = [];
   private keyTap = false;
+  /** Keys pressed down since the last step (not held from before). */
+  private readonly pressed = new Set<string>();
   private readonly keys = new Set<string>();
   /** Groups used as on-screen buttons; a touch on one of them is not a tap on the screen. */
   private controlTags = new Set<string>();
@@ -1338,6 +1360,7 @@ export class Game {
     this.drops = [];
     this.swipes = [];
     this.keyTap = false;
+    this.pressed.clear();
     this.pointers.clear();
     this.ruleClock.clear();
     this.ruleDone.clear();
@@ -1923,7 +1946,18 @@ export class Game {
             const byTap = b.on === 'tap';
             const asked = byTap ? screenTapped : b.on === 'button' && (this.keyTap || this.taps.some((t) => this.hitsTag(t, b.buttonTag)));
             if (asked) e.jumpAsked = JUMP_BUFFER;
-            if (e.jumpAsked > 0 && e.jumpsLeft > 0) {
+            const walls = e.def.behaviors.some((m) => m.type === 'moves' && m.wallJump);
+            if (e.jumpAsked > 0 && walls && !e.grounded && e.wallSide) {
+              // Off the wall: up, and pushed away from it for a moment whatever the player is holding.
+              e.vy = -b.jumpSpeed;
+              e.kick = { vx: -e.wallSide * Math.max(420, b.jumpSpeed * 0.55), left: 0.2 };
+              e.facing = e.wallSide > 0 ? -1 : 1;
+              e.jumpsLeft = Math.max(0, b.maxJumps - 1);
+              e.jumpAsked = 0;
+              e.rising = true;
+              e.squash = { x: 0.82, y: 1.2, left: 0.22, span: 0.22 };
+              this.sound('jump');
+            } else if (e.jumpAsked > 0 && e.jumpsLeft > 0) {
               e.vy = -b.jumpSpeed;
               e.jumpsLeft -= 1;
               e.jumpAsked = 0;
@@ -1996,6 +2030,7 @@ export class Game {
             const scale = push > 1 ? 1 / push : 1;
             e.vx = dx * scale * b.speed;
             e.vy = dy * scale * b.speed;
+            if (b.roll) this.roll(e, b, push > 0 ? { x: dx / push, y: dy / push } : null, dt);
             if (b.face && push > 0) e.angle = Math.atan2(dy, dx);
             steered = true;
             break;
@@ -2052,7 +2087,12 @@ export class Game {
             }
             break;
           }
+          case 'homing':
+            this.home(e, b, dt);
+            break;
           case 'mover': {
+            // A homing object steers its own speed from the start.
+            if (e.homing || e.def.behaviors.some((h) => h.type === 'homing')) break;
             const factor = b.speedVariable ? (this.variables.get(b.speedVariable) ?? 1) : 1;
             e.x += b.vx * factor * dt;
             e.y += b.vy * factor * dt;
@@ -2129,7 +2169,10 @@ export class Game {
         e.vx = 0;
         e.vy = 0;
       } else if (body) {
+        const moves = e.def.behaviors.find((m): m is MovesBehavior => m.type === 'moves');
+        if (moves) this.stepMoves(e, moves, body, dt);
         this.moveBody(e, body, dt, steered);
+        if (moves && e.pounding && e.grounded) this.poundLanded(e);
       } else if (this.physics?.moves(e)) {
         // The physics world moves it, after everything else has had its say.
       } else {
@@ -2249,6 +2292,7 @@ export class Game {
     this.drops = [];
     this.swipes = [];
     this.keyTap = false;
+    this.pressed.clear();
     this.started = true;
     this.changeScene();
   }
@@ -2273,6 +2317,7 @@ export class Game {
     this.drops = [];
     this.swipes = [];
     this.keyTap = false;
+    this.pressed.clear();
     this.changeScene();
   }
 
@@ -2348,6 +2393,7 @@ export class Game {
     }
     e.ground = null;
     const wasGrounded = e.grounded;
+    e.wallSide = 0;
     if (body.gravity) e.vy += this.gravity * dt;
     const fallSpeed = e.vy;
     // Friction slows what is not being steered: on the ground when it has weight, all the time when seen from above.
@@ -2391,6 +2437,7 @@ export class Game {
       // Something that can be pushed goes ahead of it, if there is room.
       if (e.vx !== 0 && this.shove(s, fromLeft ? e.x + e.width - s.x : e.x - (s.x + s.width))) continue;
       e.x = fromLeft ? s.x - e.width : s.x + s.width;
+      if (e.vx !== 0) e.wallSide = fromLeft ? 1 : -1;
       e.vx = rebound(e.vx, body.bounce);
     }
     // A ramp's steep side is a wall to whatever comes at it from beyond that side.
@@ -3199,7 +3246,7 @@ export class Game {
         break;
       case 'damage':
         for (const e of this.targets(action.target, context)) {
-          if (e.def.health === undefined || e.health <= 0 || this.time < (e.hurtUntil ?? 0)) continue;
+          if (e.def.health === undefined || e.health <= 0 || this.time < (e.hurtUntil ?? 0) || this.time < (e.safeUntil ?? 0)) continue;
           e.health -= action.amount;
           if (action.amount > 0) e.hurtPoseUntil = this.time + 0.22;
           if (e.health <= 0) this.died.push(e);
@@ -3417,6 +3464,32 @@ export class Game {
         this.shakeStrength = action.strength;
         this.shakeAxis = action.axis ?? 'both';
         break;
+      case 'shoot': {
+        const prefab = this.scene.prefabs.find((p) => p.id === action.prefab);
+        if (!prefab) break;
+        for (const from of this.targets(action.from, context)) {
+          const cx = from.x + from.width / 2;
+          const cy = from.y + from.height / 2;
+          const count = Math.max(1, Math.round(action.count));
+          let base = (action.direction * Math.PI) / 180;
+          if (action.pattern === 'aimed') {
+            const target = this.nearest(from, action.aimTag);
+            if (target) base = Math.atan2(target.y + target.height / 2 - cy, target.x + target.width / 2 - cx);
+          }
+          const angles = action.pattern === 'single' || count === 1 ? [base]
+            : action.pattern === 'ring' ? Array.from({ length: count }, (_, i) => base + (i * 2 * Math.PI) / count)
+            : Array.from({ length: count }, (_, i) => base + ((i / (count - 1) - 0.5) * action.spread * Math.PI) / 180);
+          for (const a of angles) {
+            const shot = this.createEntity(prefab, cx - prefab.width / 2, cy - prefab.height / 2);
+            shot.spawned = true;
+            shot.vx = Math.cos(a) * action.speed;
+            shot.vy = Math.sin(a) * action.speed;
+            shot.angle = a + Math.PI / 2;
+            this.insertAbove(shot, from);
+          }
+        }
+        break;
+      }
       case 'zoomPunch':
         this.punch = { amount: clamp(action.amount, 1, 2), left: Math.max(0.05, action.seconds), span: Math.max(0.05, action.seconds) };
         break;
@@ -3556,6 +3629,115 @@ export class Game {
   }
 
   /** Moves a camera zoom along, easing in and out, and keeps the followed object in the middle as it goes. */
+  /** Whether any of these keys went down since the last step, or a button of the group was touched. */
+  private asked(keys: string[], tag: string): boolean {
+    return keys.some((k) => this.pressed.has(k)) || (tag !== '' && this.taps.some((t) => this.hitsTag(t, tag)));
+  }
+
+  /** A platform hero's special moves, worked out just before its body moves. */
+  private stepMoves(e: Entity, m: MovesBehavior, body: BodyBehavior, dt: number): void {
+    const jumper = e.def.behaviors.find((b): b is JumperBehavior => b.type === 'jumper');
+    const walker = e.def.behaviors.find((b): b is WalkerBehavior => b.type === 'walker');
+    // The scene's pull this step, taken back by moves that float (a dash, hanging on a ladder).
+    const pull = body.gravity ? this.gravity * dt : 0;
+    if (e.kick && e.kick.left > 0) {
+      e.vx = e.kick.vx;
+      e.kick.left -= dt;
+    }
+    e.dashCool = Math.max(0, (e.dashCool ?? 0) - dt);
+    if (m.dash && e.dashCool <= 0 && !e.pounding && this.asked(['ShiftLeft', 'ShiftRight', 'KeyX'], m.dashTag)) {
+      e.dashLeft = 0.18;
+      e.dashCool = 0.7;
+      e.dashDir = e.facing || 1;
+      e.squash = { x: 1.3, y: 0.78, left: 0.2, span: 0.2 };
+      this.sound('jump', 35);
+    }
+    if ((e.dashLeft ?? 0) > 0) {
+      e.dashLeft! -= dt;
+      e.vx = (e.dashDir ?? 1) * Math.max(900, (walker?.speed ?? 320) * 3);
+      e.vy = -pull;
+      this.puff(e, '#ffffff', Math.min(e.width, e.height) * 0.4);
+    }
+    if (m.wallJump && !e.grounded && e.wallSide && e.vy > 160 - pull) e.vy = 160 - pull;
+    if (m.climbTag) {
+      const ladder = this.entities.some((o) => o !== e && o.alive && o.visible && o.def.tags.includes(m.climbTag) &&
+        e.x < o.x + o.width && e.x + e.width > o.x && e.y < o.y + o.height && e.y + e.height > o.y);
+      const up = ['ArrowUp', 'KeyW', 'Space'].some((k) => this.keys.has(k)) || Boolean(jumper?.on === 'button' && this.held(jumper.buttonTag));
+      const down = ['ArrowDown', 'KeyS'].some((k) => this.keys.has(k)) || (m.poundTag !== '' && this.held(m.poundTag));
+      if (!ladder || e.rising) e.climbing = false;
+      else if (up || down || e.climbing) {
+        // On the ladder: up and down by the buttons, and it hangs there when they are let go.
+        e.climbing = true;
+        e.pounding = false;
+        e.vy = ((down ? 1 : 0) - (up ? 1 : 0)) * 260 - pull;
+        if (jumper) e.jumpsLeft = jumper.maxJumps;
+      }
+    }
+    if (m.pound && !e.grounded && !e.climbing && !e.pounding && this.asked(['ArrowDown', 'KeyS'], m.poundTag)) {
+      e.pounding = true;
+      e.rising = false;
+      e.dashLeft = 0;
+    }
+    if (e.pounding) {
+      e.vx = 0;
+      e.vy = Math.max(e.vy, 1500);
+    }
+  }
+
+  /** A ground pound hits the ground: a thud, dust, a jolt up and down, and it squashes flat for a moment. */
+  private poundLanded(e: Entity): void {
+    e.pounding = false;
+    e.squash = { x: 1.35, y: 0.7, left: 0.25, span: 0.25 };
+    this.burst(e, '#d7c4a3', 18);
+    this.sound('thud', 80);
+    this.shakeLeft = SHAKE_SECONDS;
+    this.shakeStrength = 10;
+    this.shakeAxis = 'up';
+  }
+
+  /** A dodge roll: a quick dash the way it is going (or facing), safe from harm while it lasts. */
+  private roll(e: Entity, b: SteerBehavior, way: Point | null, dt: number): void {
+    e.rollCool = Math.max(0, (e.rollCool ?? 0) - dt);
+    if (e.rollCool <= 0 && this.asked(['ShiftLeft', 'ShiftRight', 'KeyX'], b.rollTag ?? '')) {
+      e.rollLeft = 0.3;
+      e.rollCool = 0.8;
+      e.rollDir = way ?? { x: e.facing || 1, y: 0 };
+      e.safeUntil = this.time + 0.4;
+      e.squash = { x: 1.25, y: 0.8, left: 0.3, span: 0.3 };
+      this.sound('jump', 35);
+    }
+    if ((e.rollLeft ?? 0) > 0) {
+      e.rollLeft! -= dt;
+      const d = e.rollDir ?? { x: 1, y: 0 };
+      e.vx = d.x * b.speed * 2.6;
+      e.vy = d.y * b.speed * 2.6;
+      this.puff(e, '#ffffff', Math.min(e.width, e.height) * 0.35);
+    }
+  }
+
+  /** A homing object turns toward the nearest of its group, no faster than its turn, keeping its speed. */
+  private home(e: Entity, b: HomingBehavior, dt: number): void {
+    if (!e.homing) {
+      // It sets off with the speed it was given: by a shot, or its mover.
+      const mover = e.def.behaviors.find((m): m is MoverBehavior => m.type === 'mover');
+      if (mover && e.vx === 0 && e.vy === 0) [e.vx, e.vy] = [mover.vx, mover.vy];
+      e.homing = true;
+    }
+    const speed = Math.hypot(e.vx, e.vy);
+    const target = this.nearest(e, b.targetTag);
+    if (!target || speed < 1) return;
+    const want = Math.atan2(target.y + target.height / 2 - (e.y + e.height / 2), target.x + target.width / 2 - (e.x + e.width / 2));
+    const now = Math.atan2(e.vy, e.vx);
+    let turn = want - now;
+    while (turn > Math.PI) turn -= 2 * Math.PI;
+    while (turn < -Math.PI) turn += 2 * Math.PI;
+    const most = (b.turn * Math.PI / 180) * dt;
+    const angle = now + clamp(turn, -most, most);
+    e.vx = Math.cos(angle) * speed;
+    e.vy = Math.sin(angle) * speed;
+    e.angle = angle + Math.PI / 2;
+  }
+
   /** Ripples spreading and dying away, the view's punch closer and back, and the old screen's flicker. */
   private stepScreenEffects(dt: number): void {
     if (this.waves.length) {
@@ -4175,7 +4357,7 @@ export class Game {
     const onKey = (ev: KeyboardEvent) => {
       const down = ev.type === 'keydown';
       const jumpKey = ev.code === 'Space' || ev.code === 'ArrowUp';
-      const moveKey = ev.code === 'ArrowLeft' || ev.code === 'ArrowRight' || ev.code === 'ArrowDown';
+      const moveKey = ev.code === 'ArrowLeft' || ev.code === 'ArrowRight' || ev.code === 'ArrowDown' || ev.code === 'KeyX' || ev.code === 'ShiftLeft' || ev.code === 'ShiftRight' || ev.code === 'KeyW' || ev.code === 'KeyS';
       if (!jumpKey && !moveKey) return;
       if (!down) {
         if (ev.code === 'Space') this.spaceHeld = false;
@@ -4195,6 +4377,7 @@ export class Game {
       ev.preventDefault();
       this.keys.add(ev.code);
       if (jumpKey && !ev.repeat) this.keyTap = true;
+      if (!ev.repeat) this.pressed.add(ev.code);
     };
     // Out of sight (another app, another tab) the game and its music stand still.
     const onVisibility = () => {

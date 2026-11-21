@@ -2133,6 +2133,139 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13k. Lab 22: a hero's special moves, a dodge roll, shooting in patterns, homing ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const scene = (id, extra) => ({ id, name: id, width: 720, height: 1280, background: null, music: null, gravity: 2400, objects: [], prefabs: [], rules: [], ...extra });
+  const floor = box('floor', 0, 1200, 720, 80, { tags: ['ground'] });
+  const hero = (x, y, extra = []) => box('hero', x, y, 60, 80, { health: 100, behaviors: [
+    { type: 'body', gravity: true, solidTag: 'ground', bounce: 0, edges: 'stop', oneWay: false },
+    { type: 'walker', speed: 300, control: 'buttons', leftTag: '', rightTag: '' },
+    { type: 'jumper', jumpSpeed: 1100, maxJumps: 1, on: 'button', buttonTag: '' },
+    { type: 'moves', wallJump: true, dash: true, dashTag: '', climbTag: 'ladder', pound: true, poundTag: '' },
+    ...extra,
+  ] });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab22', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentytwo', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [],
+    startScene: 'dash',
+    scenes: [
+      scene('dash', { objects: [floor, hero(100, 1120)] }),
+      scene('wall', { objects: [floor, box('wall', 400, 200, 80, 1000, { tags: ['ground'] }), hero(330, 300)] }),
+      scene('pound', { objects: [floor, hero(300, 300)] }),
+      scene('ladder', { objects: [floor, box('ladder', 280, 500, 100, 700, { tags: ['ladder'], visual: { kind: 'rect', color: '#8d6e63' } }), hero(300, 1120)] }),
+      scene('roll', {
+        gravity: 0,
+        objects: [box('knight', 300, 600, 60, 60, { health: 100, behaviors: [
+          { type: 'body', gravity: false, solidTag: '', bounce: 0, edges: 'stop', oneWay: false },
+          { type: 'steer', speed: 300, control: 'stick', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false, roll: true, rollTag: '' },
+        ] })],
+        // Something hurts the knight all the time, except while it rolls.
+        rules: [{ id: 'r-hurt', when: { type: 'every', seconds: 0.05 }, condition: null, then: [{ type: 'damage', target: { by: 'id', id: 'knight' }, amount: 1 }] }],
+      }),
+      scene('shoot', {
+        gravity: 0,
+        objects: [box('gun', 330, 600, 60, 60), box('target', 640, 600, 40, 40, { tags: ['tgt'] }), box('launcher', 40, 1150, 40, 40)],
+        prefabs: [box('orb', 0, 0, 16, 16, { visual: { kind: 'ellipse', color: '#c77dff' }, tags: ['orb'], behaviors: [{ type: 'lifetime', seconds: 3 }] }),
+          box('aimer', 0, 0, 16, 16, { visual: { kind: 'ellipse', color: '#ffd54a' }, tags: ['aimed'], behaviors: [{ type: 'lifetime', seconds: 3 }] }),
+          box('missile', 0, 0, 14, 30, { tags: ['missile'], behaviors: [{ type: 'mover', vx: 0, vy: -400, speedVariable: '' }, { type: 'homing', targetTag: 'tgt', turn: 240 }, { type: 'lifetime', seconds: 3 }] })],
+        rules: [{ id: 'r-fire', when: { type: 'start' }, condition: null, then: [
+          { type: 'shoot', from: { by: 'id', id: 'gun' }, prefab: 'orb', pattern: 'ring', count: 8, direction: 0, spread: 0, speed: 300, aimTag: '' },
+          { type: 'shoot', from: { by: 'id', id: 'gun' }, prefab: 'orb', pattern: 'spread', count: 5, direction: -90, spread: 60, speed: 300, aimTag: '' },
+          { type: 'shoot', from: { by: 'id', id: 'gun' }, prefab: 'aimer', pattern: 'aimed', count: 1, direction: 90, spread: 0, speed: 300, aimTag: 'tgt' },
+          { type: 'spawn', prefab: 'missile', at: { by: 'id', id: 'launcher' } },
+        ] }],
+      }),
+    ],
+  };
+  const open = async (startScene) => {
+    const opened = await openPage(browser, url, { project: { ...project, startScene } });
+    await loaded(opened.page);
+    return opened;
+  };
+  const hero_ = async (page, id = 'hero') => (await gameState(page)).entities.find((e) => e.id === id);
+
+  let { page, errors } = await open('dash');
+  await untilTime(page, 0.5);
+  const before = await hero_(page);
+  await page.keyboard.press('KeyX');
+  await untilTime(page, (await gameState(page)).time + 0.3);
+  const after = await hero_(page);
+  check('dash: X sends the hero a long way forward in a moment, with nobody walking', after.x - before.x > 120, `${before.x.toFixed(0)} → ${after.x.toFixed(0)}`);
+  await page.close();
+
+  ({ page, errors } = await open('wall'));
+  await page.keyboard.down('ArrowRight');
+  await untilTime(page, 0.6);
+  const sliding = await hero_(page);
+  check('wall slide: pressed against a wall in the air, it slides down slowly', sliding.vy <= 161 && sliding.vy > 0 && sliding.y < 1000, `vy ${sliding.vy.toFixed(0)}, y ${sliding.y.toFixed(0)}`);
+  await page.keyboard.press('Space');
+  await untilTime(page, (await gameState(page)).time + 0.08);
+  const kicked = await hero_(page);
+  check('wall jump: a jump from the wall goes up and away from it, even holding toward the wall', kicked.vy < 0 && kicked.vx < 0, `vx ${kicked.vx.toFixed(0)}, vy ${kicked.vy.toFixed(0)}`);
+  await page.keyboard.up('ArrowRight');
+  await page.close();
+
+  ({ page, errors } = await open('pound'));
+  await untilTime(page, 0.1);
+  await page.keyboard.press('ArrowDown');
+  const landed = await until(page, () => { const s = window.__game.getState(); const h = s.entities.find((e) => e.id === 'hero'); return h.grounded && s.shaking && s.shakeAt.x === 0; }, null, 5000);
+  check('ground pound: down in the air drives it straight down, and the landing shakes the screen up and down', landed);
+  check('and it got there fast', (await gameState(page)).time < 0.75, `${(await gameState(page)).time.toFixed(2)} s`);
+  await page.close();
+
+  ({ page, errors } = await open('ladder'));
+  await untilTime(page, 0.3);
+  const foot = await hero_(page);
+  await page.keyboard.down('ArrowUp');
+  await untilTime(page, 1.1);
+  await page.keyboard.up('ArrowUp');
+  const climbed = await hero_(page);
+  await untilTime(page, 1.5);
+  const hanging = await hero_(page);
+  check('ladder: up climbs it', foot.y - climbed.y > 150, `${foot.y.toFixed(0)} → ${climbed.y.toFixed(0)}`);
+  check('ladder: let go, it holds on where it is', Math.abs(hanging.y - climbed.y) < 12, `${climbed.y.toFixed(0)} → ${hanging.y.toFixed(0)}`);
+  await page.close();
+
+  ({ page, errors } = await open('roll'));
+  await page.keyboard.down('ArrowRight');
+  await untilTime(page, 0.3);
+  await page.keyboard.press('KeyX');
+  const rollStart = await gameState(page);
+  const startHealth = rollStart.entities.find((e) => e.id === 'knight').health;
+  await untilTime(page, rollStart.time + 0.12);
+  const rolling = await hero_(page, 'knight');
+  await untilTime(page, rollStart.time + 0.3);
+  const rolled = await hero_(page, 'knight');
+  check('dodge roll: X rolls the knight fast the way it is going', rolling.vx > 600, `vx ${rolling.vx.toFixed(0)}`);
+  check('dodge roll: nothing hurts it while it rolls', rolled.health >= startHealth - 1, `${startHealth} → ${rolled.health}`);
+  await untilTime(page, rollStart.time + 0.8);
+  check('and afterwards it can be hurt again', (await hero_(page, 'knight')).health < rolled.health - 3);
+  await page.keyboard.up('ArrowRight');
+  await page.close();
+
+  ({ page, errors } = await open('shoot'));
+  await untilTime(page, 0.15);
+  let s = await gameState(page);
+  const orbs = s.entities.filter((e) => e.tags.includes('orb'));
+  const angles = new Set(orbs.map((o) => Math.round((Math.atan2(o.vy, o.vx) * 180) / Math.PI)));
+  check('shoot: a ring of eight and a fan of five, each at its own angle and at the speed asked', orbs.length === 13 && angles.size >= 12 && orbs.every((o) => Math.abs(Math.hypot(o.vx, o.vy) - 300) < 1), `${orbs.length} orbs, ${angles.size} angles`);
+  const aimed = s.entities.find((e) => e.tags.includes('aimed'));
+  check('shoot aimed: straight at the target, whatever the direction says', aimed && aimed.vx > 290 && Math.abs(aimed.vy) < 15, aimed ? `${aimed.vx.toFixed(0)}, ${aimed.vy.toFixed(0)}` : 'none');
+  await untilTime(page, 1.2);
+  s = await gameState(page);
+  const missile = s.entities.find((e) => e.tags.includes('missile'));
+  check('homing: a missile fired upward turns toward its target', missile && missile.x > 200 && missile.vx > 100, missile ? `x ${missile.x.toFixed(0)}, vx ${missile.vx.toFixed(0)}` : 'gone');
+  check('lab 22: no errors in the pages', errors.length === 0, errors.join(' | '));
+  await page.screenshot({ path: resolve(shots, '22-shoot.png') });
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },
