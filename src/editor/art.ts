@@ -616,6 +616,13 @@ export const ART_SPRITES: Sprite[] = [
     ),
   },
   {
+    id: 'ladder', name: 'نردبان', category: 'ground', width: 100, height: 400,
+    body: draw((k) =>
+      `<rect x="8" y="2" width="16" height="396" rx="6" fill="${k.side('#a8743f')}" ${ol('#a8743f', 3)}/>` +
+      `<rect x="76" y="2" width="16" height="396" rx="6" fill="${k.side('#a8743f')}" ${ol('#a8743f', 3)}/>` +
+      Array.from({ length: 9 }, (_, i) => `<rect x="20" y="${22 + i * 44}" width="60" height="11" rx="5" fill="${k.lin('#c98c4c', 0.35, 0.3)}" ${ol('#c98c4c', 2.5)}/>`).join('')),
+  },
+  {
     id: 'gear', name: 'چرخ‌دنده', category: 'ground', width: 120, height: 120,
     body: draw((k) =>
       `<path d="${gearPath(60, 60, 57, 46, 12)}" fill="${k.lin('#d8a93c', 0.4, 0.32)}" ${ol('#d8a93c', 4)}/>` +

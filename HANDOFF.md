@@ -126,14 +126,14 @@ and a Persian guide entry.
    boss patterns as a part, a wave maker. Original list: Wall jump/slide, dash, ladders, crouch,
    ground pound; top-down 8-way with dodge roll; weapons (gun, spread, bow,
    homing); ready smart enemies and bosses with attack patterns; a wave maker.
-4. **Professional editor.** Drag-and-drop rule blocks, keyframe animation
+4. **Professional editor.** Started 2026-11-21 (Claude): a sound-effect maker (`src/editor/sfx.ts`, `SfxMaker.tsx`; WAV data URLs), a map of scenes (`SceneMap.tsx`, arrows from goToScene/nextScene), versions to go back to (IndexedDB key `history-v1`, one kept automatically every 3 minutes, 15 kept; restore is an undoable change). Rest of the original list: Drag-and-drop rule blocks, keyframe animation
    timeline and cut-out (bone) animation, layers panel, level map, asset
    manager, sound-effect maker, simple music maker, live edit on phone,
    version history.
-5. **Game systems.** Branching dialogue, quests, achievements, cutscenes,
+5. **Game systems.** Started 2026-11-21 (Claude): the `say` action (dialogue box, typewriter, pauses until tapped, the rest of the rule runs after), `achieve` (gold banner once, kept on the device), `recordScore` (best five kept; variables top1..top3 show them; all genre screens use it). Rest of the original list: Branching dialogue, quests, achievements, cutscenes,
    settings menu, save slots, leaderboard, equipment and crafting.
-6. **Speed and reliability.** 60 fps on mid-range phones; bots in every test run.
-7. **Showcase.** 10 multi-level games and large art packs.
+6. **Speed and reliability.** Started: lighten() also drops wall shadows and halves the weather; `npm run check` = build + test + bots. Rest of the original list: 60 fps on mid-range phones; bots in every test run.
+7. **Showcase.** Started: Tower Climb (`buildTower`, genre `tower`), a four-floor rain tower with ladders, slimes, coins, dialogue and every special move; `scripts/bots/tower.mjs` climbs it. Ladders now centre the climber. Rest of the original list: 10 multi-level games and large art packs.
 
 Persian text inside games: asked, not answered yet; games stay English for now.
 

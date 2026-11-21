@@ -923,6 +923,118 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
   return { project: p, select: rig.select, note: 'مسیر امداد آماده است. قلاب را آزاد کن، کاوشگر را به مدار بفرست، با سه وسیله تا بندر بران و در آخر با چرخ‌دنده‌ها کپسول را به منطقه‌ی جاذبه‌ی وارونه برسان.' };
 }
 
+/**
+ * Tower Climb: a tall tower in the rain, floor above floor. Each floor is
+ * reached by a ladder that comes up through a gap; slimes patrol two of the
+ * floors; coins line the way; the bell at the top wins. The hero has every
+ * special move: wall jump, dash, ground pound and climbing.
+ */
+export async function buildTower(project: GameProject, sceneId: string): Promise<GameResult> {
+  const { width: W, height: H } = project.meta;
+  const LADDER = 'نردبان';
+  const FLOORS = 4;
+  const STOREY = 560;
+  const height = 120 + FLOORS * STOREY + H * 0.4;
+  let p = withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0);
+  p = updateScene(p, sceneId, (s) => ({ ...s, width: W, height: Math.round(height), gravity: 2400, sky: 'city', weather: 'rain', music: 'music:adventure', vignette: true }));
+  const ground = Math.round(height) - 80;
+  const floorTop = (k: number) => ground - k * STOREY;
+  // The gap each floor's ladder comes up through: on the right for odd floors, the left for even.
+  const gap = (k: number) => (k % 2 ? { x0: W - 200, x1: W - 60 } : { x0: 60, x1: 200 });
+  const objects: GameObject[] = [];
+  const stone = { kind: 'rect' as const, color: '#6b5b4e', radius: 8, shade: true };
+  objects.push(makeObject('زمین برج', stone, W, 80, { x: W / 2, y: ground + 40 }, { tags: [GROUND], locked: true }));
+  for (let k = 1; k <= FLOORS; k++) {
+    const { x0, x1 } = gap(k);
+    const y = floorTop(k) + 20;
+    if (x0 > 0) objects.push(makeObject(`طبقه ${k} چپ`, stone, x0, 40, { x: x0 / 2, y }, { tags: [GROUND], locked: true }));
+    objects.push(makeObject(`طبقه ${k} راست`, stone, W - x1, 40, { x: (x1 + W) / 2, y }, { tags: [GROUND], locked: true }));
+  }
+  const ladder = await art(p, 'ladder');
+  const coin = await art(ladder.project, 'coin');
+  const slime = await art(coin.project, 'slime');
+  const bell = await art(slime.project, 'trophy');
+  p = bell.project;
+  for (let k = 1; k <= FLOORS; k++) {
+    const { x0, x1 } = gap(k);
+    // From the floor below up past this floor's top, so the hero can step off onto it.
+    const top = floorTop(k) - 40;
+    const bottom = floorTop(k - 1);
+    objects.push(makeObject(`نردبان ${k}`, { kind: 'image', asset: ladder.asset }, 100, bottom - top, { x: (x0 + x1) / 2, y: (top + bottom) / 2 }, { tags: [LADDER], locked: true }));
+    // A row of coins on the way to the next ladder.
+    for (let c = 0; c < 4; c++) {
+      const cx = k % 2 ? W - 260 - c * 110 : 260 + c * 110;
+      objects.push(makeObject(`سکه ${k}-${c + 1}`, { kind: 'image', asset: coin.asset }, 48, 48, { x: cx, y: floorTop(k - 1) - 60 }, { tags: [COIN], behaviors: [{ type: 'pulse', amount: 0.1, seconds: 0.8 }] }));
+    }
+  }
+  for (const k of [1, 2]) {
+    objects.push(makeObject(`لجن طبقه ${k}`, { kind: 'image', asset: slime.asset }, 90, 64, { x: W / 2, y: floorTop(k) - 32 }, {
+      tags: [ENEMY, DANGER], hitboxInset: 6, behaviors: [{ type: 'patrol', axis: 'x', distance: 100, speed: 80 }],
+    }));
+  }
+  const goalX = gap(FLOORS).x0 > 100 ? 140 : W - 140;
+  objects.push(makeObject('زنگ بالای برج', { kind: 'image', asset: bell.asset }, 110, 110, { x: goalX, y: floorTop(FLOORS) - 55 }, { tags: [GOAL], glow: '#ffd23f', behaviors: [{ type: 'particles', preset: 'stars', color: '#ffe066', rate: 3, size: 18, speed: 0.6 }] }));
+  const hero = await character(p, 'hero');
+  p = hero.project;
+  const player = makeObject('قهرمان', hero.visual, 70, 90, { x: W / 2, y: ground - 45 }, {
+    tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
+    behaviors: [
+      { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
+      { type: 'jumper', jumpSpeed: 1050, maxJumps: 2, on: 'tap', buttonTag: '' },
+      { type: 'moves', wallJump: true, dash: true, dashTag: '', climbTag: LADDER, pound: true, poundTag: '' },
+      { type: 'camera', lock: 'free', smooth: 0.2 },
+    ],
+  });
+  objects.push(player);
+  p = addAll(p, sceneId, objects);
+  const screen = await screens(p, sceneId, { name: 'TOWER CLIMB', hero: 'hero', sky: 'city', music: 'music:adventure' });
+  p = screen.project;
+  p = withRules(p, sceneId,
+    prizeRule(COIN, 1, 'coin', '#ffd23f'),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'above' }, [
+      { type: 'burst', target: 'second', color: '#8be04e', count: 18 },
+      { type: 'floatText', target: 'second', text: '+5', color: '#c5f27a', size: 40 },
+      { type: 'destroy', target: 'second' },
+      { type: 'jump', target: 'first' },
+      { type: 'setVariable', name: 'score', op: 'add', amount: 5 },
+      { type: 'playSound', sound: 'pop' },
+    ]),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'side' }, [{ type: 'send', name: HURT }]),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(GOAL) }, [
+      { type: 'achieve', name: 'Bell ringer' },
+      { type: 'burst', target: 'second', color: '#ffd23f', count: 40 },
+      { type: 'shockwave', at: 'second', size: 500 },
+      { type: 'playSound', sound: 'win' },
+      { type: 'setVariable', name: 'score', op: 'add', amount: 25 },
+      { type: 'wait', seconds: 1.2 },
+      { type: 'goToScene', scene: screen.win },
+    ]),
+    rule({ type: 'after', seconds: 0.6 }, [
+      { type: 'say', speaker: 'Hero', text: 'Rain again... and the bell at the top of the tower is silent.', color: '#7fd0ff' },
+      { type: 'say', speaker: 'Hero', text: 'Up the ladders, floor by floor. Jump on the slimes!', color: '#7fd0ff' },
+    ]),
+    ...lifeRules(screen.over),
+  );
+  p = await banner(p, sceneId, 'Climb to the bell!');
+  p = await part(p, sceneId, 'score');
+  p = await hearts(p, sceneId);
+  p = await part(p, sceneId, 'pause-menu');
+  p = await part(p, sceneId, 'controls');
+  // The controls part adds left, right and jump; up the ladder is the jump button, down is its own button.
+  const [DASH, DOWN] = ['دکمه‌ی تیز رفتن', 'دکمه‌ی پایین'];
+  const dash = await picture(p, 'btn-dash', DASH, 120, 120, { x: W - 255, y: H - 110 }, { fixed: true, opacity: 0.85, tags: [DASH] });
+  const down = await picture(dash.project, 'btn-down', DOWN, 120, 120, { x: W - 100, y: H - 265 }, { fixed: true, opacity: 0.85, tags: [DOWN] });
+  p = addAll(down.project, sceneId, [dash.object, down.object]);
+  p = updateScene(p, sceneId, (sc) => ({ ...sc, objects: sc.objects.map((o) => (o.id === player.id
+    ? { ...o, behaviors: o.behaviors.map((b) => (b.type === 'moves' ? { ...b, dashTag: DASH, poundTag: DOWN } : b)) }
+    : o)) }));
+  return {
+    project: p,
+    select: player.id,
+    note: 'بازی برج ساخته شد: چهار طبقه در باران، هر طبقه با یک نردبان، سکه، لجن، و زنگ طلایی بالای برج. قهرمان از نردبان بالا می‌رود (دکمه‌ی پرش)، از دیوار می‌پرد، تیز می‌رود و به زمین می‌کوبد.',
+  };
+}
+
 /** The genre helper's games, by genre id. Genres without one here still use the helper's simpler start. */
 export const GAMES: Record<string, (project: GameProject, sceneId: string) => Promise<GameResult>> = {
   platform: buildPlatformer,
@@ -931,4 +1043,5 @@ export const GAMES: Record<string, (project: GameProject, sceneId: string) => Pr
   puzzle: buildPuzzle,
   physics: buildPhysics,
   rescue: buildRescue,
+  tower: buildTower,
 };

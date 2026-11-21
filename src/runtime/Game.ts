@@ -3823,7 +3823,7 @@ export class Game {
     }
     if (m.wallJump && !e.grounded && e.wallSide && e.vy > 160 - pull) e.vy = 160 - pull;
     if (m.climbTag) {
-      const ladder = this.entities.some((o) => o !== e && o.alive && o.visible && o.def.tags.includes(m.climbTag) &&
+      const ladder = this.entities.find((o) => o !== e && o.alive && o.visible && o.def.tags.includes(m.climbTag) &&
         e.x < o.x + o.width && e.x + e.width > o.x && e.y < o.y + o.height && e.y + e.height > o.y);
       const up = ['ArrowUp', 'KeyW', 'Space'].some((k) => this.keys.has(k)) || Boolean(jumper?.on === 'button' && this.held(jumper.buttonTag));
       const down = ['ArrowDown', 'KeyS'].some((k) => this.keys.has(k)) || (m.poundTag !== '' && this.held(m.poundTag));
@@ -3834,6 +3834,8 @@ export class Game {
         e.pounding = false;
         e.vy = ((down ? 1 : 0) - (up ? 1 : 0)) * 260 - pull;
         if (jumper) e.jumpsLeft = jumper.maxJumps;
+        // Not stepping off sideways: it slides to the middle of the ladder, so it climbs clear of the edges of the hole.
+        if (Math.abs(e.vx) < 1) e.x += (ladder.x + ladder.width / 2 - (e.x + e.width / 2)) * Math.min(1, dt * 12);
       }
     }
     if (m.pound && !e.grounded && !e.climbing && !e.pounding && this.asked(['ArrowDown', 'KeyS'], m.poundTag)) {

@@ -1272,7 +1272,7 @@ await until(page, () => !document.querySelector('.modal'));
 const knightArt = (await scene()).objects.at(-1);
 check('a placed knight carries run, jump and hurt pictures', knightArt.visual.moveFrames?.length === 2 && knightArt.visual.airFrames?.length === 1 && knightArt.visual.hurtFrames?.length === 1);
 await openLibrary('راهنمای سبک');
-check('the helper offers six genres', (await page.$$('.modal [data-genre]')).length === 6);
+check('the helper offers seven genres', (await page.$$('.modal [data-genre]')).length === 7);
 await page.click('.modal [data-genre="shooter"]');
 await until(page, () => !document.querySelector('.modal'));
 sc = await scene();
