@@ -1485,6 +1485,60 @@ check('and on again', await until(page, () => { const s = window.__game.getState
 await page.screenshot({ path: resolve(shots, 'editor-pause-sound.png') });
 await click('توقف');
 
+// ── Ready-made fights: a boss with attack patterns, waves of enemies; dragging actions in a rule ──
+await freshGame();
+await addPart('boss');
+sc = await scene();
+const bossDef = sc.objects.find((o) => o.name === 'غول آخر');
+check('the boss part adds a boss with a health bar, its orbs, and rules for a ring and an aimed fan', bossDef?.healthBar && sc.prefabs.some((p) => p.name === 'گوی غول') &&
+  sc.rules.some((r) => r.then.some((a) => a.type === 'shoot' && a.pattern === 'ring')) && sc.rules.some((r) => r.then.some((a) => a.type === 'shoot' && a.pattern === 'aimed')));
+await click('امتحان کن');
+// The try-out runs slowly in a test browser: wait on the game's own clock.
+ await until(page, () => window.__game.getState().time > 3, null, 90000);
+check('in the try-out the boss fires a ring of orbs', await until(page, () => window.__game.getState().entities.filter((e) => e.tags.includes('گوی غول')).length >= 12, null, 30000));
+await click('توقف');
+
+await freshGame();
+await addPart('waves');
+sc = await scene();
+check('the waves part adds two hidden gates, a wave counter and the enemy that comes', sc.objects.filter((o) => o.tags.includes('دروازه‌ی دشمن')).length === 2 && sc.prefabs.some((p) => p.name === 'دشمن موج') && (await editor()).project.variables.some((v) => v.name === 'wave' && v.initial === 1));
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 4, null, 90000);
+check('in the try-out enemies come in from both sides', await until(page, () => window.__game.getState().entities.filter((e) => e.tags.includes('دشمن موج')).length >= 2, null, 30000));
+check('and the counter says which wave it is', (await gameState(page)).entities.some((e) => e.text === 'Wave 1'));
+await click('توقف');
+
+// A rule whose actions are put in another order by dragging one onto another.
+await click('قانون‌ها', '.tabs');
+const waveRule = () => page.evaluate(() => {
+  const s = window.__editor.getState();
+  const scene = s.project.scenes.find((x) => x.id === s.sceneId);
+  return scene.rules.find((r) => r.when.type === 'every' && r.when.seconds === 15).then.map((a) => a.type);
+});
+const before = await waveRule();
+// Open the rule that brings the next wave, so its actions and their handles show.
+await page.evaluate(() => {
+  const s = window.__editor.getState();
+  const scene = s.project.scenes.find((x) => x.id === s.sceneId);
+  const id = scene.rules.find((r) => r.when.type === 'every' && r.when.seconds === 15).id;
+  document.querySelector('[data-rule="' + id + '"]').click();
+});
+await sleep(300);
+const dragged = await page.evaluate(() => {
+  const card = [...document.querySelectorAll('article.rule')].find((a) => a.querySelectorAll('[data-drag-action]').length === 3);
+  if (!card) return false;
+  const handles = card.querySelectorAll('[data-drag-action]');
+  const target = handles[2].closest('.action');
+  const data = new DataTransfer();
+  handles[0].dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: data }));
+  target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data }));
+  target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
+  handles[0].dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: data }));
+  return true;
+});
+const after = await waveRule();
+check('dragging the first action of a rule onto the last moves it to the end', dragged && after.join() === [before[1], before[2], before[0]].join(), before.join() + ' → ' + after.join());
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

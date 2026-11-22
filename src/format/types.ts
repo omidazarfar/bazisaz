@@ -721,6 +721,8 @@ export interface SteerBehavior {
  */
 export interface MovesBehavior {
   type: 'moves';
+  /** On the ground, holding down (the down button or arrow) it crouches: lower, slower, and under low gaps. */
+  crouch?: boolean;
   wallJump: boolean;
   dash: boolean;
   dashTag: string;
@@ -1098,7 +1100,10 @@ export type Action =
    * from nothing. shrink: dwindles away and is removed. fadeIn / fadeOut:
    * appears or disappears gradually.
    */
-  | { type: 'effect'; target: Target; kind: 'pop' | 'grow' | 'shrink' | 'fadeIn' | 'fadeOut'; seconds: number }
+  /** dissolve: it crumbles away into specks of its own colour and is gone. */
+  | { type: 'effect'; target: Target; kind: 'pop' | 'grow' | 'shrink' | 'fadeIn' | 'fadeOut' | 'dissolve'; seconds: number }
+  /** The camera glides to an object and stays on it for a while, then goes back to what it follows: for a moment that matters, or a little film between levels. */
+  | { type: 'focus'; target: Target; seconds: number }
   /** Moves an object smoothly to a point; `ease` is how it speeds up and slows down (smooth if absent). */
   | { type: 'glide'; target: Target; x: number; y: number; seconds: number; ease?: Ease }
   /** Changes the colour treatment of the whole picture for the rest of the scene. */

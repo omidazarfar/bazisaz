@@ -2247,3 +2247,11 @@ ol.rule-then li::before {
   .particle-workbench figure { position: static; }
   .particle-preview { max-width: 320px; margin-inline: auto; }
 }
+
+/* The handle an action is dragged by in a rule. */
+.drag-handle {
+  cursor: grab;
+  color: #8090b0;
+  padding: 0 6px;
+  user-select: none;
+}

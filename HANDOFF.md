@@ -428,6 +428,12 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-22 — Claude, review of Codex and the rest of the plan
+
+- Reviewed and accepted e455345 (particle workshop, dialogue-aware bot tick).
+- Added: the `dissolve` effect, the `focus` action (camera visits an object, then returns; a cutscene with `say`), `moves.crouch` (60% height, feet kept, slow, stays down under a ceiling), the parts `boss` (health bar, ring and aimed-fan attack pattern, dissolves on death) and `waves` (two hidden gates, wave counter, faster spawns each 15 s), and drag-and-drop of actions within a rule (handle ⠿, same list only). Tower Climb uses dissolve, focus and crouch. Lab 24 and editor checks cover them.
+- Still not done from the plan: keyframe animation timeline and bone animation, a music maker, live editing on a phone (the "test on phone" button exists), layered maps, animated tiles, autotile transitions, equipment as a system (crafting works with existing rules, see the guide), more art packs. Rock Smash and Brick Blitz bots sometimes need their second try.
+
 ### 2026-11-22 — Codex, Dungeon Escape bot and particle workshop
 
 - Reproduced the Dungeon Escape timeout in Chrome. The Knight spoke at about 0.81 s and game time correctly stopped for input. A bot already waiting for two seconds of game time could never get back to its dialogue handler. The bot now ends a timed wait when a dialogue opens. Lab 23 covers dialogue opening during a wait and continuing after player input.

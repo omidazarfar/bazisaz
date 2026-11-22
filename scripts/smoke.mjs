@@ -2344,6 +2344,85 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13m. Lab 24: crumbling away, the camera visiting something, crouching ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const scene = (id, extra) => ({ id, name: id, width: 720, height: 1280, background: null, music: null, gravity: 2400, objects: [], prefabs: [], rules: [], ...extra });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab24', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentyfour', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [],
+    startScene: 'film',
+    scenes: [
+      scene('film', {
+        width: 3000, gravity: 0,
+        objects: [
+          box('hero', 100, 600, 60, 60, { behaviors: [{ type: 'camera', lock: 'free', smooth: 0 }] }),
+          box('door', 2600, 600, 80, 160, { visual: { kind: 'rect', color: '#ff8a65' } }),
+          box('wall', 300, 500, 120, 120, { visual: { kind: 'rect', color: '#9ccc65' } }),
+        ],
+        rules: [
+          { id: 'r-look', when: { type: 'after', seconds: 0.2 }, condition: null, then: [{ type: 'focus', target: { by: 'id', id: 'door' }, seconds: 1.2 }] },
+          { id: 'r-go', when: { type: 'after', seconds: 0.3 }, condition: null, then: [{ type: 'effect', target: { by: 'id', id: 'wall' }, kind: 'dissolve', seconds: 0.6 }] },
+        ],
+      }),
+      scene('duck', {
+        objects: [
+          box('floor', 0, 1200, 720, 80, { tags: ['ground'] }),
+          box('ceiling', 300, 1080, 260, 40, { tags: ['ground'] }),
+          box('hero', 100, 1100, 60, 100, { behaviors: [
+            { type: 'body', gravity: true, solidTag: 'ground', bounce: 0, edges: 'stop', oneWay: false },
+            { type: 'walker', speed: 300, control: 'buttons', leftTag: '', rightTag: '' },
+            { type: 'moves', wallJump: false, dash: false, dashTag: '', climbTag: '', pound: false, poundTag: '', crouch: true },
+          ] }),
+        ],
+      }),
+    ],
+  };
+  let { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.6);
+  let s = await gameState(page);
+  check('focus: the camera goes to the object it is sent to', s.focus === 'door' && s.camera.x > 1200, `focus ${s.focus}, camera ${s.camera.x.toFixed(0)}`);
+  const wall = s.entities.find((e) => e.id === 'wall');
+  check('dissolve: an object crumbling away fades and throws off specks', wall.opacity < 0.9 && s.particles > 3, `opacity ${wall.opacity.toFixed(2)}, ${s.particles} specks`);
+  await page.screenshot({ path: resolve(shots, '24-dissolve.png') });
+  await untilTime(page, 2.2);
+  s = await gameState(page);
+  check('dissolve: and is gone at the end', !s.entities.find((e) => e.id === 'wall').visible);
+  check('focus: afterwards the camera goes back to the hero', s.focus === null && s.camera.x < 200, `camera ${s.camera.x.toFixed(0)}`);
+  await page.close();
+
+  ({ page, errors } = await openPage(browser, url, { project: { ...project, startScene: 'duck' } }));
+  await loaded(page);
+  await untilTime(page, 0.3);
+  const standing = (await gameState(page)).entities.find((e) => e.id === 'hero');
+  await page.keyboard.down('ArrowDown');
+  await untilTime(page, 0.45);
+  const low = (await gameState(page)).entities.find((e) => e.id === 'hero');
+  check('crouch: down on the ground makes it lower, its feet where they were', low.height === 60 && Math.abs(low.y + low.height - (standing.y + standing.height)) < 1, `${standing.height} → ${low.height}`);
+  await page.keyboard.down('ArrowRight');
+  await until(page, () => window.__game.getState().entities.find((e) => e.id === 'hero').x > 340, null, 8000);
+  const under = (await gameState(page)).entities.find((e) => e.id === 'hero');
+  check('crouch: it creeps slowly, and fits under a low ceiling', under.x > 320 && under.x < 500 && under.height === 60, `x ${under.x.toFixed(0)}`);
+  await page.keyboard.up('ArrowRight');
+  await page.keyboard.up('ArrowDown');
+  await untilTime(page, (await gameState(page)).time + 0.2);
+  const stuck = (await gameState(page)).entities.find((e) => e.id === 'hero');
+  check('crouch: under the ceiling it cannot stand up yet', stuck.height === 60, String(stuck.height));
+  await page.keyboard.down('ArrowRight');
+  await until(page, () => window.__game.getState().entities.find((e) => e.id === 'hero').x > 720 - 60 - 2, null, 8000);
+  await page.keyboard.up('ArrowRight');
+  await untilTime(page, (await gameState(page)).time + 0.2);
+  check('crouch: out in the open it stands up again', (await gameState(page)).entities.find((e) => e.id === 'hero').height === 100);
+  check('lab 24: no errors in the pages', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

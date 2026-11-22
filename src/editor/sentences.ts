@@ -152,6 +152,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'achieve': return `دستاورد «${a.name}» را بده`;
     case 'recordScore': return `${a.variable} را در جدول امتیاز ثبت کن`;
     case 'zoomPunch': return 'دوربین را یک لحظه جلو بپران';
+    case 'focus': return `دوربین ${fa(a.seconds)} ثانیه روی ${who(a.target)} برود`;
     case 'shoot': return `از ${who(a.from)} ${{ single: 'یک تیر', spread: `${fa(a.count)} تیر بادبزنی`, ring: `${fa(a.count)} تیر دور تا دور`, aimed: `${fa(a.count)} تیر رو به هدف` }[a.pattern]} شلیک کن`;
     case 'shockwave': return `از ${who(a.at)} موج انفجار بفرست`;
     case 'floatText': return `بالای ${who(a.target)} بنویس «${a.text}» و بپرانش`;
@@ -212,7 +213,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       return `${what}${b.range ? `، وقتی نزدیک‌تر از ${fa(b.range)} پیکسل باشد` : ''}${b.avoidTag && !b.away ? `، و دیوارهای ${group(b.avoidTag)} را دور می‌زند` : ''}${b.sight && !b.away ? '، فقط وقتی ببیندش' : ''}`;
     }
     case 'moves': {
-      const can = [b.wallJump ? 'از دیوار می‌پرد' : '', b.dash ? 'تیز می‌رود' : '', b.climbTag ? `از ${group(b.climbTag)} بالا می‌رود` : '', b.pound ? 'به زمین می‌کوبد' : ''].filter(Boolean);
+      const can = [b.wallJump ? 'از دیوار می‌پرد' : '', b.dash ? 'تیز می‌رود' : '', b.climbTag ? `از ${group(b.climbTag)} بالا می‌رود` : '', b.pound ? 'به زمین می‌کوبد' : '', b.crouch ? 'می‌نشیند' : ''].filter(Boolean);
       return can.length ? can.join('، ') : 'حرکت ویژه‌ای ندارد';
     }
     case 'homing': return `به طرف نزدیک‌ترین ${group(b.targetTag)} می‌پیچد، مثل موشک`;

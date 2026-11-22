@@ -981,7 +981,7 @@ export async function buildTower(project: GameProject, sceneId: string): Promise
     behaviors: [
       { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
       { type: 'jumper', jumpSpeed: 1050, maxJumps: 2, on: 'tap', buttonTag: '' },
-      { type: 'moves', wallJump: true, dash: true, dashTag: '', climbTag: LADDER, pound: true, poundTag: '' },
+      { type: 'moves', wallJump: true, dash: true, dashTag: '', climbTag: LADDER, pound: true, poundTag: '', crouch: true },
       { type: 'camera', lock: 'free', smooth: 0.2 },
     ],
   });
@@ -994,10 +994,13 @@ export async function buildTower(project: GameProject, sceneId: string): Promise
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'above' }, [
       { type: 'burst', target: 'second', color: '#8be04e', count: 18 },
       { type: 'floatText', target: 'second', text: '+5', color: '#c5f27a', size: 40 },
-      { type: 'destroy', target: 'second' },
       { type: 'jump', target: 'first' },
       { type: 'setVariable', name: 'score', op: 'add', amount: 5 },
       { type: 'playSound', sound: 'pop' },
+      // It crumbles away, and is gone once it has.
+      { type: 'effect', target: 'second', kind: 'dissolve', seconds: 0.35 },
+      { type: 'wait', seconds: 0.35 },
+      { type: 'destroy', target: 'second' },
     ]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'side' }, [{ type: 'send', name: HURT }]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(GOAL) }, [
@@ -1009,7 +1012,9 @@ export async function buildTower(project: GameProject, sceneId: string): Promise
       { type: 'wait', seconds: 1.2 },
       { type: 'goToScene', scene: screen.win },
     ]),
-    rule({ type: 'after', seconds: 0.6 }, [
+    // A little film first: the camera rises to the bell at the top, the hero speaks, and the camera comes back down.
+    rule({ type: 'after', seconds: 0.3 }, [{ type: 'focus', target: byTag(GOAL), seconds: 3.2 }]),
+    rule({ type: 'after', seconds: 1.6 }, [
       { type: 'say', speaker: 'Hero', text: 'Rain again... and the bell at the top of the tower is silent.', color: '#7fd0ff' },
       { type: 'say', speaker: 'Hero', text: 'Up the ladders, floor by floor. Jump on the slimes!', color: '#7fd0ff' },
     ]),

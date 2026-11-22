@@ -461,6 +461,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { key: 'dash', label: 'تیز رفتن (دش)', kind: 'bool' },
       { key: 'dashTag', label: 'گروه دکمه‌ی تیز رفتن', kind: 'tag', fallback: '', showIf: (v) => Boolean(v.dash) },
       { key: 'pound', label: 'کوبیدن به زمین', kind: 'bool' },
+      { key: 'crouch', label: 'نشستن', hint: 'روی زمین با دکمه‌ی پایین (یا فلش پایین) می‌نشیند: کوتاه‌تر و آهسته‌تر، و از زیر سقف‌های کوتاه رد می‌شود.', kind: 'bool', fallback: false },
       { key: 'poundTag', label: 'گروه دکمه‌ی پایین (کوبیدن و پایین رفتن از نردبان)', kind: 'tag', fallback: '' },
       { key: 'climbTag', label: 'از این گروه بالا برود (نردبان)', hint: 'وقتی روی نردبان است، دکمه‌ی پرش بالا و دکمه‌ی پایین پایین می‌برد؛ ول کند همان‌جا می‌ماند.', kind: 'tag', fallback: '' },
     ],
@@ -911,6 +912,7 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
       { value: 'shrink', label: 'کوچک شود و برود' },
       { value: 'fadeIn', label: 'کم‌کم پیدا شود' },
       { value: 'fadeOut', label: 'کم‌کم محو شود' },
+        { value: 'dissolve', label: 'فرو ریختن و محو شدن' },
     ] }, slider('seconds', 'چقدر طول بکشد', 0.1, 3, 0.1, undefined, 'ثانیه')],
   },
   glide: {
@@ -1083,6 +1085,12 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
       slider('speed', 'سرعت', 100, 2000, 20, undefined, 'پیکسل در ثانیه'),
       { key: 'aimTag', label: 'هدف از این گروه', kind: 'tag', fallback: '', showIf: (v) => v.pattern === 'aimed' },
     ],
+  },
+  focus: {
+    title: 'دوربین روی یک شیء',
+    about: 'دوربین نرم به طرف یک شیء می‌رود و چند ثانیه آنجا می‌ماند، بعد دوباره دنبال بازیکن می‌رود. برای نشان دادن دری که باز شد، غولی که آمد، یا یک صحنه‌ی کوتاه فیلم‌مانند همراه «حرف زدن».',
+    make: (ctx) => ({ type: 'focus', target: firstRef(ctx), seconds: 2 }),
+    fields: [{ key: 'target', label: 'روی کدام شیء', kind: 'target' }, slider('seconds', 'چند ثانیه', 0.5, 10, 0.5, undefined, 'ثانیه')],
   },
   zoomPunch: {
     title: 'ضربه‌ی دوربین',
@@ -1333,7 +1341,7 @@ export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
-  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'floatText', 'shake', 'zoomPunch', 'shockwave', 'slowMotion', 'vibrate', 'setSound'] },
+  { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'floatText', 'shake', 'focus', 'zoomPunch', 'shockwave', 'slowMotion', 'vibrate', 'setSound'] },
   { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },
   { title: 'تبلیغ', types: ['showAd', 'showRewardedAd'] },

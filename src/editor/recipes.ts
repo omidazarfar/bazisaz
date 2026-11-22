@@ -194,6 +194,65 @@ export async function addClockwork(p: GameProject, sceneId: string, x: number, y
 
 export const RECIPES: Recipe[] = [
   {
+    id: 'boss', title: 'غول آخر با الگوی حمله',
+    about: 'یک غول بزرگ با نوار جان که چپ و راست می‌رود و به نوبت حمله می‌کند: هر چند ثانیه یک حلقه‌ی گوی دور تا دور، و بادبزنی از سه گوی رو به بازیکن. گوی‌ها به بازیکن آسیب می‌زنند (پیام «آسیب»). وقتی جانش تمام شد، با موج انفجار از بین می‌رود و دستاورد «Boss down» داده می‌شود.',
+    apply: async (p, s, centre) => {
+      const BOSS = 'غول';
+      const boss = await picture(p, 'ufo', 'غول آخر', 260, 170, { x: centre.x, y: centre.y - 200 }, {
+        tags: [BOSS, DANGER], health: 30, healthBar: true, invincible: 0.05, glow: '#b07cff',
+        behaviors: [{ type: 'patrol', axis: 'x', distance: 260, speed: 120 }, { type: 'pulse', amount: 0.05, seconds: 1.4 }],
+      });
+      const orb = makeObject('گوی غول', { kind: 'ellipse', color: '#c77dff', shade: true }, 28, 28, { x: 0, y: 0 }, {
+        x: 0, y: 0, tags: [DANGER, 'گوی غول'], round: true, glow: '#c77dff', behaviors: [{ type: 'lifetime', seconds: 5 }],
+      });
+      let project = addObject(addObject(boss.project, s, 'objects', boss.object), s, 'prefabs', orb);
+      project = withRules(project, s,
+        rule({ type: 'every', seconds: 2.6 }, [{ type: 'shoot', from: byId(boss.object.id), prefab: orb.id, pattern: 'ring', count: 12, direction: 90, spread: 0, speed: 220, aimTag: '' }, { type: 'playSound', sound: 'laser', volume: 30 }]),
+        rule({ type: 'every', seconds: 1.4 }, [{ type: 'shoot', from: byId(boss.object.id), prefab: orb.id, pattern: 'aimed', count: 3, direction: 90, spread: 30, speed: 300, aimTag: PLAYER }]),
+        rule({ type: 'touch', a: byTag(PLAYER), b: byTag('گوی غول') }, [{ type: 'destroy', target: 'second' }, { type: 'send', name: 'آسیب' }]),
+        rule({ type: 'dead', target: byTag(BOSS) }, [
+          { type: 'shockwave', at: 'first', size: 700 }, { type: 'zoomPunch', amount: 1.15, seconds: 0.6 }, { type: 'shake', strength: 16 },
+          { type: 'burst', target: 'first', color: '#c77dff', count: 40 }, { type: 'playSound', sound: 'boom' }, { type: 'achieve', name: 'Boss down' },
+          { type: 'effect', target: 'first', kind: 'dissolve', seconds: 0.8 },
+        ]),
+      );
+      return { project, select: boss.object.id, note: 'غول آماده است. برای اینکه بازیکن به آن ضربه بزند، در یک قانون کار «آسیب زدن» را روی «غول» بگذار (مثلاً وقتی تیر بازیکن به غول خورد). اگر پیام «آسیب» قانونی ندارد، قطعه‌ی جان‌ها را هم اضافه کن.' };
+    },
+  },
+  {
+    id: 'waves', title: 'موج دشمن‌ها',
+    about: 'دشمن‌ها موج به موج از دو طرف صفحه می‌آیند و دنبال بازیکن می‌کنند. هر ۱۵ ثانیه موج بعدی می‌رسد و دشمن‌ها زودتر می‌آیند. شماره‌ی موج بالای صفحه است (مقدار wave).',
+    apply: async (p, s, centre) => {
+      const ENEMY_WAVE = 'دشمن موج';
+      const SPAWN = 'دروازه‌ی دشمن';
+      const scene = getScene(p, s);
+      let project = withVariable(p, 'wave');
+      project = { ...project, variables: project.variables.map((v) => (v.name === 'wave' ? { ...v, initial: 1 } : v)) };
+      const enemy = await picture(project, 'slime', 'دشمن موج', 80, 58, { x: 0, y: 0 }, {
+        x: 0, y: 0, tags: [ENEMY_WAVE, DANGER], health: 2, behaviors: [{ type: 'chase', targetTag: PLAYER, speed: 120 }],
+      });
+      project = enemy.project;
+      const gates = [60, scene.width - 60].map((x, i) => makeObject(`${SPAWN} ${i + 1}`, { kind: 'rect', color: '#8f5ff0' }, 40, 40, { x, y: centre.y }, { tags: [SPAWN], opacity: 0 }));
+      const sign = makeObject('شماره‌ی موج', { kind: 'text', text: 'Wave {wave}', color: '#ffd23f', size: 52, weight: 'bold', outline: '#5a2a00', shadow: true }, 0, 0, { x: p.meta.width / 2, y: 170 }, { fixed: true });
+      project = addAll(addObject(project, s, 'prefabs', enemy.object), s, [...gates, sign]);
+      const spawn = (seconds: number, from: number) => ({
+        ...rule({ type: 'every', seconds }, [{ type: 'spawn', prefab: enemy.object.id, at: byTag(SPAWN) }]),
+        condition: { name: 'wave', op: '>=' as const, value: from },
+      });
+      project = withRules(project, s,
+        spawn(3.5, 1), spawn(2.5, 2), spawn(1.8, 3),
+        rule({ type: 'every', seconds: 15 }, [
+          { type: 'setVariable', name: 'wave', op: 'add', amount: 1 },
+          { type: 'effect', target: byId(sign.id), kind: 'pop', seconds: 0.5 },
+          { type: 'playSound', sound: 'powerup' },
+        ]),
+        rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY_WAVE) }, [{ type: 'send', name: 'آسیب' }]),
+        rule({ type: 'dead', target: byTag(ENEMY_WAVE) }, [{ type: 'burst', target: 'first', color: '#8be04e', count: 16 }, { type: 'destroy', target: 'first' }]),
+      );
+      return { project, select: sign.id, note: 'موج‌ها آماده‌اند: دشمن‌ها از دو دروازه‌ی نامرئی کنار صفحه می‌آیند. برای کشتنشان، کار «آسیب زدن» را روی «دشمن موج» بگذار.' };
+    },
+  },
+  {
     id: 'gears', title: 'چرخ‌دنده و آسانسور', about: 'دسته‌ی کوچک چرخ‌دنده‌ی بزرگ را می‌چرخاند و آن دنده‌ی شانه‌ای را با کپسول بالا می‌برد. راست را نگه دار تا بالا برود؛ رها کنی، پایین برمی‌گردد.',
     apply: async (p, s, centre) => addClockwork(p, s, centre.x - 150, centre.y + 120),
   },

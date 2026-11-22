@@ -8,6 +8,9 @@ import { PickButton, type PickGroup } from './Pick';
 import { actionSentence, conditionSentence, subjectsOf, triggerSentence } from './sentences';
 import { newId, updateScene, valueNames } from './state';
 
+/** The action being dragged in a rule, by its list and place. */
+let dragging: { which: string; index: number } | null = null;
+
 /** The pick lists of triggers and actions, with the ones that cannot be used yet saying why. */
 export function triggerChoices(ctx: Context): PickGroup[] {
   return TRIGGER_GROUPS.map((g) => ({
@@ -89,6 +92,13 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
             setAction(which, index, { ...action, [key]: placed.asset } as Action, key, placed.project);
           }
         };
+        // Dragged by its handle and dropped on another action of the same list, an action moves there.
+        const moveTo = (which: Which, from: number, to: number) => {
+          const list = [...listOf(which)];
+          const [moved] = list.splice(from, 1);
+          list.splice(to, 0, moved);
+          setRule(withList(which, list), which + '.move.' + newId('m'));
+        };
         const moveAction = (which: Which, index: number, by: number) => {
           const list = [...listOf(which)];
           [list[index], list[index + by]] = [list[index + by], list[index]];
@@ -100,8 +110,13 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
           return (
             <>
               {list.map((action, index) => (
-                <div key={index} className="action" data-action={action.type}>
+                <div key={index} className="action" data-action={action.type}
+                  onDragOver={(ev) => { if (dragging?.which === which) ev.preventDefault(); }}
+                  onDrop={(ev) => { ev.preventDefault(); if (dragging && dragging.which === which && dragging.index !== index) moveTo(which, dragging.index, index); dragging = null; }}>
                   <div className="action-head">
+                    <span className="drag-handle" draggable title="بکش و روی کار دیگری رها کن تا جابه‌جا شود" data-drag-action={index}
+                      onDragStart={(ev) => { dragging = { which, index }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', String(index)); }}
+                      onDragEnd={() => { dragging = null; }}>⠿</span>
                     <strong>{ACTIONS[action.type].title}</strong>
                     <span className="action-tools">
                       <button type="button" className="link" title="زودتر انجام شود" aria-label={`کار ${index + 1} بالاتر برود`} disabled={index === 0} onClick={() => moveAction(which, index, -1)}>▲</button>

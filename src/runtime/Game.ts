@@ -190,6 +190,8 @@ interface Entity extends Box {
   rising: boolean;
   /** Special moves: the side of a wall it pressed against last step (1 right, -1 left, 0 none); a kick off a wall; a dash; climbing; a ground pound. */
   wallSide?: number;
+  /** Crouching: its standing height, to stand up to again (0 when standing). */
+  crouchFrom?: number;
   kick?: { vx: number; left: number } | null;
   dashLeft?: number;
   dashCool?: number;
@@ -266,7 +268,7 @@ function surfaceAt(r: Box & { def: GameObject }, x: number): number | null {
 interface Tween {
   entity: Entity;
   /** press: the quick squeeze of something tapped, like a button giving under a finger. */
-  kind: 'pop' | 'grow' | 'shrink' | 'fadeIn' | 'fadeOut' | 'glide' | 'press';
+  kind: 'pop' | 'grow' | 'shrink' | 'fadeIn' | 'fadeOut' | 'dissolve' | 'glide' | 'press';
   elapsed: number;
   seconds: number;
   from: Point;
@@ -382,6 +384,8 @@ export interface GameState {
   /** The old-screen look in use ('none' when a slow phone dropped it), ripples running, and how far the view is punched in (1 for not). */
   retro: string;
   waves: number;
+  /** What the camera is visiting for a while, if anything. */
+  focus: string | null;
   /** A character speaking, and how many letters show so far. */
   dialogue: { speaker: string; text: string; shown: number } | null;
   /** Achievements unlocked on this device, the banner showing now, and the best scores. */
@@ -1139,6 +1143,7 @@ export class Game {
       weather: this.weather.state(),
       retro: this.retroFilter ? (this.scene.retro ?? 'none') : 'none',
       waves: this.waves.length,
+      focus: this.focus ? this.focus.entity.def.id : null,
       dialogue: this.dialogue ? { speaker: this.dialogue.speaker, text: this.dialogue.text, shown: this.dialogueShown() } : null,
       achievements: this.achievements(),
       toast: this.toast ? (this.toast.view.getChildAt(1) as Text).text : null,
@@ -1316,6 +1321,7 @@ export class Game {
     this.dialogue = null;
     this.showTop(this.topScores());
     this.punch = null;
+    this.focus = null;
     this.scenery.scale.set(1);
     this.slowScale = 1;
     this.app.stage.position.set(0, 0);
@@ -1805,12 +1811,18 @@ export class Game {
 
   /** Puts the object with the camera behavior in the middle. `fresh` places the view anew, ignoring any one-way lock. */
   private followCameraTarget(fresh = false, dt = 0): void {
-    const target = this.entities.find((e) => e.alive && !e.def.fixed && e.def.behaviors.some((b) => b.type === 'camera'));
+    // A "focus" holds the camera on something else for a while, gliding there and back.
+    const focus = this.focus && this.focus.left > 0 && this.focus.entity.alive ? this.focus.entity : null;
+    if (this.focus) {
+      this.focus.left -= dt;
+      if (!focus) this.focus = null;
+    }
+    const target = focus ?? this.entities.find((e) => e.alive && !e.def.fixed && e.def.behaviors.some((b) => b.type === 'camera'));
     if (!target) return;
     const { width, height } = this.project.meta;
-    const camera = target.def.behaviors.find((b) => b.type === 'camera');
+    const camera = focus ? undefined : target.def.behaviors.find((b) => b.type === 'camera');
     const lock = camera?.type === 'camera' && !fresh ? camera.lock : 'free';
-    const smooth = camera?.type === 'camera' && !fresh ? (camera.smooth ?? 0) : 0;
+    const smooth = focus ? 0.35 : camera?.type === 'camera' && !fresh ? (camera.smooth ?? 0) : 0;
     // A soft camera closes a share of the gap each moment instead of all of it.
     const share = smooth > 0 ? 1 - Math.exp(-dt / (smooth * 0.4)) : 1;
     const [vw, vh] = [width / this.z, height / this.z];
@@ -3483,6 +3495,11 @@ export class Game {
         }
         break;
       }
+      case 'focus': {
+        const [e] = this.targets(action.target, context);
+        if (e) this.focus = { entity: e, left: Math.max(0.1, action.seconds) };
+        break;
+      }
       case 'zoomPunch':
         this.punch = { amount: clamp(action.amount, 1, 2), left: Math.max(0.05, action.seconds), span: Math.max(0.05, action.seconds) };
         break;
@@ -3553,6 +3570,15 @@ export class Game {
           break;
         case 'fadeOut':
           e.fade = 1 - part;
+          if (done) {
+            e.visible = false;
+            e.fade = 1;
+          }
+          break;
+        case 'dissolve':
+          // Fades while specks of it break away and drift off; gone at the end.
+          e.fade = (1 - part) ** 1.5;
+          if (Math.random() < 0.8) this.puff(e, this.colourOf(e), Math.max(4, Math.min(e.width, e.height) * 0.12));
           if (done) {
             e.visible = false;
             e.fade = 1;
@@ -3792,6 +3818,7 @@ export class Game {
         if (Math.abs(e.vx) < 1) e.x += (ladder.x + ladder.width / 2 - (e.x + e.width / 2)) * Math.min(1, dt * 12);
       }
     }
+    if (m.crouch) this.crouch(e, m, body);
     if (m.pound && !e.grounded && !e.climbing && !e.pounding && this.asked(['ArrowDown', 'KeyS'], m.poundTag)) {
       e.pounding = true;
       e.rising = false;
@@ -3801,6 +3828,30 @@ export class Game {
       e.vx = 0;
       e.vy = Math.max(e.vy, 1500);
     }
+  }
+
+  /**
+   * Crouching: on the ground with down held, it drops to six tenths of its height (its feet stay where they are) and
+   * creeps; let go, it stands up again, unless something solid is right above it.
+   */
+  private crouch(e: Entity, m: MovesBehavior, body: BodyBehavior): void {
+    const down = ['ArrowDown', 'KeyS'].some((k) => this.keys.has(k)) || (m.poundTag !== '' && this.held(m.poundTag));
+    if (!e.crouchFrom && down && e.grounded && !e.climbing) {
+      const low = Math.round(e.height * 0.6);
+      e.crouchFrom = e.height;
+      e.y += e.height - low;
+      e.height = low;
+    } else if (e.crouchFrom && (!down || !e.grounded)) {
+      const rise = e.crouchFrom - e.height;
+      const blocked = body.solidTag !== '' && this.entities.some((s) => s !== e && s.alive && s.visible && s.def.tags.includes(body.solidTag) &&
+        e.x < s.x + s.width && e.x + e.width > s.x && e.y - rise < s.y + s.height && e.y > s.y);
+      if (!blocked) {
+        e.y -= rise;
+        e.height = e.crouchFrom;
+        e.crouchFrom = 0;
+      }
+    }
+    if (e.crouchFrom) e.vx *= 0.35;
   }
 
   /** A ground pound hits the ground: a thud, dust, a jolt up and down, and it squashes flat for a moment. */
@@ -3813,6 +3864,9 @@ export class Game {
     this.shakeStrength = 10;
     this.shakeAxis = 'up';
   }
+
+  /** The camera's visit to something else, and how long it has left there. */
+  private focus: { entity: Entity; left: number } | null = null;
 
   /** A dodge roll: a quick dash the way it is going (or facing), safe from harm while it lasts. */
   private roll(e: Entity, b: SteerBehavior, way: Point | null, dt: number): void {
@@ -3832,6 +3886,12 @@ export class Game {
       e.vy = d.y * b.speed * 2.6;
       this.puff(e, '#ffffff', Math.min(e.width, e.height) * 0.35);
     }
+  }
+
+  /** The colour an object is mostly, for specks of it: its own colour, or a light grey for a picture. */
+  private colourOf(e: Entity): string {
+    const v = e.def.visual;
+    return e.color ?? (v.kind === 'rect' || v.kind === 'ellipse' || v.kind === 'text' ? v.color : '#e8e2d6');
   }
 
   /** A homing object turns toward the nearest of its group, no faster than its turn, keeping its speed. */
