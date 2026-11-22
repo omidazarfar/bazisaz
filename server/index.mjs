@@ -297,7 +297,7 @@ const RELOAD = (version) =>
 /** A phone's model, as far as its browser says: the part of the user agent in brackets, without the noise. */
 function phoneName(ua) {
   const inside = /\(([^)]*)\)/.exec(ua)?.[1] ?? ua;
-  const parts = inside.split(';').map((p) => p.trim()).filter((p) => p && !/^(Linux|U|K|wv|Mobile|x11|en-..)$/i.test(p));
+  const parts = inside.split(';').map((p) => p.trim().replace(/\s*Build\/.*$/, '')).filter((p) => p && !/^(Linux|U|K|wv|Mobile|x11|en-..)$/i.test(p));
   return parts.slice(0, 2).join(' · ').slice(0, 60) || 'گوشی';
 }
 

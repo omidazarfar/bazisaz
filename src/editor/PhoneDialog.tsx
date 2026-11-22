@@ -67,7 +67,7 @@ export function PhoneDialog({ link, onClose, onStop, phones, fromScene, setFromS
   useEffect(() => setWhich(0), [urls.length]);
 
   return (
-    <Dialog title="امتحان روی گوشی" about="بازی را روی گوشی خودت بازی کن، بدون ساختن فایل نصب." onClose={onClose}>
+    <Dialog title="امتحان روی گوشی" about="بازی را روی گوشی خودت بازی کن، بدون ساختن فایل نصب." wide onClose={onClose}>
       <div className="phone-dialog">
         {link === 'checking' && <p>در حال آماده کردن…</p>}
         {link === 'offline' && (
@@ -82,26 +82,8 @@ export function PhoneDialog({ link, onClose, onStop, phones, fromScene, setFromS
         )}
         {urls.length > 0 && (
           <>
-            <Qr text={urls[which]} />
-            <p className="phone-url"><bdi dir="ltr">{urls[which]}</bdi></p>
-            <ol className="phone-steps">
-              <li>گوشی و این کامپیوتر باید به <strong>یک وای‌فای</strong> وصل باشند.</li>
-              <li>دوربین گوشی را روی این مربع بگیر و لینکی را که نشان می‌دهد باز کن. (یا همین نشانی را در مرورگر گوشی بنویس.)</li>
-              <li>اگر ویندوز پرسید که Node.js به شبکه دسترسی داشته باشد، «Allow access» را بزن.</li>
-              <li>هر تغییری که در ویرایشگر بدهی، یکی دو ثانیه بعد روی گوشی هم می‌آید و بازی از اول شروع می‌شود.</li>
-            </ol>
-            {urls.length > 1 && (
-              <p className="control-hint">
-                گوشی باز نکرد؟ این کامپیوتر چند شبکه دارد.{' '}
-                <button type="button" className="link" onClick={() => setWhich((which + 1) % urls.length)}>نشانی دیگر را امتحان کن</button>
-              </p>
-            )}
-            <label className="phone-from-scene">
-              <input type="checkbox" checked={fromScene} onChange={(ev) => setFromScene(ev.target.checked)} data-phone-from-scene />
-              از صحنه‌ای که الان باز است شروع شود (نه از صفحه‌ی شروع)
-            </label>
+            {phones.length > 0 && (
             <div className="phone-devices" data-phone-devices>
-              {phones.length === 0 && <p className="hint">هنوز هیچ گوشی‌ای بازی را باز نکرده.</p>}
               {phones.map((p) => (
                 <div key={p.id} className="phone-device" data-phone={p.id}>
                   <strong>📱 {p.name}</strong>
@@ -113,6 +95,26 @@ export function PhoneDialog({ link, onClose, onStop, phones, fromScene, setFromS
                 </div>
               ))}
             </div>
+            )}
+            <Qr text={urls[which]} />
+            <p className="phone-url"><bdi dir="ltr">{urls[which]}</bdi></p>
+            <ol className="phone-steps">
+              <li>گوشی و این کامپیوتر باید به <strong>یک وای‌فای</strong> وصل باشند.</li>
+              <li>دوربین گوشی را روی این مربع بگیر و لینکی را که نشان می‌دهد باز کن. (یا همین نشانی را در مرورگر گوشی بنویس.)</li>
+              <li>اگر ویندوز پرسید که Node.js به شبکه دسترسی داشته باشد، «Allow access» را بزن.</li>
+              <li>هر تغییری که در ویرایشگر بدهی، کمتر از یک ثانیه بعد روی گوشی هم می‌آید و بازی از صحنه‌ای که باز است شروع می‌شود.</li>
+            </ol>
+            {urls.length > 1 && (
+              <p className="control-hint">
+                گوشی باز نکرد؟ این کامپیوتر چند شبکه دارد.{' '}
+                <button type="button" className="link" onClick={() => setWhich((which + 1) % urls.length)}>نشانی دیگر را امتحان کن</button>
+              </p>
+            )}
+            {phones.length === 0 && <p className="hint" data-phone-devices>هنوز هیچ گوشی‌ای بازی را باز نکرده.</p>}
+            <label className="phone-from-scene">
+              <input type="checkbox" checked={fromScene} onChange={(ev) => setFromScene(ev.target.checked)} data-phone-from-scene />
+              از صحنه‌ای که الان باز است شروع شود (نه از صفحه‌ی شروع)
+            </label>
             <div className="adders">
               <button type="button" className="chip" onClick={onStop}>قطع فرستادن به گوشی</button>
             </div>

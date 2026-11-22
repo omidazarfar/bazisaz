@@ -2257,9 +2257,11 @@ ol.rule-then li::before {
 }
 
 /* What each phone trying the game says. */
-.phone-from-scene { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
-.phone-devices { display: grid; gap: 8px; margin: 8px 0; }
-.phone-device { display: grid; gap: 2px; padding: 8px 10px; background: #18202f; border-radius: 10px; }
+.phone-from-scene { display: flex; gap: 8px; align-items: center; margin: 8px 0; justify-self: stretch; }
+/* Full width of the window, and long words wrap, so nothing runs out of it. */
+.phone-devices { display: grid; gap: 8px; margin: 8px 0; justify-self: stretch; width: 100%; min-width: 0; }
+.phone-device { display: grid; gap: 4px; padding: 10px 12px; background: #18202f; border-radius: 10px; min-width: 0; overflow-wrap: anywhere; }
+.phone-device .fps { font-size: 20px; }
 .phone-device .fps { font-weight: bold; }
 .fps.good { color: #6ee7a0; }
 .fps.ok { color: #ffd23f; }
