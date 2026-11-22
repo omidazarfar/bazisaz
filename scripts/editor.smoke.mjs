@@ -1515,7 +1515,7 @@ const waveRule = () => page.evaluate(() => {
   const scene = s.project.scenes.find((x) => x.id === s.sceneId);
   return scene.rules.find((r) => r.when.type === 'every' && r.when.seconds === 15).then.map((a) => a.type);
 });
-const before = await waveRule();
+const orderBefore = await waveRule();
 // Open the rule that brings the next wave, so its actions and their handles show.
 await page.evaluate(() => {
   const s = window.__editor.getState();
@@ -1536,8 +1536,8 @@ const dragged = await page.evaluate(() => {
   handles[0].dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: data }));
   return true;
 });
-const after = await waveRule();
-check('dragging the first action of a rule onto the last moves it to the end', dragged && after.join() === [before[1], before[2], before[0]].join(), before.join() + ' → ' + after.join());
+const orderAfter = await waveRule();
+check('dragging the first action of a rule onto the last moves it to the end', dragged && orderAfter.join() === [orderBefore[1], orderBefore[2], orderBefore[0]].join(), orderBefore.join() + ' → ' + orderAfter.join());
 
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
