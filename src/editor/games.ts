@@ -108,7 +108,7 @@ async function screens(project: GameProject, levelId: string, look: { name: stri
 
   // Win: a trophy in sparkles and confetti, the score, play again or back to the menu.
   const trophy = await picture(p, 'trophy', 'جام', 260, 260, { x: W / 2, y: H * 0.42 }, {
-    glow: '#ffd23f', behaviors: [{ type: 'pulse', amount: 0.06, seconds: 1.2 }, { type: 'particles', preset: 'confetti', color: '#ffd23f', rate: 14, size: 1, speed: 1 }],
+    glow: '#ffd23f', behaviors: [{ type: 'pulse', amount: 0.06, seconds: 1.2 }, { type: 'particles', preset: 'confetti', color: '#ffd23f', rate: 14, size: 1, speed: 1 }, { type: 'animate', repeat: 'bounce', ease: 'smooth', keys: [{ t: 0, x: 0, y: 0, angle: -8, scale: 1, opacity: 1 }, { t: 1.1, x: 0, y: 0, angle: 8, scale: 1, opacity: 1 }] }],
   });
   const again = await picture(trophy.project, 'btn-wide', 'دکمه‌ی دوباره', 340, 110, { x: W / 2, y: H * 0.74 });
   const home = await picture(again.project, 'btn-home', 'دکمه‌ی منو', 110, 110, { x: W / 2, y: H * 0.87 });
@@ -973,7 +973,7 @@ export async function buildTower(project: GameProject, sceneId: string): Promise
     }));
   }
   const goalX = gap(FLOORS).x0 > 100 ? 140 : W - 140;
-  objects.push(makeObject('زنگ بالای برج', { kind: 'image', asset: bell.asset }, 110, 110, { x: goalX, y: floorTop(FLOORS) - 55 }, { tags: [GOAL], glow: '#ffd23f', behaviors: [{ type: 'particles', preset: 'stars', color: '#ffe066', rate: 3, size: 18, speed: 0.6 }] }));
+  objects.push(makeObject('زنگ بالای برج', { kind: 'image', asset: bell.asset }, 110, 110, { x: goalX, y: floorTop(FLOORS) - 55 }, { tags: [GOAL], glow: '#ffd23f', behaviors: [{ type: 'particles', preset: 'stars', color: '#ffe066', rate: 3, size: 18, speed: 0.6 }, { type: 'animate', repeat: 'bounce', ease: 'smooth', keys: [{ t: 0, x: 0, y: 0, angle: -12, scale: 1, opacity: 1 }, { t: 1.1, x: 0, y: 0, angle: 12, scale: 1, opacity: 1 }] }] }));
   const hero = await character(p, 'hero');
   p = hero.project;
   const player = makeObject('قهرمان', hero.visual, 70, 90, { x: W / 2, y: ground - 45 }, {

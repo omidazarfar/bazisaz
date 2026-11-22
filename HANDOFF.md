@@ -429,6 +429,11 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-22 — Claude, animation timeline
+
+- New behavior `animate` (keys with t, x, y, angle in degrees, scale, opacity; repeat loop, bounce or once; ease smooth or linear). `src/runtime/animate.ts` holds the interpolation and eight presets, shared by the game and the editor. In the game it is added on top of the object's own movement (taken back each step like `wave`), multiplies a pulse's size, and is skipped for real-physics bodies. `src/editor/AnimationEditor.tsx` is the timeline dialog: presets, a live DOM preview (no second WebGL context), a scrub slider with key markers, per-key sliders, add and remove keys, Apply or Cancel as one undo step. Tower Climb's bell and every win-screen trophy swing. Lab 25 and editor checks.
+- Still open from the plan: bone (cut-out) animation, a music maker, layered maps, animated tiles, autotile transitions, more art packs.
+
 ### 2026-11-22 — Claude, live editing on a phone
 
 - Trying on a phone already reloaded on every change; now it checks every 0.7 s, starts on the scene open in the editor (a checkbox in the phone dialog turns that off), and each phone reports every 2 s (GET `/report` on the phone server, which still takes no posts): model from the user agent, frames a second measured with requestAnimationFrame, scene, whether it lightened, the last three errors. `GET /api/phone/status` lists phones heard from in the last 10 s; the dialog shows them (green 50+, yellow 30+, red below, with advice) and the top button shows the slowest phone's FPS. Server checks include a real browser opening the phone page and reporting.

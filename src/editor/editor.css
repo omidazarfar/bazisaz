@@ -2266,3 +2266,21 @@ ol.rule-then li::before {
 .fps.good { color: #6ee7a0; }
 .fps.ok { color: #ffd23f; }
 .fps.slow { color: #ff7a7a; }
+
+/* The animation timeline. */
+.anim-workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; align-items: start; }
+.anim-stage { position: relative; margin: 0; height: 320px; display: grid; place-items: center; border: 1px solid #475578; border-radius: 12px; overflow: hidden;
+  background-color: #121a2c; background-image: radial-gradient(#38445e 1px, transparent 1px); background-size: 16px 16px; }
+.anim-stage > * { grid-area: 1 / 1; }
+.anim-ghost { border: 2px dashed #6b7a9e; border-radius: 6px; }
+.anim-object { display: grid; place-items: center; transform-origin: center; }
+.anim-object img { width: 100%; height: 100%; object-fit: contain; }
+.anim-stage figcaption { align-self: end; color: #b8c4d8; font-size: 12px; padding: 6px; }
+.anim-controls { display: flex; gap: 10px; align-items: center; }
+.anim-time { color: #ffd23f; font-weight: 700; }
+.anim-line { position: relative; margin: 14px 4px 18px; }
+.anim-line input { width: 100%; }
+.anim-key { position: absolute; top: 18px; width: 14px; height: 14px; margin-left: -7px; transform: rotate(45deg); background: #8f9cc0; border: 2px solid #1b2436; border-radius: 2px; cursor: pointer; padding: 0; }
+.anim-key.selected { background: #ffd23f; }
+.anim-key-fields { margin: 6px 0; }
+@media (max-width: 640px) { .anim-workbench { grid-template-columns: 1fr; } }

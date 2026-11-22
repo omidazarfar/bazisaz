@@ -466,6 +466,22 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { key: 'climbTag', label: 'از این گروه بالا برود (نردبان)', hint: 'وقتی روی نردبان است، دکمه‌ی پرش بالا و دکمه‌ی پایین پایین می‌برد؛ ول کند همان‌جا می‌ماند.', kind: 'tag', fallback: '' },
     ],
   },
+  animate: {
+    title: 'انیمیشن (خط زمان)',
+    about: 'شیء در لحظه‌های مختلف («کلید»ها) جا، چرخش، اندازه و کم‌رنگی متفاوتی دارد و بین آن‌ها نرم حرکت می‌کند؛ مثل پرچمی که تاب می‌خورد، سکه‌ای که می‌چرخد یا نوشته‌ای که از کنار وارد می‌شود. دکمه‌ی «ویرایش انیمیشن» خط زمان را با پیش‌نمایش زنده و انیمیشن‌های آماده باز می‌کند. روی جای خود شیء اضافه می‌شود، پس شیء می‌تواند هم راه برود و هم تاب بخورد. برای اشیای «فیزیک واقعی» نیست.',
+    make: () => ({ type: 'animate', repeat: 'loop', ease: 'smooth', keys: [{ t: 0, x: 0, y: 0, angle: 0, scale: 1, opacity: 1 }, { t: 1, x: 0, y: -24, angle: 0, scale: 1, opacity: 1 }, { t: 2, x: 0, y: 0, angle: 0, scale: 1, opacity: 1 }] }),
+    fields: [
+      { key: 'repeat', label: 'تکرار', kind: 'choice', options: [
+        { value: 'loop', label: 'از اول، پشت سر هم' },
+        { value: 'bounce', label: 'رفت و برگشت' },
+        { value: 'once', label: 'فقط یک بار' },
+      ] },
+      { key: 'ease', label: 'حرکت بین کلیدها', kind: 'choice', options: [
+        { value: 'smooth', label: 'نرم (آهسته شروع و تمام می‌شود)' },
+        { value: 'linear', label: 'یکنواخت' },
+      ] },
+    ],
+  },
   homing: {
     title: 'تعقیب هدف (موشک)',
     about: 'وقتی پرواز می‌کند آرام به طرف نزدیک‌ترین شیء یک گروه می‌چرخد و سرعتش را نگه می‌دارد؛ مثل موشک. برای تیر و گلوله. عکسش رو به بالا باشد.',
@@ -1320,7 +1336,7 @@ export const BEHAVIOR_GROUPS: BlockGroup<Behavior['type']>[] = [
   { title: 'حرکت خودکار', types: ['mover', 'homing', 'patrol', 'route', 'chase', 'launch', 'wave', 'attach'] },
   { title: 'فیزیک و دوربین', types: ['body', 'physics', 'joint', 'field', 'camera'] },
   { title: 'ساختن و از بین رفتن', types: ['spawner', 'lifetime'] },
-  { title: 'جلوه‌ی ظاهری', types: ['particles', 'light', 'rotate', 'pulse', 'blink', 'trail', 'scrollImage'] },
+  { title: 'جلوه‌ی ظاهری', types: ['animate', 'particles', 'light', 'rotate', 'pulse', 'blink', 'trail', 'scrollImage'] },
 ];
 
 export const TRIGGER_GROUPS: BlockGroup<Trigger['type']>[] = [

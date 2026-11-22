@@ -10,6 +10,7 @@ import type {
   Ease,
   GameObject,
   GameProject,
+  AnimateBehavior,
   HomingBehavior,
   JointBehavior,
   JumperBehavior,
@@ -39,6 +40,7 @@ import { FALLBACK_FONT } from './fonts';
 import { feel, Physics } from './physics';
 import { traceOutline } from './outline';
 import { lightPolygon } from './shadows';
+import { localTime, poseAt, type Pose } from './animate';
 import { WeatherView } from './weather';
 import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './sound';
 import { applyDirection, fillTemplate } from './text';
@@ -190,6 +192,8 @@ interface Entity extends Box {
   rising: boolean;
   /** Special moves: the side of a wall it pressed against last step (1 right, -1 left, 0 none); a kick off a wall; a dash; climbing; a ground pound. */
   wallSide?: number;
+  /** The pose an animation added last step, taken back before anything else moves it. */
+  animApplied?: Pose | null;
   /** Crouching: its standing height, to stand up to again (0 when standing). */
   crouchFrom?: number;
   kick?: { vx: number; left: number } | null;
@@ -1893,6 +1897,12 @@ export class Game {
       let body: BodyBehavior | null = null;
       let steered = false;
       let attached = false;
+      if (e.animApplied) {
+        e.x -= e.animApplied.x;
+        e.y -= e.animApplied.y;
+        e.angle -= (e.animApplied.angle * Math.PI) / 180;
+        e.animApplied = null;
+      }
       // The wave's push from last frame is taken back before anything else moves the object.
       if (e.sway !== 0) {
         const wave = e.def.behaviors.find((b) => b.type === 'wave');
@@ -2177,6 +2187,18 @@ export class Game {
         e.sway = wave.distance * Math.sin((2 * Math.PI * e.age) / wave.seconds);
         if (wave.axis === 'x') e.x += e.sway;
         else e.y += e.sway;
+      }
+      // An animation on a timeline: added on top of wherever everything else has put it.
+      const anim = e.def.behaviors.find((b): b is AnimateBehavior => b.type === 'animate');
+      if (anim && !this.physics?.moves(e)) {
+        const pose = poseAt(anim, localTime(anim, e.age));
+        e.x += pose.x;
+        e.y += pose.y;
+        e.angle += (pose.angle * Math.PI) / 180;
+        // A pulse sets its own size each step; the animation's size goes on top of it.
+        e.scale = (e.def.behaviors.some((b) => b.type === 'pulse') ? e.scale : 1) * pose.scale;
+        e.opacity = (e.def.opacity ?? 1) * pose.opacity;
+        e.animApplied = pose;
       }
 
       // Looks: which animation image is showing, and which way the picture faces.
@@ -3986,6 +4008,7 @@ export class Game {
     e.y = e.homeY = y;
     e.age = 0;
     e.sway = 0;
+    e.animApplied = null;
   }
 
   private amount(amount: Amount, context: Context = {}): number {

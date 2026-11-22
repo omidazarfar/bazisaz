@@ -410,6 +410,7 @@ export type Behavior = StateGate & (
   | SteerBehavior
   | MovesBehavior
   | HomingBehavior
+  | AnimateBehavior
   | RouteBehavior
   | PhysicsBehavior
   | JointBehavior
@@ -729,6 +730,29 @@ export interface MovesBehavior {
   climbTag: string;
   pound: boolean;
   poundTag: string;
+}
+
+/** One key of an animation: at `t` seconds, the offset from where the object is (pixels), its turn (degrees), size (1 is its own) and opacity (0 to 1). */
+export interface AnimKey {
+  t: number;
+  x: number;
+  y: number;
+  angle: number;
+  scale: number;
+  opacity: number;
+}
+
+/**
+ * An animation made of keys on a timeline: between one key and the next the
+ * object moves, turns, grows and fades smoothly. loop: starts over; bounce:
+ * plays forward and back; once: stops on the last key. It adds to wherever
+ * the object is, so it can walk and bob at once. Not for objects with real physics.
+ */
+export interface AnimateBehavior {
+  type: 'animate';
+  keys: AnimKey[];
+  repeat: 'loop' | 'bounce' | 'once';
+  ease: 'linear' | 'smooth';
 }
 
 /** Turns toward the nearest object of a group as it flies, like a homing missile, keeping its speed. Picture pointing up. */

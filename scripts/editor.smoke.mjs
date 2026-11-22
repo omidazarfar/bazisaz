@@ -1539,6 +1539,37 @@ const dragged = await page.evaluate(() => {
 const orderAfter = await waveRule();
 check('dragging the first action of a rule onto the last moves it to the end', dragged && orderAfter.join() === [orderBefore[1], orderBefore[2], orderBefore[0]].join(), orderBefore.join() + ' → ' + orderAfter.join());
 
+// ── An animation made on the timeline ──
+await freshGame();
+await click('+ شکل', '.object-list');
+const animDef = await object((await editor()).selection);
+await pick('اضافه کردن رفتار', 'animate', '.panel-inspector');
+const animOf = async () => (await object(animDef.id)).behaviors.find((b) => b.type === 'animate');
+check('an animation behavior starts with a gentle float of three keys', (await animOf())?.keys.length === 3);
+await page.click('[data-edit-animation]');
+await page.waitForSelector('[data-anim-object]');
+const transformNow = () => page.$eval('[data-anim-object]', (el) => el.style.transform);
+const animFirst = await transformNow();
+await sleep(400);
+check('timeline: the preview plays the animation', (await transformNow()) !== animFirst, animFirst);
+await page.click('[data-anim-preset="spin"]');
+await page.click('[data-anim-play]');
+await page.evaluate(() => { const r = document.querySelector('[data-anim-scrub]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '1'); r.dispatchEvent(new Event('input', { bubbles: true })); });
+await sleep(200);
+check('timeline: moving the slider shows that moment (a spin is halfway round at one second of two)', (await transformNow()).includes('rotate(180deg)'), await transformNow());
+await page.click('[data-anim-add]');
+check('timeline: a key can be added where the slider is', (await page.$$('[data-anim-key]')).length === 3);
+await click('انصراف', '.modal');
+check('cancel keeps the animation as it was', (await animOf()).keys.length === 3 && (await animOf()).keys[1].y === -24);
+await page.click('[data-edit-animation]');
+await page.waitForSelector('[data-anim-preset="swing"]');
+await page.click('[data-anim-preset="swing"]');
+await page.click('[data-anim-apply]');
+check('apply puts the whole new animation on the object', (await animOf()).repeat === 'bounce' && (await animOf()).keys.some((k) => k.angle === 15));
+await click('یک قدم به عقب', '.topbar');
+check('and one undo takes it back', (await animOf()).repeat === 'loop' && (await animOf()).keys.length === 3);
+await page.screenshot({ path: resolve(shots, 'editor-animation.png') });
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

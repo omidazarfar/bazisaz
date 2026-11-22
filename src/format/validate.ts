@@ -114,6 +114,8 @@ export function validateProject(project: GameProject): string[] {
         if (b.type === 'particles' && b.onGroundMove !== undefined && typeof b.onGroundMove !== 'boolean')
           say(`${where}: "${obj.id}" needs a boolean for moving ground particles.`);
         if (b.type === 'physics' && !(b.weight > 0)) say(`${where}: "${obj.id}" needs a weight above zero.`);
+        if (b.type === 'animate' && (!Array.isArray(b.keys) || b.keys.length === 0 || !b.keys.every((k) => [k.t, k.x, k.y, k.angle, k.scale, k.opacity].every(Number.isFinite) && k.t >= 0)))
+          say(`${where}: "${obj.id}" has an animation without proper keys.`);
       }
       for (const b of obj.behaviors) {
         if (b.type === 'mover' && b.speedVariable) needVariable(b.speedVariable, `${where}: "${obj.id}"`);

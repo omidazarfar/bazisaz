@@ -8,6 +8,7 @@ import { pickFile, pickFiles, readImage } from './images';
 import { BEHAVIOR_GROUPS, BEHAVIORS, COMMON_BEHAVIORS, fa, whyNot, type Context } from './labels';
 import { SpriteGrid, spriteVisual } from './Library';
 import { ParticleEditor, changeParticleSetting } from './ParticleEditor';
+import { AnimationEditor } from './AnimationEditor';
 import { emptyArt, PixelEditor, pngToArt, type PixelArt } from './PixelEditor';
 import { TilesPanel } from './TilesPanel';
 import { Dialog, PickButton } from './Pick';
@@ -70,6 +71,7 @@ export function Inspector({ editor }: { editor: Editor }) {
   const { project, scene, selection, change } = editor;
   const found = selection ? findObject(scene, selection) : null;
   const [particleObject, setParticleObject] = useState<string | null>(null);
+  const [animObject, setAnimObject] = useState<string | null>(null);
   const [newTag, setNewTag] = useState('');
   const [choosingPicture, setChoosingPicture] = useState(false);
   const [newValue, setNewValue] = useState('');
@@ -496,6 +498,14 @@ export function Inspector({ editor }: { editor: Editor }) {
                 onClose={() => setParticleObject(null)} onApply={draft => {
                   if (draft !== behavior) update(newId('particles'), o => ({ ...o, behaviors: o.behaviors.map((b, i) => i === index ? draft : b) }));
                   setParticleObject(null);
+                }} />}
+            </>}
+            {behavior.type === 'animate' && <>
+              <button type="button" className="chip" data-edit-animation onClick={() => setAnimObject(object.id)}>🎬 ویرایش انیمیشن (خط زمان)</button>
+              {animObject === object.id && <AnimationEditor initial={behavior} object={object} project={project}
+                onClose={() => setAnimObject(null)} onApply={(draft) => {
+                  update(newId('animate'), (o) => ({ ...o, behaviors: o.behaviors.map((b, i) => (i === index ? draft : b)) }));
+                  setAnimObject(null);
                 }} />}
             </>}
             <Fields fields={info.fields} value={behavior as unknown as Record<string, unknown>} ctx={ctx} onChange={(key, value) => setBehavior(index, key, value)} />

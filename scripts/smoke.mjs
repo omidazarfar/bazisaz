@@ -2423,6 +2423,51 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13n. Lab 25: animation on a timeline ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const k = (t, pose = {}) => ({ t, x: 0, y: 0, angle: 0, scale: 1, opacity: 1, ...pose });
+  const anim = (repeat, keys, ease = 'linear') => ({ type: 'animate', repeat, ease, keys });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab25', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentyfive', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      objects: [
+        box('loop', 100, 100, 60, 60, { behaviors: [anim('loop', [k(0), k(1, { x: 100, angle: 90, scale: 2, opacity: 0.5 })])] }),
+        box('bounce', 100, 300, 60, 60, { behaviors: [anim('bounce', [k(0), k(1, { x: 100 })])] }),
+        box('once', 100, 500, 60, 60, { behaviors: [anim('once', [k(0), k(1, { y: 100 })])] }),
+        box('walker', 100, 800, 60, 60, { behaviors: [{ type: 'mover', vx: 100, vy: 0, speedVariable: '' }, anim('loop', [k(0), k(0.5, { y: -50 }), k(1)])] }),
+        box('pulsing', 400, 100, 60, 60, { behaviors: [{ type: 'pulse', amount: 0.2, seconds: 1 }, anim('loop', [k(0, { angle: 0 }), k(2, { angle: 360 })])] }),
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.5);
+  let s = await gameState(page);
+  const e = (id) => s.entities.find((x) => x.id === id);
+  const near = (a, b, by) => Math.abs(a - b) <= by;
+  check('animation: halfway between two keys, it is halfway in place, turn, size and opacity',
+    near(e('loop').x, 150, 10) && near(e('loop').angle, Math.PI / 4, 0.15) && near(e('loop').scale, 1.5, 0.12) && near(e('loop').opacity, 0.75, 0.08),
+    JSON.stringify({ x: e('loop').x, angle: e('loop').angle, scale: e('loop').scale, opacity: e('loop').opacity }));
+  check('animation: it adds to how the object moves otherwise', near(e('walker').x, 150, 10) && near(e('walker').y, 750, 10), `${e('walker').x.toFixed(0)}, ${e('walker').y.toFixed(0)}`);
+  await untilTime(page, 1.5);
+  s = await gameState(page);
+  check('animation: "loop" starts over after the last key', near(e('loop').x, 150, 10), e('loop').x.toFixed(0));
+  check('animation: "bounce" plays back the way it came', near(e('bounce').x, 150, 10), e('bounce').x.toFixed(0));
+  check('animation: "once" stays on the last key', near(e('once').y, 600, 2), e('once').y.toFixed(0));
+  check('animation: a pulse and an animation work together', e('pulsing').scale > 1.01 && e('pulsing').angle > 1, `scale ${e('pulsing').scale.toFixed(2)}, angle ${e('pulsing').angle.toFixed(2)}`);
+  check('lab 25: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

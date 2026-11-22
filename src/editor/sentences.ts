@@ -216,6 +216,10 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
       const can = [b.wallJump ? 'از دیوار می‌پرد' : '', b.dash ? 'تیز می‌رود' : '', b.climbTag ? `از ${group(b.climbTag)} بالا می‌رود` : '', b.pound ? 'به زمین می‌کوبد' : '', b.crouch ? 'می‌نشیند' : ''].filter(Boolean);
       return can.length ? can.join('، ') : 'حرکت ویژه‌ای ندارد';
     }
+    case 'animate': {
+      const length = Math.max(0, ...b.keys.map((k) => k.t));
+      return `انیمیشن ${fa(b.keys.length)} کلیدی دارد، ${fa(Math.round(length * 10) / 10)} ثانیه، ${b.repeat === 'once' ? 'یک بار' : b.repeat === 'bounce' ? 'رفت و برگشت' : 'پشت سر هم'}`;
+    }
     case 'homing': return `به طرف نزدیک‌ترین ${group(b.targetTag)} می‌پیچد، مثل موشک`;
     case 'route': return `روی نشانه‌های ${group(b.tag)} راه می‌رود`;
     case 'rotate': return 'دور خودش می‌چرخد';
