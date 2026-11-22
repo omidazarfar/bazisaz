@@ -894,6 +894,15 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
     if (!water) p = addAll(p, stage.id, [makeObject('مسیر ترسیمی', { kind: 'terrain', color: vehicle === 'bike' ? '#4b8061' : '#ae7145',
       heights: vehicle === 'bike' ? [0.25, 0.25, 0.25, 0.13, 0.06, 0.18, 0.32, 0.26, 0.24] : [0.32, 0.32, 0.32, 0.19, 0.28, 0.15, 0.25, 0.32, 0.32] },
       W, H - top, { x: W / 2, y: (H + top) / 2 }, { tags: [GROUND] })]);
+    if (vehicle === 'bike') {
+      // Scenery along the trail, behind the bike: it touches nothing.
+      const surface = top + (H - top) * 0.25 - 4;
+      const scenery: [string, number, number, number][] = [['signpost', 0.08, 110, 126], ['flower-bush', 0.3, 150, 84], ['oak-tree', 0.62, 170, 226], ['mushroom', 0.92, 70, 78]];
+      for (const [sprite, share, w, h] of scenery) {
+        const made = await picture(p, sprite, sprite, w, h, { x: W * share, y: surface - h / 2 + 6 }, { locked: true });
+        p = addAll(made.project, stage.id, [made.object]);
+      }
+    }
     const driver = await add(stage.id, vehicle, Math.max(108, W * 0.18), top);
     if (vehicle === 'tank') {
       // Night falls on the ridge: the crawler lights its own way.
@@ -1117,7 +1126,8 @@ export async function buildRunner(project: GameProject, sceneId: string): Promis
   const objects: GameObject[] = [];
   const crate = await art(p, 'crate');
   const coin = await art(crate.project, 'coin');
-  const flag = await art(coin.project, 'flag');
+  const lamp = await art(coin.project, 'lamp-post');
+  const flag = await art(lamp.project, 'flag');
   p = flag.project;
   const roof = { kind: 'rect' as const, color: '#4a4f63', radius: 6, shade: true };
   // Rooftops with gaps between them; every gap a little wider than the last.
@@ -1127,6 +1137,8 @@ export async function buildRunner(project: GameProject, sceneId: string): Promis
   while (x < LENGTH - 600) {
     const w = n === 0 ? W * 1.2 : 900 + (n % 3) * 160;
     objects.push(makeObject(`بام ${n + 1}`, roof, w, H - top, { x: x + w / 2, y: (top + H) / 2 }, { tags: [GROUND], locked: true }));
+    // A street lamp on each roof, glowing; only to look at.
+    objects.push(makeObject(`چراغ ${n + 1}`, { kind: 'image', asset: lamp.asset }, 60, 180, { x: x + w * 0.2, y: top - 90 }, { locked: true, glow: '#fff3b0' }));
     if (n > 0) {
       objects.push(makeObject(`جعبه ${n}`, { kind: 'image', asset: crate.asset }, 80, 80, { x: x + w * 0.55, y: top - 40 }, { tags: [GROUND] }));
       for (let c = 0; c < 3; c++) objects.push(makeObject(`سکه ${n}-${c + 1}`, { kind: 'image', asset: coin.asset }, 46, 46, { x: x + w * 0.55 - 60 + c * 60, y: top - 200 }, { tags: [COIN] }));

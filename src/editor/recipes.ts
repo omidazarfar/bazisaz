@@ -1,4 +1,4 @@
-import type { Action, Amount, Behavior, GameObject, GameProject, Rule, Scene } from '../format/types';
+import type { Action, Amount, Behavior, GameObject, GameProject, Rule, Scene, Visual } from '../format/types';
 import { CRATE, DANGER, GROUND, LOSE, physics, PLAYER, PRIZE, THROWN, withTouchRule, withVariable } from './presets';
 import { useSprite } from './sprites';
 import { addObject, getScene, makeObject, newId, updateScene } from './state';
@@ -193,6 +193,34 @@ export async function addClockwork(p: GameProject, sceneId: string, x: number, y
 }
 
 export const RECIPES: Recipe[] = [
+  {
+    id: 'cutout', title: 'آدمک تکه‌تکه‌ی متحرک',
+    about: 'یک آدمک از تکه‌ها: بدن، سر، دو دست و دو پا. هر تکه به بدن وصل است و با «انیمیشن (خط زمان)» دور مفصل خودش (شانه، لگن) تاب می‌خورد، پس آدمک راه می‌رود. برای هر تکه می‌توانی عکس خودت را بگذاری؛ حرکت همان می‌ماند.',
+    apply: async (p, s, centre) => {
+      const BODY = 'بدن آدمک';
+      const k = (t: number, angle: number, y = 0) => ({ t, x: 0, y, angle, scale: 1, opacity: 1 });
+      const swing = (from: number, to: number, pivot: { x: number; y: number }): Behavior => ({ type: 'animate', repeat: 'bounce', ease: 'smooth', pivot, keys: [k(0, from), k(0.5, to)] });
+      const body = makeObject('بدن', { kind: 'rect', color: '#2f7cf6', radius: 16, shade: true }, 60, 90, { x: centre.x, y: centre.y }, {
+        tags: [BODY], behaviors: [{ type: 'patrol', axis: 'x', distance: 260, speed: 90 }, { type: 'animate', repeat: 'loop', ease: 'smooth', keys: [k(0, 0), k(0.25, 0, -5), k(0.5, 0)] }],
+      });
+      const part = (name: string, visual: Visual, w: number, h: number, dx: number, dy: number, extra: Behavior[] = []) =>
+        makeObject(name, visual, w, h, { x: centre.x + dx, y: centre.y + dy }, { behaviors: [{ type: 'attach', targetTag: BODY, offsetX: (60 - w) / 2 + dx, offsetY: (90 - h) / 2 + dy }, ...extra] });
+      const skin = { kind: 'ellipse' as const, color: '#ffcf9e', shade: true };
+      const limb = (color: string) => ({ kind: 'rect' as const, color, radius: 9, shade: true });
+      const shoulder = { x: 0.5, y: 0.1 };
+      const hip = { x: 0.5, y: 0.05 };
+      // Drawn back to front: the far arm and leg first, then the body, the near ones, the head.
+      const parts = [
+        part('دست پشتی', limb('#1f5bb8'), 18, 60, -26, -10, [swing(30, -30, shoulder)]),
+        part('پای پشتی', limb('#24324a'), 20, 64, -10, 62, [swing(-25, 25, hip)]),
+        body,
+        part('پای جلویی', limb('#2f3e5a'), 20, 64, 10, 62, [swing(25, -25, hip)]),
+        part('دست جلویی', limb('#2f7cf6'), 18, 60, 26, -10, [swing(-30, 30, shoulder)]),
+        part('سر', skin, 56, 56, 0, -72),
+      ];
+      return { project: addAll(p, s, parts), select: body.id, note: 'آدمک ساخته شد. هر تکه یک شیء جداست با «چسبیدن به» بدن و «انیمیشن» خودش؛ نقطه‌ی چرخش دست‌ها روی شانه و پاها روی لگن است. در «امتحان کن» راه می‌رود.' };
+    },
+  },
   {
     id: 'boss', title: 'غول آخر با الگوی حمله',
     about: 'یک غول بزرگ با نوار جان که چپ و راست می‌رود و به نوبت حمله می‌کند: هر چند ثانیه یک حلقه‌ی گوی دور تا دور، و بادبزنی از سه گوی رو به بازیکن. گوی‌ها به بازیکن آسیب می‌زنند (پیام «آسیب»). وقتی جانش تمام شد، با موج انفجار از بین می‌رود و دستاورد «Boss down» داده می‌شود.',

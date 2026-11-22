@@ -1570,6 +1570,45 @@ await click('یک قدم به عقب', '.topbar');
 check('and one undo takes it back', (await animOf()).repeat === 'loop' && (await animOf()).keys.length === 3);
 await page.screenshot({ path: resolve(shots, 'editor-animation.png') });
 
+// ── Making music, a cut-out character, a map's back layer ──
+await freshGame();
+await click('بازی', '.tabs');
+await page.click('[data-make-music]');
+await page.waitForSelector('[data-music-add]');
+await page.click('[data-music-new]');
+await page.click('[data-music-add]');
+await until(page, () => !document.querySelector('[data-music-add]'), null, 15000);
+const musicState = await editor();
+const sceneNow = musicState.project.scenes.find((s) => s.id === musicState.sceneId);
+const tune = musicState.project.assets[sceneNow.music];
+check('music maker: the piece made becomes this scene\'s music, as a WAV in the game', tune?.type === 'sound' && tune.src.startsWith('data:audio/wav;base64,') && tune.src.length > 100000, sceneNow.music);
+
+await freshGame();
+await addPart('cutout');
+sc = await scene();
+const limbs = sc.objects.filter((o) => o.behaviors.some((b) => b.type === 'animate' && b.pivot));
+check('cut-out part: four limbs pinned to a body, each swinging about its joint', sc.objects.length === 6 && limbs.length === 4 && limbs.every((o) => o.behaviors.some((b) => b.type === 'attach')));
+await click('امتحان کن');
+await until(page, () => window.__game.getState().time > 0.3, null, 60000);
+const armId = sc.objects.find((o) => o.name === 'دست جلویی').id;
+const angle1 = (await gameState(page)).entities.find((e) => e.id === armId).angle;
+await until(page, () => window.__game.getState().time > 0.7, null, 60000);
+const angle2 = (await gameState(page)).entities.find((e) => e.id === armId).angle;
+check('in the try-out the arm swings', Math.abs(angle2 - angle1) > 0.1, angle1.toFixed(2) + ' → ' + angle2.toFixed(2));
+await click('توقف');
+
+await freshGame();
+await openLibrary('شکل، متن و عکس خودت');
+await page.click('.modal button[data-basic="tiles"]');
+await until(page, () => document.querySelector('.modal') === null, null, 10000);
+await sleep(300);
+const frontMap = (await editor()).selection;
+await page.click('[data-back-layer]');
+sc = await scene();
+const back = sc.objects.find((o) => o.visual.kind === 'tiles' && o.id !== frontMap);
+check('a map\'s back layer: an empty map of the same grid behind it, slower and touching nothing',
+  back && back.parallax === 0.7 && back.tags.length === 0 && back.visual.rows.every((r) => /^\.+$/.test(r)) && sc.objects.indexOf(back) < sc.objects.findIndex((o) => o.id === frontMap));
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

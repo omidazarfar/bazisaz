@@ -430,6 +430,15 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-22 — Claude, the rest of the plan
+
+- Cut-out animation: `animate.pivot` (shares of the box) turns and scales about a joint; the timeline dialog has pivot sliders and the preview uses transform-origin. The `cutout` part builds a walking paper doll (body with patrol and bob, head, arms and legs attached by `attach`, each swinging about shoulder or hip).
+- Music maker: `musicWav(piece)` exported from `src/runtime/music.ts`; `MusicMaker.tsx` (mood, chords, tempo, pitch, lead, drums, bed, new melody seed) adds a WAV sound asset and makes it the scene's music.
+- Animated tiles: styles `water` and `lava` (`ANIMATED_TILE_STYLES`), four frames swapped every 0.18 s in play (`stepLiquids`).
+- Layered maps: the tile panel's «+ لایه‌ی پشت» inserts an empty map of the same grid behind, parallax 0.7, faded, no tags. Any object already had parallax.
+- Art pack: oak-tree, flower-bush, boulder, mushroom, signpost, fence, lamp-post, crystal; used on Rescue Relay's trail and Rooftop Run's roofs.
+- Not done: autotile transitions between two materials (each material already draws its own open edges and caps), a full equipment system (crafting works with rules), bone rigs with nested joints (limbs attach to one body; a forearm on an upper arm would need attach to follow the parent's angle).
+
 ### 2026-11-22 — Claude, animation timeline
 
 - New behavior `animate` (keys with t, x, y, angle in degrees, scale, opacity; repeat loop, bounce or once; ease smooth or linear). `src/runtime/animate.ts` holds the interpolation and eight presets, shared by the game and the editor. In the game it is added on top of the object's own movement (taken back each step like `wave`), multiplies a pulse's size, and is skipped for real-physics bodies. `src/editor/AnimationEditor.tsx` is the timeline dialog: presets, a live DOM preview (no second WebGL context), a scrub slider with key markers, per-key sliders, add and remove keys, Apply or Cancel as one undo step. Tower Climb's bell and every win-screen trophy swing. Lab 25 and editor checks.

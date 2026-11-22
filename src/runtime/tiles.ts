@@ -30,15 +30,15 @@ function seeded(seed: number): () => number {
 }
 
 /** The texture of one cell `cell` pixels square, for a material and the sides of it that are open. */
-export function tileTexture(style: Exclude<TileStyle, 'flat'>, cell: number, open: OpenSides, variant = 0): Texture {
+export function tileTexture(style: Exclude<TileStyle, 'flat'>, cell: number, open: OpenSides, variant = 0, frame = 0): Texture {
   const size = Math.max(16, Math.min(256, Math.round(cell * 2)));
-  const key = `${style}:${size}:${+open.top}${+open.bottom}${+open.left}${+open.right}:${variant % 4}`;
+  const key = `${style}:${size}:${+open.top}${+open.bottom}${+open.left}${+open.right}:${variant % 4}:${frame % 4}`;
   const cached = made.get(key);
   if (cached) return cached;
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const g = c.getContext('2d')!;
-  paint(g, style, size, open, seeded(style.length * 131 + (variant % 4) * 977 + 7));
+  paint(g, style, size, open, seeded(style.length * 131 + (variant % 4) * 977 + 7), frame % 4);
   const texture = Texture.from(c);
   made.set(key, texture);
   return texture;
@@ -115,8 +115,33 @@ function cap(g: CanvasRenderingContext2D, rnd: () => number, s: number, depth: n
   }
 }
 
-function paint(g: CanvasRenderingContext2D, style: Exclude<TileStyle, 'flat'>, s: number, open: OpenSides, rnd: () => number): void {
+function paint(g: CanvasRenderingContext2D, style: Exclude<TileStyle, 'flat'>, s: number, open: OpenSides, rnd: () => number, frame = 0): void {
   switch (style) {
+    case 'water':
+    case 'lava': {
+      // A liquid: deeper toward the bottom, a moving wave along an open top, and bubbles or glints that drift with the frame.
+      const lava = style === 'lava';
+      fillAll(g, s, lava ? '#ff7a1a' : '#3fa9e8', lava ? '#a8200c' : '#1a5fa8');
+      const phase = (frame / 4) * Math.PI * 2;
+      for (let i = 0; i < 5; i++) {
+        const x = ((rnd() + frame * 0.06) % 1) * s;
+        const y = (((rnd() * 0.8 + 0.15) * s - frame * s * 0.05) % s + s) % s;
+        g.fillStyle = lava ? 'rgba(255,214,90,0.55)' : 'rgba(255,255,255,0.28)';
+        g.beginPath();
+        g.ellipse(x, y, s * (lava ? 0.05 : 0.08), s * (lava ? 0.05 : 0.02), 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      if (open.top) {
+        g.fillStyle = lava ? '#ffd35a' : '#bfe8ff';
+        g.beginPath();
+        g.moveTo(0, 0);
+        for (let x = 0; x <= s; x += s / 16) g.lineTo(x, s * 0.07 + Math.sin(phase + (x / s) * Math.PI * 2) * s * 0.04);
+        g.lineTo(s, 0);
+        g.closePath();
+        g.fill();
+      }
+      return;
+    }
     case 'grass':
     case 'dirt': {
       fillAll(g, s, '#9a6440', '#7a4a2e');

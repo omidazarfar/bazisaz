@@ -28,7 +28,7 @@ import type {
   TilesVisual,
   TileStyle,
 } from '../format/types';
-import { EMPTY_TILE, isBuiltinMusic, MATERIALS } from '../format/types';
+import { ANIMATED_TILE_STYLES, EMPTY_TILE, isBuiltinMusic, MATERIALS } from '../format/types';
 import { bagSlots, drawBag, slotAt } from './bag';
 import { builtinMusic } from './music';
 import { advanceParticle, spawnParticle, type Particle } from './particleView';
@@ -388,6 +388,8 @@ export interface GameState {
   /** The old-screen look in use ('none' when a slow phone dropped it), ripples running, and how far the view is punched in (1 for not). */
   retro: string;
   waves: number;
+  /** The frame water and lava cells show now; -1 when there are none. */
+  liquidFrame: number;
   /** What the camera is visiting for a while, if anything. */
   focus: string | null;
   /** A character speaking, and how many letters show so far. */
@@ -1147,6 +1149,7 @@ export class Game {
       weather: this.weather.state(),
       retro: this.retroFilter ? (this.scene.retro ?? 'none') : 'none',
       waves: this.waves.length,
+      liquidFrame: this.liquidTiles.length ? this.liquidFrame : -1,
       focus: this.focus ? this.focus.entity.def.id : null,
       dialogue: this.dialogue ? { speaker: this.dialogue.speaker, text: this.dialogue.text, shown: this.dialogueShown() } : null,
       achievements: this.achievements(),
@@ -1621,6 +1624,7 @@ export class Game {
       const box = new Container();
       material.cells.forEach((open, i) => {
         const sprite = new Sprite(tileTexture(material.style, material.cell, open, material.variant + i));
+        if (ANIMATED_TILE_STYLES.includes(material.style)) this.liquidTiles.push({ sprite, style: material.style, cell: material.cell, open, variant: material.variant + i });
         sprite.position.set(i * material.cell, 0);
         sprite.width = sprite.height = material.cell;
         box.addChild(sprite);
@@ -2191,7 +2195,15 @@ export class Game {
       // An animation on a timeline: added on top of wherever everything else has put it.
       const anim = e.def.behaviors.find((b): b is AnimateBehavior => b.type === 'animate');
       if (anim && !this.physics?.moves(e)) {
-        const pose = poseAt(anim, localTime(anim, e.age));
+        const pose = { ...poseAt(anim, localTime(anim, e.age)) };
+        if (anim.pivot) {
+          // Turned about a joint, not its middle: its middle swings round the joint (a cut-out limb).
+          const rad = (pose.angle * Math.PI) / 180;
+          const cx = (0.5 - anim.pivot.x) * e.width;
+          const cy = (0.5 - anim.pivot.y) * e.height;
+          pose.x += cx * Math.cos(rad) - cy * Math.sin(rad) - cx;
+          pose.y += cx * Math.sin(rad) + cy * Math.cos(rad) - cy;
+        }
         e.x += pose.x;
         e.y += pose.y;
         e.angle += (pose.angle * Math.PI) / 180;
@@ -3657,6 +3669,7 @@ export class Game {
     }
     this.stepScreenEffects(dt);
     this.stepDayNight();
+    this.stepLiquids();
   }
 
   /** Mixes the flash colour into the object's own, strongly at first and fading to nothing. */
@@ -3885,6 +3898,19 @@ export class Game {
     this.shakeLeft = SHAKE_SECONDS;
     this.shakeStrength = 10;
     this.shakeAxis = 'up';
+  }
+
+  /** Cells of water and lava, which move through their frames as the game plays. */
+  private liquidTiles: { sprite: Sprite; style: Exclude<TileStyle, 'flat'>; cell: number; open: OpenSides; variant: number }[] = [];
+  private liquidFrame = 0;
+
+  /** Water and lava cells show their next frame a few times a second. */
+  private stepLiquids(): void {
+    const frame = Math.floor(this.time / 0.18) % 4;
+    if (frame === this.liquidFrame || this.liquidTiles.length === 0) return;
+    this.liquidFrame = frame;
+    this.liquidTiles = this.liquidTiles.filter((t) => !t.sprite.destroyed);
+    for (const t of this.liquidTiles) t.sprite.texture = tileTexture(t.style, t.cell, t.open, t.variant, frame);
   }
 
   /** The camera's visit to something else, and how long it has left there. */

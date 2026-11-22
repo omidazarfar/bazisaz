@@ -173,7 +173,9 @@ export const WEATHERS = ['none', 'rain', 'storm', 'snow', 'leaves', 'embers', 'f
 export type Weather = (typeof WEATHERS)[number];
 
 /** How the cells of a tile map are drawn: a plain colour, or a material with its own look (grass grows on cells with nothing above them). */
-export const TILE_STYLES = ['flat', 'grass', 'dirt', 'stone', 'brick', 'wood', 'ice', 'metal', 'sand', 'snow'] as const;
+export const TILE_STYLES = ['flat', 'grass', 'dirt', 'stone', 'brick', 'wood', 'ice', 'metal', 'sand', 'snow', 'water', 'lava'] as const;
+/** Tile materials that move while the game plays: their waves and bubbles run through four frames. */
+export const ANIMATED_TILE_STYLES: readonly string[] = ['water', 'lava'];
 export type TileStyle = (typeof TILE_STYLES)[number];
 
 /** Colour treatments for a scene's whole picture. */
@@ -751,6 +753,8 @@ export interface AnimKey {
 export interface AnimateBehavior {
   type: 'animate';
   keys: AnimKey[];
+  /** The point it turns and grows about, as shares of its box (0.5, 0.5 is its middle; 0.5, 0 the middle of its top, like a shoulder). For cut-out characters. */
+  pivot?: { x: number; y: number };
   repeat: 'loop' | 'bounce' | 'once';
   ease: 'linear' | 'smooth';
 }

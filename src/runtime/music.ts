@@ -13,7 +13,7 @@ const MINOR = [0, 2, 3, 5, 7, 8, 10];
 
 type Shape = 'sine' | 'square' | 'triangle' | 'saw';
 
-interface Piece {
+export interface Piece {
   bpm: number;
   /** The key's home note, as a MIDI number (60 is middle C). */
   root: number;
@@ -49,6 +49,11 @@ export function builtinMusic(id: string): string | null {
     made.set(id, src);
   }
   return src;
+}
+
+/** A piece of one's own, from the same music writer, as a looping WAV in a data: URL. */
+export function musicWav(piece: Piece): string {
+  return wav(render(piece));
 }
 
 /** A small, fixed random number source, so a piece comes out the same every time. */

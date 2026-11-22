@@ -64,6 +64,21 @@ export function TilesPanel({ editor, object, update }: Props) {
     setKind(key, { asset: id }, { ...editor.project, assets: { ...editor.project.assets, [id]: { type: 'image', src: image.src } } });
   };
 
+  /**
+   * A second map behind this one, the same size and grid, for scenery: it scrolls a little slower than the
+   * world (it seems further away), is a little faded, and nothing meets it. Painted like any map.
+   */
+  const addBackLayer = () => {
+    const { project, scene } = editor;
+    const layer: GameObject = {
+      ...object, id: newId('obj'), name: object.name + ' - لایه‌ی پشت', tags: [], parallax: 0.7, opacity: 0.85, behaviors: [],
+      visual: { ...v, rows: resizeRows([], cols, v.rows.length), kinds: Object.fromEntries(Object.entries(v.kinds).map(([key, kind]) => [key, { ...kind, tags: [] }])) },
+    };
+    const at = scene.objects.findIndex((o) => o.id === object.id);
+    const objects = [...scene.objects.slice(0, Math.max(0, at)), layer, ...scene.objects.slice(Math.max(0, at))];
+    editor.change({ ...project, scenes: project.scenes.map((s) => (s.id === scene.id ? { ...s, objects } : s)) }, 'tiles.backLayer.' + layer.id);
+  };
+
   return (
     <>
       <Section title="نقشه‌ی خانه‌خانه" about="مرحله را مثل نقاشی روی خانه‌ها بکش. هر خانه‌ی پر، حین بازی یک تکه‌ی جدا است که با گروه‌های نوعش کار می‌کند؛ مثلاً گروه «زمین» برای «از این گروه رد نشود» بازیکن.">
@@ -89,6 +104,7 @@ export function TilesPanel({ editor, object, update }: Props) {
         </div>
         <div className="adders">
           <button type="button" className="chip" onClick={() => setTiles('clear', { rows: resizeRows([], cols, v.rows.length) })}>پاک کردن همه‌ی خانه‌ها</button>
+          <button type="button" className="chip" data-back-layer onClick={addBackLayer}>+ لایه‌ی پشت</button>
         </div>
       </Section>
 

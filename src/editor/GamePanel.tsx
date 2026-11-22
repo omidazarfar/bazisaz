@@ -10,6 +10,7 @@ import type { Editor } from './editor';
 import { pickFile, pickFiles, readDataUrl, readImage } from './images';
 import { isVariableUsed, keepVersion, listVersions, newId, removeScene, updateScene, type Version } from './state';
 import { SfxMaker } from './SfxMaker';
+import { MusicMaker } from './MusicMaker';
 import { SceneMap } from './SceneMap';
 import { SpriteGrid } from './Library';
 import { Dialog } from './Pick';
@@ -113,6 +114,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
     if (Object.keys(added).length > 0) change({ ...project, assets: { ...project.assets, ...added } }, `sound.add.${Object.keys(added)[0]}`);
   };
   const [makingSound, setMakingSound] = useState(false);
+  const [makingMusic, setMakingMusic] = useState(false);
   const [versions, setVersions] = useState<Version[]>([]);
   const refreshVersions = () => void listVersions().then(setVersions);
   useEffect(refreshVersions, []);
@@ -199,10 +201,21 @@ export function GamePanel({ editor }: { editor: Editor }) {
           options={[{ value: '', label: 'بدون موسیقی' }, ...BUILTIN_MUSIC_OPTIONS, ...sounds.map((s) => ({ value: s.id, label: s.name }))]}
           onChange={(id) => setScene({ music: id || null }, 'music')}
         />
-        {scene.music && (
-          <div className="adders">
-            <button type="button" className="chip" onClick={() => listen(scene.music!)}>{listening ? '■ قطع' : '▶ گوش بده'}</button>
-          </div>
+        <div className="adders">
+          {scene.music && <button type="button" className="chip" onClick={() => listen(scene.music!)}>{listening ? '■ قطع' : '▶ گوش بده'}</button>}
+          <button type="button" className="chip" data-make-music onClick={() => setMakingMusic(true)}>🎵 ساختن موسیقی</button>
+        </div>
+        {makingMusic && (
+          <MusicMaker
+            onClose={() => setMakingMusic(false)}
+            onAdd={(name, src) => {
+              // The new piece becomes this scene's music at once.
+              const id = newId('snd');
+              const withMusic = { ...project, assets: { ...project.assets, [id]: { type: 'sound' as const, name, src } } };
+              change(updateScene(withMusic, scene.id, (s) => ({ ...s, music: id })), `music.make.${id}`);
+              setMakingMusic(false);
+            }}
+          />
         )}
         <Select
           label="پس‌زمینه‌ی نقاشی‌شده"

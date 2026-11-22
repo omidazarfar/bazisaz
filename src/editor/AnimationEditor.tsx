@@ -80,6 +80,7 @@ export function AnimationEditor(props: { initial: AnimateBehavior; object: GameO
           <div className="anim-ghost" style={{ width: props.object.width * zoom, height: props.object.height * zoom }} />
           <div className="anim-object" data-anim-object style={{
             width: props.object.width * zoom, height: props.object.height * zoom, opacity: pose.opacity,
+            transformOrigin: `${(draft.pivot?.x ?? 0.5) * 100}% ${(draft.pivot?.y ?? 0.5) * 100}%`,
             transform: `translate(${pose.x * zoom}px, ${pose.y * zoom}px) rotate(${pose.angle}deg) scale(${pose.scale})`,
           }}>
             <Look object={props.object} project={props.project} />
@@ -114,6 +115,10 @@ export function AnimationEditor(props: { initial: AnimateBehavior; object: GameO
               <Slider label="پیدا بودن" min={0} max={1} step={0.05} value={key.opacity} onChange={(opacity) => change({ opacity })} />
             </div>
           )}
+          <Slider label="نقطه‌ی چرخش: چپ تا راست" hint="دور کجای شیء بچرخد. وسط ۰٫۵ است. برای دست و پا، چرخش را روی شانه یا لگن بگذار (بالا و وسط)." min={0} max={1} step={0.05} value={draft.pivot?.x ?? 0.5}
+            onChange={(x) => setDraft((d) => ({ ...d, pivot: { x, y: d.pivot?.y ?? 0.5 } }))} />
+          <Slider label="نقطه‌ی چرخش: بالا تا پایین" min={0} max={1} step={0.05} value={draft.pivot?.y ?? 0.5}
+            onChange={(y) => setDraft((d) => ({ ...d, pivot: { x: d.pivot?.x ?? 0.5, y } }))} />
           <Select label="تکرار" value={draft.repeat} options={[{ value: 'loop', label: 'از اول، پشت سر هم' }, { value: 'bounce', label: 'رفت و برگشت' }, { value: 'once', label: 'فقط یک بار' }]}
             onChange={(repeat) => setDraft((d) => ({ ...d, repeat: repeat as AnimateBehavior['repeat'] }))} />
           <Select label="حرکت بین کلیدها" value={draft.ease} options={[{ value: 'smooth', label: 'نرم' }, { value: 'linear', label: 'یکنواخت' }]}

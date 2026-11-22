@@ -615,6 +615,65 @@ export const ART_SPRITES: Sprite[] = [
       `<rect x="8" y="6" width="284" height="3" rx="1.5" fill="#ffffff" fill-opacity="0.5"/>`,
     ),
   },
+  // ── Scenery pack: things to dress a level with ──
+  {
+    id: 'oak-tree', name: 'درخت بلوط', category: 'scenery', width: 180, height: 240,
+    body: draw((k) =>
+      `<path d="M80 150h22l6 86H74z" fill="${k.side('#8a5a34')}" ${ol('#8a5a34', 3)}/>` +
+      `<circle cx="90" cy="92" r="70" fill="${k.sphere('#43a047')}" ${ol('#43a047', 4)}/>` +
+      `<circle cx="48" cy="120" r="38" fill="${k.sphere('#4caf50', 0.4, 0.3)}" ${ol('#43a047', 3)}/>` +
+      `<circle cx="134" cy="118" r="40" fill="${k.sphere('#4caf50', 0.4, 0.3)}" ${ol('#43a047', 3)}/>` +
+      shine(k, 70, 52, 22, 10, -25, 0.5)),
+  },
+  {
+    id: 'flower-bush', name: 'بوته‌ی گل‌دار', category: 'scenery', width: 160, height: 90,
+    body: draw((k) =>
+      `<path d="M8 86c-6-30 20-46 38-36 6-28 48-34 62-8 22-10 46 8 42 44z" fill="${k.lin('#5cb85c', 0.4, 0.3)}" ${ol('#4a9a4a', 4)}/>` +
+      `<circle cx="52" cy="58" r="5" fill="#ff6b8a"/><circle cx="104" cy="50" r="5" fill="#ffd23f"/><circle cx="124" cy="70" r="4" fill="#ff6b8a"/>`),
+  },
+  {
+    id: 'boulder', name: 'تخته‌سنگ', category: 'scenery', width: 150, height: 110,
+    body: draw((k) =>
+      `<path d="M10 104 22 46 58 14l52 6 30 40 4 44z" fill="${k.lin('#9aa3ad', 0.35, 0.35)}" ${ol('#8a939d', 4)}/>` +
+      `<path d="M58 14 64 52 22 46M64 52l46-32M64 52l76 8" fill="none" stroke="rgba(40,50,60,0.35)" stroke-width="3"/>` +
+      shine(k, 52, 32, 16, 6, -30, 0.55)),
+  },
+  {
+    id: 'mushroom', name: 'قارچ', category: 'scenery', width: 100, height: 110,
+    body: draw((k) =>
+      `<path d="M38 60h24l4 46H34z" fill="${k.side('#f3ead8')}" ${ol('#c9b896', 3)}/>` +
+      `<path d="M6 62C6 20 94 20 94 62z" fill="${k.lin('#e53935', 0.4, 0.3)}" ${ol('#e53935', 4)}/>` +
+      `<circle cx="30" cy="42" r="7" fill="#fff"/><circle cx="58" cy="32" r="8" fill="#fff"/><circle cx="76" cy="50" r="6" fill="#fff"/>`),
+  },
+  {
+    id: 'signpost', name: 'تابلو راهنما', category: 'scenery', width: 130, height: 150,
+    body: draw((k) =>
+      `<rect x="58" y="40" width="14" height="108" rx="4" fill="${k.side('#8a5a34')}" ${ol('#8a5a34', 3)}/>` +
+      `<path d="M8 18h96l20 22-20 22H8z" fill="${k.lin('#c98c4c', 0.35, 0.3)}" ${ol('#a8743f', 4)}/>` +
+      `<path d="M26 40h60" stroke="#6b4527" stroke-width="6" stroke-linecap="round"/><path d="M78 30l10 10-10 10" fill="none" stroke="#6b4527" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`),
+  },
+  {
+    id: 'fence', name: 'نرده', category: 'scenery', width: 200, height: 90,
+    body: draw((k) =>
+      [10, 58, 106, 154].map((x) => `<path d="M${x} 86V18l18-14 18 14v68z" fill="${k.lin('#f3ead8', 0.25, 0.25)}" ${ol('#bfae8a', 3)}/>`).join('') +
+      `<rect x="4" y="32" width="192" height="12" rx="4" fill="#e6dac0" ${ol('#bfae8a', 3)}/><rect x="4" y="62" width="192" height="12" rx="4" fill="#e6dac0" ${ol('#bfae8a', 3)}/>`),
+  },
+  {
+    id: 'lamp-post', name: 'چراغ پایه‌دار', category: 'scenery', width: 80, height: 240,
+    body: draw((k) =>
+      `<rect x="34" y="60" width="12" height="172" rx="5" fill="${k.side('#3d4656')}" ${ol('#3d4656', 3)}/>` +
+      `<rect x="22" y="222" width="36" height="14" rx="5" fill="#2c3340"/>` +
+      `<path d="M16 60h48l-8-40H24z" fill="${k.lin('#ffe08a', 0.5, 0.2)}" ${ol('#3d4656', 4)}/>` +
+      `<circle cx="40" cy="40" r="26" fill="#fff3b0" opacity="0.35" filter="url(#${k.def((id) => `<filter id="${id}"><feGaussianBlur stdDeviation="6"/></filter>`)})"/>`),
+  },
+  {
+    id: 'crystal', name: 'کریستال', category: 'scenery', width: 110, height: 140,
+    body: draw((k) =>
+      `<path d="M54 6 86 50 70 134H38L22 50z" fill="${k.lin('#7fe8ff', 0.5, 0.3)}" ${ol('#3fb8d8', 4)}/>` +
+      `<path d="M54 6v128M22 50h64" stroke="rgba(255,255,255,0.5)" stroke-width="3"/>` +
+      `<path d="M90 70 104 94 96 132H80z" fill="${k.lin('#b388ff', 0.5, 0.3)}" ${ol('#8f5ff0', 3)}/>` +
+      glint(40, 30, 8)),
+  },
   {
     id: 'ladder', name: 'نردبان', category: 'ground', width: 100, height: 400,
     body: draw((k) =>

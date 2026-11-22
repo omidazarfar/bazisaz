@@ -147,6 +147,8 @@ export const TILE_STYLE_OPTIONS: Option[] = [
   { value: 'metal', label: 'فلز' },
   { value: 'sand', label: 'شن' },
   { value: 'snow', label: 'برف روی سنگ' },
+  { value: 'water', label: 'آب (موج می‌زند)' },
+  { value: 'lava', label: 'گدازه (موج می‌زند)' },
 ];
 /** The music that comes with the engine, in words, for pick lists. */
 export const BUILTIN_MUSIC_OPTIONS: Option[] = [

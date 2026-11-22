@@ -2468,6 +2468,43 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13o. Lab 26: water and lava that move, limbs turning about their joints ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab26', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentysix', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      objects: [
+        box('pool', 0, 1000, 720, 240, { visual: { kind: 'tiles', cell: 80, rows: ['wwwwwwwww', 'lllllllll', 'lllllllll'], kinds: {
+          w: { name: 'water', color: '#3fa9e8', tags: [], style: 'water' }, l: { name: 'lava', color: '#ff7a1a', tags: [], style: 'lava' } } } }),
+        box('arm', 100, 100, 20, 100, { behaviors: [{ type: 'animate', repeat: 'once', ease: 'linear', pivot: { x: 0.5, y: 0 }, keys: [{ t: 0, x: 0, y: 0, angle: 90, scale: 1, opacity: 1 }] }] }),
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.2);
+  const frames = new Set();
+  for (let t = 0.3; t <= 1.2; t += 0.1) {
+    await untilTime(page, t);
+    frames.add((await gameState(page)).liquidFrame);
+  }
+  check('water and lava tiles move through their frames while the game plays', frames.size >= 3 && !frames.has(-1), JSON.stringify([...frames]));
+  await page.screenshot({ path: resolve(shots, '26-liquids.png') });
+  const arm = (await gameState(page)).entities.find((e) => e.id === 'arm');
+  check('a limb turned a quarter round its shoulder (the top middle) hangs out to the side of it', Math.abs(arm.x - 50) < 2 && Math.abs(arm.y - 50) < 2, arm.x.toFixed(1) + ', ' + arm.y.toFixed(1));
+  check('lab 26: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },
