@@ -1589,10 +1589,11 @@ sc = await scene();
 const limbs = sc.objects.filter((o) => o.behaviors.some((b) => b.type === 'animate' && b.pivot));
 check('cut-out part: four limbs pinned to a body, each swinging about its joint', sc.objects.length === 6 && limbs.length === 4 && limbs.every((o) => o.behaviors.some((b) => b.type === 'attach')));
 await click('امتحان کن');
-await until(page, () => window.__game.getState().time > 0.3, null, 60000);
+// A swing takes half a second each way: a quarter of the way and halfway are far apart.
+await until(page, () => window.__game.getState().time > 0.25, null, 60000);
 const armId = sc.objects.find((o) => o.name === 'دست جلویی').id;
 const angle1 = (await gameState(page)).entities.find((e) => e.id === armId).angle;
-await until(page, () => window.__game.getState().time > 0.7, null, 60000);
+await until(page, () => window.__game.getState().time > 0.5, null, 60000);
 const angle2 = (await gameState(page)).entities.find((e) => e.id === armId).angle;
 check('in the try-out the arm swings', Math.abs(angle2 - angle1) > 0.1, angle1.toFixed(2) + ' → ' + angle2.toFixed(2));
 await click('توقف');
