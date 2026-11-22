@@ -275,6 +275,7 @@ export const BEHAVIORS: { [K in Behavior['type']]: Block<Extract<Behavior, { typ
       { key: 'color', label: 'رنگ', kind: 'color' },
       slider('rate', 'چند تا در ثانیه', 1, 120, 1, 'زیاد کردنش روی گوشی ضعیف سنگین است؛ ۴۰ معمولاً کافی است.'),
       slider('size', 'اندازه‌ی هر ذره', 2, 60, 1),
+      { key: 'onGroundMove', label: 'فقط هنگام حرکت روی زمین', kind: 'bool', fallback: false },
       slider('speed', 'سرعت', 0.2, 3, 0.1, 'یک یعنی سرعت معمول همین نوع ذره.'),
     ],
   },

@@ -234,6 +234,7 @@ export function behaviorSentence(scene: Scene, b: Behavior): string {
     case 'trail': return 'پشت سرش رد رنگی می‌گذارد';
     case 'particles': {
       const kinds: Record<typeof b.preset, string> = { fire: 'آتش', smoke: 'دود', rain: 'باران', snow: 'برف', sparkle: 'برق و ستاره', bubbles: 'حباب', confetti: 'کاغذ رنگی', sparks: 'جرقه', petals: 'گلبرگ', feathers: 'پَر', poison: 'حباب سم', frost: 'یخ‌زدگی', glitter: 'اکلیل', coins: 'سکه', ash: 'خاکستر', rainbow: 'رنگین‌کمان', splash: 'آب', sand: 'شن', embers: 'جرقه‌ی آتش', leaves: 'برگ پاییزی', dust: 'گرد و خاک', magic: 'ذره‌های جادویی', hearts: 'قلب', steam: 'بخار', electric: 'جرقه‌ی برق', portal: 'ذره‌های چرخان', waterfall: 'آبشار', fireflies: 'کرم شب‌تاب', stars: 'ستاره', drip: 'چکه' };
+      if (b.onGroundMove) return `فقط هنگام حرکت روی زمین از آن ${kinds[b.preset]} بیرون می‌آید`;
       return b.preset === 'rain' || b.preset === 'snow' || b.preset === 'leaves' || b.preset === 'drip' || b.preset === 'petals' || b.preset === 'ash' || b.preset === 'waterfall' ? `از آن ${kinds[b.preset]} می‌بارد` : `از آن ${kinds[b.preset]} بیرون می‌آید`;
     }
     case 'light': return `در تاریکی دورش را روشن می‌کند${b.flicker ? '، مثل شعله‌ای که می‌لرزد' : ''}${b.shadowTag ? `؛ ${group(b.shadowTag)} سایه می‌اندازد` : ''}`;

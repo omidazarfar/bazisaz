@@ -1,6 +1,7 @@
 // Plays the built games in a real browser: both starters from start to
 // restart, then a lab scene that exercises every behavior, trigger and action.
 // Run `npm run build` first.
+import { tick as botTick } from './bots/bot.mjs';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { check, clickGame, entity, finish, gameState, launch, openPage, root, shots, silentWav, sleep, solidPng, toPage, until, untilTime } from './lib.mjs';
@@ -1814,9 +1815,12 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   // Both contact systems sample the same flat middle ledge. The empty space above it is traversable.
   const phys = { type: 'physics', kind: 'moving', gravity: true, weight: 1, bounce: 0, friction: 0.6, rotates: false, solidTag: 'ground', edges: false, drag: 'none', power: 1 };
   const ledge = box('ledge', 0, 700, 720, 300, { tags: ['ground'], visual: {kind:'terrain', color:'#437754', heights:[0.1,0.5,0.5,0.5,0.1]} });
-  const lab = { ...rooms, scenes: [{...rooms.scenes[0], width:720, gravity:1100, rules:[], objects: [
+  const lab = { ...rooms, scenes: [{...rooms.scenes[0], width:720, gravity:1100, rules:[
+    {id:'walk', when:{type:'tap'}, condition:null, then:[{type:'push', target:{by:'id', id:'walker'}, vx:100, vy:0}]}
+  ], objects: [
     ledge, box('wheel',245,480,40,40,{round:true,behaviors:[phys]}),
-    box('walker',425,480,40,40,{behaviors:[{type:'body', solidTag:'ground', gravity:true, edges:'none', bounce:0}]}),
+    box('walker',425,480,40,40,{behaviors:[{type:'body', solidTag:'ground', gravity:true, edges:'none', bounce:0},
+      {type:'particles', preset:'dust', size:10, speed:1, color:'#d6ad77', rate:32, onGroundMove:true}]}),
   ]}] };
   const terrain = await openPage(browser, url, {project:lab});
   await loaded(terrain.page);
@@ -1826,12 +1830,15 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
     const e = settled.find(o => o.id === id);
     check('drawn terrain supports ' + id + ' at the painted height', Math.abs(e.y + e.height - 850) < 3, String(e.y));
   }
+  check('ground dust stays off while the walker is parked', (await gameState(terrain.page)).particles === 0);
+  await clickGame(terrain.page, 360, 640);
+  check('ground dust starts when the walker moves', await until(terrain.page, () => window.__game.getState().particles >= 3, null, 5000));
   check('terrain renders without page errors', !terrain.errors.length, terrain.errors.join(' | '));
   await terrain.page.close();
   // Equal radii at different masses must produce equal acceleration, even on opposite sides.
   const gravityField = box('field', 80, 260, 560, 560, { visual:{kind:'ellipse',color:'#6788aa'}, behaviors:[{type:'field',kind:'planet',direction:0,strength:420}] });
   const floater = (id,x,y,extra) => box(id,x-10,y-10,20,20,{behaviors:[{...phys,gravity:false,...extra}]});
-  const forces = {...lab, scenes:[{...lab.scenes[0], gravity:1200, objects:[
+  const forces = {...lab, scenes:[{...lab.scenes[0], gravity:1200, rules:[], objects:[
     gravityField, floater('light',220,540,{weight:0.3}), floater('heavy',500,540,{weight:4}), floater('far',360,795,{}),
     box('water',0,910,720,350,{behaviors:[{type:'field',kind:'water',strength:1,direction:0}]}),
     floater('boat',110,980,{weight:0.6,gravity:true,propeller:1200}), floater('dry',110,90,{propeller:1200})
@@ -2293,8 +2300,9 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   };
   let { page, errors } = await openPage(browser, url, { project });
   await loaded(page);
-  await until(page, () => window.__game.getState().dialogue !== null, null, 5000);
+  await botTick(page, 2);
   let s = await gameState(page);
+  check('a bot waiting on the clock gets control when dialogue needs input', Boolean(s.dialogue) && s.time < 2);
   check('say: a box shows who speaks and what, with values filled in', s.dialogue.speaker === 'Guide' && s.dialogue.text === 'Hello 42', JSON.stringify(s.dialogue));
   const frozen = s.time;
   await sleep(400);

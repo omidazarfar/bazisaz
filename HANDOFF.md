@@ -109,7 +109,9 @@ and a Persian guide entry.
    `zoomPunch` action (scales `scenery` about the screen centre) and
    `shake.axis` ('side' or 'up'). Rock Smash's barrel and the Star Raiders
    boss use the ripple and punch. Outline glow already existed (object glow).
-   Not done: a separate particle editor, dissolve, layered maps, animated
+   The particle workshop now previews all 30 presets and edits their colour,
+   rate, size and speed. Rescue Relay uses it for rear-wheel dust.
+   Still open: dissolve, layered maps, animated
    tiles, autotile edges (tile materials already draw open edges). Original list: Real lights and shadows cast by walls, flickering torches,
    day/night; rain, snow, fog, wind; a particle editor with 30+ presets;
    hit-stop, directional shake, impact zoom, flash, floating damage numbers;
@@ -185,7 +187,7 @@ To see them: `node scripts/look/gameplay.mjs <genre>` and `node scripts/look/pla
 | `npm run build` | type-check, then build the player (`dist/`) and the editor (`dist-editor/editor.html`), each a single file |
 | `npm test` | `scripts/smoke.mjs` (runtime labs 1–18), then `scripts/editor.smoke.mjs` (drives the real editor), then `scripts/server.smoke.mjs`; uses puppeteer-core and Chrome |
 | `npx tsc --noEmit -p .` | type-check only |
-| `npm run bots` | builds the six genre-helper games fresh in the editor, then a bot plays each one in the real player from the start screen to "You win" (the shooter: 35 s of waves without dying). Needs `npm run build` first; takes longer on software-rendered Chrome. Each bot can also run alone: `node scripts/bots/<genre>.mjs [seconds]`; photographs of every life lost go to `scripts/bots/out/` |
+| `npm run bots` | exports the ten genre-helper games fresh in the editor, then plays each in the real player and checks its goal (the shooter: survive 35 s). Build first. Run one bot with `node scripts/bots/<genre>.mjs`. Screenshots go to `scripts/bots/out/` |
 
 Shell is **Windows PowerShell 5.1**: no `&&`. `Set-Content` writes ANSI and
 corrupts Persian, so write files with an editor tool, or with
@@ -265,6 +267,8 @@ look:
 
 ## Current state (keep this up to date)
 
+- 2026-11-22, Codex. Open an object's «ذرات» behaviour and choose «ویرایش جلوه‌ی ذرات» for a live preview of all 30 presets. Apply makes one undoable edit. The rear wheel in newly generated Rescue Relay games emits dust while rolling on the ground. Dungeon Escape's opening conversation exposed a bot timing bug, fixed in the shared bot wait. See today's session log for verification.
+
 - Updated 2026-11-21 (night) by Claude: a picture manager (game panel «عکس‌ها»), a sound switch in the pause menu (saved value `sound`), Chrome's low-memory mode for the tests (`LOW_MEMORY=1`) and `npm run check:slow` (one piece at a time, for a busy computer). Verified on the current code: `npm test` **590 PASS, 0 FAIL** (312 runtime, 254 editor, 24 server); `npm run bots` 10 of 10 (Dungeon Escape on its second try: the first run timed out at score 0, probably stuck at the opening dialogue; worth a look).
 - Updated 2026-11-21 (end of day) by Claude: phases 4 to 7 started (see the plan); ten genre games. Verified on commit 40b691f: `npm run build` passed; `npm test` **584 PASS, 0 FAIL** (312 runtime, 248 editor, 24 server); `npm run bots` **10 of 10 on the first try**. Memory on this computer is tight: `npm run check` in one go was stopped twice for low memory, so run `npm test` and `npm run bots` one after the other.
 - Updated 2026-11-21 (later) by Claude: Phase 2 mostly done and Phase 3 started (see the plan). Verified after the last change: `npm test` **567 PASS, 0 FAIL** (301 runtime, 242 editor, 24 server); `npm run bots` 6 of 6 on the first try (the shooter met the boss and kept all three lives).
@@ -301,7 +305,7 @@ already overlapping pair, move the patrol clear of the player's start.
 
 ### Next work
 
-Phase 1 is done. Continue Phase 2 (graphics) with what is still open in the plan above, then Phase 3. Use a playable scene, tests, a bot, visual inspection and a Persian guide entry for each. Verify touch driving, terrain drawing, wall shadows and weather speed on a real phone when the owner has one available. Debug helpers: `node scripts/bots/peek-scene.mjs <genre> "<scene>" [seconds] [hold|none] [names]` opens one scene of an exported game and prints objects over time; `node scripts/bots/probe-joints.mjs <genre> "<scene>"` lists its physics joints.
+Phase 1 is done. For Phase 2, the next small feature is dissolve with a playable use. Layered maps, animated tiles and autotile transitions remain. Then continue Phase 3. Use a playable scene, tests, a bot, visual inspection and a Persian guide entry for each. Verify touch driving, terrain drawing, wall shadows and weather speed on a real phone when the owner has one available. Debug helpers: `node scripts/bots/peek-scene.mjs <genre> "<scene>" [seconds] [hold|none] [names]` opens one scene of an exported game and prints objects over time; `node scripts/bots/probe-joints.mjs <genre> "<scene>"` lists its physics joints.
 
 ### Historical "complex games" roadmap (agreed by the owner 2026-11-19)
 
@@ -423,6 +427,13 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-22 — Codex, Dungeon Escape bot and particle workshop
+
+- Reproduced the Dungeon Escape timeout in Chrome. The Knight spoke at about 0.81 s and game time correctly stopped for input. A bot already waiting for two seconds of game time could never get back to its dialogue handler. The bot now ends a timed wait when a dialogue opens. Lab 23 covers dialogue opening during a wait and continuing after player input.
+- Added a Persian particle workshop with a live preview using the game's particle motion and drawing code. Draft edits can be cancelled or applied together. The optional grounded-motion switch gives the Mountain trail motorcycle rear-wheel dust. Runtime checks exercise parked and moving conditions. The editor check covers preview colour, cancel, apply, undo, redo and reopening the saved project. Rescue's bot takes the riding screenshot after particles appear.
+- Closing the workshop originally cleared Pixi's shared render resources while the editor canvas still needed them. Confirmed the stack in Chrome, switched to per-renderer cleanup and repeated the open, cancel, apply and reopen sequence without page errors. The versions test now waits for its restore button when the game tab reloads its list from IndexedDB.
+- Final build passed. `npm test` passed 597 checks (315 runtime, 258 editor, 24 server), zero failures. All ten bots passed. Dungeon Escape won on its first try with 62 points and two lives. Shooter reached the boss and survived 35 s with all three lives. Rescue won with 600. Rock Smash and Brick Blitz won on their second attempts. Inspected `test-output/editor-particle-workshop.png` and `scripts/bots/out/rescue-03-bike.png`. Verified in Chrome on Windows. Real-phone testing remains open.
 
 ### 2026-11-21 — Claude, review of Codex's work, end of Phase 1, start of Phase 2
 

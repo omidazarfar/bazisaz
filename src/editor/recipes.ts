@@ -214,6 +214,7 @@ export const RECIPES: Recipe[] = [
       const wheels = (bike ? [-57, 56] : [-66, -22, 22, 66]).map((dx, i) => makeObject('چرخ ' + (i + 1),
         { kind: 'image', asset: tire.asset }, size, size, { x: cx + dx, y: cy + 26 }, { round: true,
           behaviors: [physics({ friction: 1.1, bounce: 0 }), { type: 'joint', kind: 'wheel', targetTag: axle, at: 'self', drive: 'player', motor: bike ? 690 : 530 }] }));
+      if (bike) wheels[0].behaviors.push({ type: 'particles', preset: 'dust', color: '#d6ad77', rate: 32, size: 10, speed: 1.2, onGroundMove: true });
       return { project: addAll(tire.project, s, [body, ...wheels]), select: body.id };
     },
   })),

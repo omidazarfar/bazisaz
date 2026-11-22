@@ -260,7 +260,9 @@ The editor, file by file:
 In edit mode the runtime also handles zoom, sliding the view, selecting
 several objects, snapping to other objects or a grid, and locked objects.
 
-## Where the project stands (20 November 2026)
+## Where the project stands (22 November 2026)
+
+- The particle workshop previews all 30 streams live. Apply saves an editable object behavior in one undo step. Rescue Relay uses movement-triggered dust on the trail bike’s rear wheel.
 
 - Games can store named text for player names and quest objectives. A text object displays `{quest}`; a rule can set it or react when it equals a particular string. Text follows the game across scenes and participates in save/continue.
 - The library includes dungeon, space and forest art and four characters with

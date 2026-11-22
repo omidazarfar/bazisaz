@@ -7,7 +7,7 @@ import { Fields } from './Fields';
 import { pickFile, pickFiles, readImage } from './images';
 import { BEHAVIOR_GROUPS, BEHAVIORS, COMMON_BEHAVIORS, fa, whyNot, type Context } from './labels';
 import { SpriteGrid, spriteVisual } from './Library';
-import { PARTICLE_COLORS } from '../runtime/particles';
+import { ParticleEditor, changeParticleSetting } from './ParticleEditor';
 import { emptyArt, PixelEditor, pngToArt, type PixelArt } from './PixelEditor';
 import { TilesPanel } from './TilesPanel';
 import { Dialog, PickButton } from './Pick';
@@ -69,6 +69,7 @@ function TemplateTools({ editor, object }: { editor: Editor; object: GameObject 
 export function Inspector({ editor }: { editor: Editor }) {
   const { project, scene, selection, change } = editor;
   const found = selection ? findObject(scene, selection) : null;
+  const [particleObject, setParticleObject] = useState<string | null>(null);
   const [newTag, setNewTag] = useState('');
   const [choosingPicture, setChoosingPicture] = useState(false);
   const [newValue, setNewValue] = useState('');
@@ -170,10 +171,8 @@ export function Inspector({ editor }: { editor: Editor }) {
     );
 
   const setBehavior = (index: number, key: string, value: unknown) => {
-    const next = { ...object.behaviors[index], [key]: value } as Behavior;
     const before = object.behaviors[index];
-    // A new kind of particle takes its own colour, unless the colour had been picked by hand.
-    if (next.type === 'particles' && before.type === 'particles' && key === 'preset' && before.color === PARTICLE_COLORS[before.preset]) next.color = PARTICLE_COLORS[next.preset];
+    const next = before.type === 'particles' ? changeParticleSetting(before, key, value) : { ...before, [key]: value } as Behavior;
     // Water measures its strength on another scale than wind and magnets; each kind starts from a strength that works.
     if (next.type === 'field' && key === 'kind') next.strength = next.kind === 'water' ? 1 : 3000;
     if (next.type === 'spawner') {
@@ -491,6 +490,14 @@ export function Inspector({ editor }: { editor: Editor }) {
             about={info.about}
             action={<button type="button" className="link" onClick={() => removeBehavior(behavior.type)}>حذف رفتار</button>}
           >
+            {behavior.type === 'particles' && <>
+              <button type="button" className="chip" data-edit-particles onClick={() => setParticleObject(object.id)}>ویرایش جلوه‌ی ذرات</button>
+              {particleObject === object.id && <ParticleEditor initial={behavior} width={object.width} height={object.height} ctx={ctx}
+                onClose={() => setParticleObject(null)} onApply={draft => {
+                  if (draft !== behavior) update(newId('particles'), o => ({ ...o, behaviors: o.behaviors.map((b, i) => i === index ? draft : b) }));
+                  setParticleObject(null);
+                }} />}
+            </>}
             <Fields fields={info.fields} value={behavior as unknown as Record<string, unknown>} ctx={ctx} onChange={(key, value) => setBehavior(index, key, value)} />
             {!['body', 'physics', 'joint'].includes(behavior.type) && (
               <div className="control">

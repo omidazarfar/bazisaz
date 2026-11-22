@@ -55,7 +55,7 @@ export function particle(b: ParticlesBehavior): ParticleSpec {
     case 'bubbles':
       return { ...base, at: { x: between(0.3, 0.7), y: 0.8 }, ...fly(aim(-90, 8), between(60, 120)), gravity: -20, life: between(2, 3), wobble: 25, shape: 'ring', alpha: 0.85 };
     case 'confetti':
-      return { ...base, at: { x: 0.5, y: 0.5 }, ...fly(aim(-90, 45), between(450, 750)), gravity: 900, life: 2.4, spin: between(-9, 9), shape: 'square', height: s * 0.55, color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)] };
+      return { ...base, at: { x: 0.5, y: 0.5 }, ...fly(aim(-90, 45), between(450, 750)), gravity: 900, life: 2.4, spin: between(-9, 9), shape: 'square', height: s * 0.55, color: b.color === PARTICLE_COLORS[b.preset] ? CONFETTI[Math.floor(Math.random() * CONFETTI.length)] : mixed(b.color, CONFETTI) };
     case 'embers':
       // Sparks off a fire: small, bright, rising and swaying, dying out.
       return { ...base, at: { x: between(0.2, 0.8), y: 0.7 }, ...fly(aim(-90, 30), between(60, 150)), gravity: -40, life: between(1, 1.8), grow: 0.3, wobble: 30, shape: 'dot', width: s * 0.35, height: s * 0.35, glow: true };
@@ -103,7 +103,7 @@ export function particle(b: ParticlesBehavior): ParticleSpec {
     case 'ash':
       return { ...base, at: { x: Math.random(), y: 0 }, ...fly(aim(95, 20), between(20, 50)), gravity: 5, life: between(4, 6), wobble: 20, spin: between(-2, 2), shape: 'square', width: s * 0.3, height: s * 0.3, alpha: 0.6 };
     case 'rainbow':
-      return { ...base, at: { x: between(0.2, 0.8), y: 0.7 }, ...fly(aim(-90, 35), between(80, 160)), gravity: -20, life: between(1, 1.6), grow: 0.2, shape: 'dot', glow: true, color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)] };
+      return { ...base, at: { x: between(0.2, 0.8), y: 0.7 }, ...fly(aim(-90, 35), between(80, 160)), gravity: -20, life: between(1, 1.6), grow: 0.2, shape: 'dot', glow: true, color: b.color === PARTICLE_COLORS[b.preset] ? CONFETTI[Math.floor(Math.random() * CONFETTI.length)] : mixed(b.color, CONFETTI) };
     case 'splash':
       return { ...base, at: { x: between(0.3, 0.7), y: 0.9 }, ...fly(aim(-90, 50), between(200, 380)), gravity: 1200, life: between(0.5, 0.8), grow: 0.5, shape: 'dot', width: s * 0.45, height: s * 0.45, alpha: 0.85 };
     case 'sand':

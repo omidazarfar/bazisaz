@@ -37,10 +37,16 @@ export async function state(page) {
   process.exit(2);
 }
 
-/** Waits until the game's own clock has moved on by `seconds` (headless Chrome runs slower than real time). */
+/** Return control to the pilot when time advances, the scene changes, or dialogue needs input. */
 export async function tick(page, seconds) {
-  const { time, scene } = await page.evaluate(() => ({ time: window.__game.getState().time, scene: window.__game.getState().scene }));
-  await page.waitForFunction((t, s) => window.__game.getState().time >= t || window.__game.getState().scene !== s, { timeout: 60000 }, time + seconds, scene);
+  const { time, scene } = await page.evaluate(() => {
+    const { time, scene } = window.__game.getState();
+    return { time, scene };
+  });
+  await page.waitForFunction((end, previous) => {
+    const s = window.__game.getState();
+    return s.time >= end || s.scene !== previous || Boolean(s.dialogue);
+  }, { timeout: 60000 }, time + seconds, scene);
 }
 
 /**

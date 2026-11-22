@@ -31,8 +31,14 @@ try {
   for (const [i, name] of ['Mountain trail', 'Rescue ridge', 'Harbor crossing', 'Clockwork lift'].entries()) {
     const run = await current(name);
     assert.equal(run.variables.score, 200 + 100 * i);
-    await watch.shot(['bike', 'crawler', 'boat', 'gears'][i]);
     await page.keyboard.down('ArrowRight');
+    if (name === 'Mountain trail') {
+      await page.waitForFunction(id => {
+        const s = window.__game.getState();
+        return s.scene === id && s.particles >= 4;
+      }, { timeout: 15000 }, run.scene);
+    }
+    await watch.shot(['bike', 'crawler', 'boat', 'gears'][i]);
   }
   const win = await current('You win');
   await page.keyboard.up('ArrowRight');

@@ -1036,6 +1036,39 @@ await pick('اضافه کردن رفتار', 'particles', '.panel-inspector');
 check('particles stream even while editing, so they can be judged', await until(page, () => window.__game.getState().particles > 5, null, 5000));
 await click('برف', '.panel-inspector');
 check('choosing another kind of particle brings its own colour', (await object(animated.id)).behaviors.find((b) => b.type === 'particles').color === '#ffffff');
+const stream = async () => (await object(animated.id)).behaviors.find(b => b.type === 'particles');
+await page.click('[data-edit-particles]');
+await setControl('چه جور ذره‌ای', 'dust', '.modal');
+await click('انصراف', '.modal');
+check('closing a particle draft keeps the saved stream', (await stream()).preset === 'snow');
+await page.click('[data-edit-particles]');
+await setControl('چه جور ذره‌ای', 'dust', '.modal');
+await setControl('چند تا در ثانیه', 64, '.modal');
+await setControl('سرعت', 1.7, '.modal');
+await setControl('اندازه‌ی هر ذره', 22, '.modal');
+await page.click('.modal button[aria-label="رنگ #26c6da"]');
+const previewDrawn = await until(page, () => {
+  const canvas = document.querySelector('.particle-preview canvas');
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return false;
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i] < 70 && data[i + 1] > 150 && data[i + 2] > 160 && data[i + 3] > 30) return true;
+  }
+  return false;
+}, null, 10000);
+check('particle workshop draws the selected colour in its live preview', previewDrawn);
+await page.screenshot({ path: resolve(shots, 'editor-particle-workshop.png') });
+await page.click('[data-apply-particles]');
+await click('یک قدم به عقب', '.topbar');
+check('one undo restores the entire previous particle effect', (await stream()).preset === 'snow' && (await stream()).rate === 40);
+await click('یک قدم به جلو', '.topbar');
+await page.reload();
+await until(page, () => window.__game && window.__editor, null, 20000);
+const keptStream = await stream();
+check('applied particles survive reopening the editor', keptStream.preset === 'dust' && keptStream.color === '#26c6da' &&
+  keptStream.rate === 64 && keptStream.speed === 1.7 && keptStream.size === 22);
+await clickRow(animated.name);
 await pick('اضافه کردن رفتار', 'light', '.panel-inspector');
 await click('بازی', '.tabs');
 await setControl('تاریکی صحنه', 0.8);
@@ -1415,6 +1448,8 @@ const keptObjects = (await editor()).project.scenes.reduce((n, s) => n + s.objec
 await click('+ متن', '.object-list');
 check('(a change after it)', (await editor()).project.scenes.reduce((n, s) => n + s.objects.length, 0) === keptObjects + 1);
 await click('بازی', '.tabs');
+// Reopening this tab loads versions from IndexedDB before the restore button appears.
+await page.waitForSelector('[data-restore]', { visible: true });
 await page.click('[data-restore]');
 check('versions: going back to a kept version undoes what came after', await until(page, (n) => window.__editor.getState().project.scenes.reduce((m, s) => m + s.objects.length, 0) === n, keptObjects, 5000));
 await page.screenshot({ path: resolve(shots, 'editor-game-tools.png') });

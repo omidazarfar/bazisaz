@@ -111,6 +111,8 @@ export function validateProject(project: GameProject): string[] {
       if (types.has('jumper') && !types.has('body') && !types.has('physics')) say(`${where}: "${obj.id}" jumps but has no body.`);
       if (types.has('body') && types.has('physics')) say(`${where}: "${obj.id}" has both a body and real physics; it can have only one.`);
       for (const b of obj.behaviors) {
+        if (b.type === 'particles' && b.onGroundMove !== undefined && typeof b.onGroundMove !== 'boolean')
+          say(`${where}: "${obj.id}" needs a boolean for moving ground particles.`);
         if (b.type === 'physics' && !(b.weight > 0)) say(`${where}: "${obj.id}" needs a weight above zero.`);
       }
       for (const b of obj.behaviors) {

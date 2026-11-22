@@ -2220,3 +2220,30 @@ ol.rule-then li::before {
 .asset.unused {
   outline: 2px dashed #ff9f1c;
 }
+
+.modal-box > .particle-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.particle-workbench figure { margin: 0; position: sticky; top: 0; }
+.particle-workbench figcaption { color: #b8c4d8; font-size: 12px; margin-top: 6px; }
+.particle-preview {
+  border: 1px solid #475578;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 11 / 8;
+  background-color: #121a2c;
+  background-image: radial-gradient(#38445e 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.particle-preview canvas { display: block; width: 100%; height: 100%; }
+@media (max-width: 640px) {
+  .modal-box > .particle-workbench { grid-template-columns: 1fr; }
+  .particle-workbench figure { position: static; }
+  .particle-preview { max-width: 320px; margin-inline: auto; }
+}

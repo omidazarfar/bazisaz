@@ -427,6 +427,8 @@ export type Behavior = StateGate & (
 export interface ParticlesBehavior {
   type: 'particles';
   preset: ParticlePreset;
+  /** Emit during play only while travelling across a supporting surface. */
+  onGroundMove?: boolean;
   color: string;
   /** Particles per second. */
   rate: number;
