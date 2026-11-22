@@ -5,9 +5,32 @@ import { Dialog } from './Pick';
 
 export type PhoneLink = 'checking' | 'offline' | { urls: string[] } | { error: string };
 
+/** What a phone showing the game says about it, every two seconds. */
+export interface PhoneReport {
+  id: string;
+  name: string;
+  fps: number;
+  scene: string;
+  light: boolean;
+  errors: string[];
+  current: boolean;
+}
+
+/** The phones playing the game now; empty when none is or the server cannot be reached. */
+export async function phoneStatus(): Promise<PhoneReport[]> {
+  try {
+    const body = (await (await fetch('/api/phone/status', { cache: 'no-store' })).json()) as { devices?: PhoneReport[] };
+    return body.devices ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** Sends the game to the local server, which shows it to phones on the same Wi-Fi. */
-export async function sendToPhone(project: GameProject): Promise<PhoneLink> {
+export async function sendToPhone(project: GameProject, startOn: string | null = null): Promise<PhoneLink> {
   if (location.protocol === 'file:') return 'offline';
+  // Starting on the scene being worked on: the change is seen at once, not after the menus.
+  if (startOn && project.scenes.some((s) => s.id === startOn)) project = { ...project, startScene: startOn };
   try {
     const response = await fetch('/api/phone', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project }) });
     const body = (await response.json()) as { urls?: string[]; error?: string };
@@ -35,7 +58,10 @@ function Qr({ text }: { text: string }) {
  * same Wi-Fi, and the phone's camera opens it from a QR code. While this is
  * on, every change in the editor reaches the phone a moment later.
  */
-export function PhoneDialog({ link, onClose, onStop }: { link: PhoneLink; onClose: () => void; onStop: () => void }) {
+export function PhoneDialog({ link, onClose, onStop, phones, fromScene, setFromScene, sceneNames }: {
+  link: PhoneLink; onClose: () => void; onStop: () => void;
+  phones: PhoneReport[]; fromScene: boolean; setFromScene: (on: boolean) => void; sceneNames: Record<string, string>;
+}) {
   const [which, setWhich] = useState(0);
   const urls = typeof link === 'object' && 'urls' in link ? link.urls : [];
   useEffect(() => setWhich(0), [urls.length]);
@@ -70,6 +96,23 @@ export function PhoneDialog({ link, onClose, onStop }: { link: PhoneLink; onClos
                 <button type="button" className="link" onClick={() => setWhich((which + 1) % urls.length)}>نشانی دیگر را امتحان کن</button>
               </p>
             )}
+            <label className="phone-from-scene">
+              <input type="checkbox" checked={fromScene} onChange={(ev) => setFromScene(ev.target.checked)} data-phone-from-scene />
+              از صحنه‌ای که الان باز است شروع شود (نه از صفحه‌ی شروع)
+            </label>
+            <div className="phone-devices" data-phone-devices>
+              {phones.length === 0 && <p className="hint">هنوز هیچ گوشی‌ای بازی را باز نکرده.</p>}
+              {phones.map((p) => (
+                <div key={p.id} className="phone-device" data-phone={p.id}>
+                  <strong>📱 {p.name}</strong>
+                  <span className={p.fps >= 50 ? 'fps good' : p.fps >= 30 ? 'fps ok' : 'fps slow'} data-fps={p.fps}>{p.fps.toLocaleString('fa-IR')} تصویر در ثانیه</span>
+                  <span>{sceneNames[p.scene] ?? 'در حال باز شدن'}{p.current ? '' : ' · نسخه‌ی قبلی'}</span>
+                  {p.light && <span className="field-warning">بازی روی این گوشی کند بود و جلوه‌های سنگین را خاموش کرد.</span>}
+                  {p.fps > 0 && p.fps < 30 && <span className="field-warning">کند است: سایه‌ی دیوار، آب و هوا، درخشش نورها و ظاهر قدیمی را کمتر کن.</span>}
+                  {p.errors.map((e, i) => <span key={i} className="field-error"><bdi dir="ltr">{e}</bdi></span>)}
+                </div>
+              ))}
+            </div>
             <div className="adders">
               <button type="button" className="chip" onClick={onStop}>قطع فرستادن به گوشی</button>
             </div>

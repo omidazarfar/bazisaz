@@ -14,7 +14,7 @@ import { Inspector } from './Inspector';
 import { findIssues, sceneName, type Issue } from './issues';
 import { fa } from './labels';
 import { ObjectList } from './ObjectList';
-import { PhoneDialog, sendToPhone, stopPhone, type PhoneLink } from './PhoneDialog';
+import { PhoneDialog, phoneStatus, sendToPhone, stopPhone, type PhoneLink, type PhoneReport } from './PhoneDialog';
 import { Dialog } from './Pick';
 import { Preview } from './Preview';
 import { Rules } from './Rules';
@@ -52,6 +52,8 @@ export function App({ saved }: { saved: GameProject | null }) {
   const [dialog, setDialog] = useState<null | 'export' | 'help' | 'issues' | 'phone'>(null);
   /** The game being shown on phones: null when it is not, else how it went. */
   const [phoneLink, setPhoneLink] = useState<PhoneLink | null>(null);
+  const [phones, setPhones] = useState<PhoneReport[]>([]);
+  const [fromScene, setFromScene] = useState(true);
   const [confirmingNew, setConfirmingNew] = useState(false);
   const [adShown, setAdShown] = useState<string | null>(null);
   const [view, setView] = useState<EditView>({ zoom: 1, tool: 'select', grid: 0 });
@@ -125,16 +127,28 @@ export function App({ saved }: { saved: GameProject | null }) {
   }, [project]);
   // While the game is on show on a phone, each change is sent to it a moment after the last edit.
   const phoneOn = typeof phoneLink === 'object' && phoneLink !== null && 'urls' in phoneLink;
+  const phoneScene = fromScene ? state.sceneId : null;
   useEffect(() => {
     if (!phoneOn) return;
-    const timer = setTimeout(() => void sendToPhone(project), 800);
+    const timer = setTimeout(() => void sendToPhone(project, phoneScene), 500);
     return () => clearTimeout(timer);
-  }, [project, phoneOn]);
+  }, [project, phoneOn, phoneScene]);
+  // What the phones say about the game: how fast it runs, and any errors.
+  useEffect(() => {
+    if (!phoneOn) {
+      setPhones([]);
+      return;
+    }
+    const look = () => void phoneStatus().then(setPhones);
+    look();
+    const timer = setInterval(look, 2000);
+    return () => clearInterval(timer);
+  }, [phoneOn]);
   const openPhone = () => {
     setDialog('phone');
     if (!phoneOn) {
       setPhoneLink('checking');
-      void sendToPhone(project).then(setPhoneLink);
+      void sendToPhone(project, phoneScene).then(setPhoneLink);
     }
   };
   useEffect(() => {
@@ -294,7 +308,7 @@ export function App({ saved }: { saved: GameProject | null }) {
           <button type="button" className="btn" onClick={download}>ذخیره‌ی فایل</button>
           <button type="button" className="btn" onClick={() => setDialog('help')}>راهنما</button>
           <button type="button" className={phoneOn ? 'btn btn-live' : 'btn'} title="بازی را روی گوشی خودت امتحان کن" onClick={openPhone}>
-            {phoneOn ? '● روی گوشی' : 'امتحان روی گوشی'}
+            {phoneOn ? (phones.length ? `● روی گوشی · ${Math.min(...phones.map((p) => p.fps)).toLocaleString('fa-IR')} FPS` : '● روی گوشی') : 'امتحان روی گوشی'}
           </button>
           <button type="button" className="block block-small" onClick={() => setDialog('export')}>خروجی اندروید</button>
         </div>
@@ -458,6 +472,10 @@ export function App({ saved }: { saved: GameProject | null }) {
       {dialog === 'phone' && phoneLink !== null && (
         <PhoneDialog
           link={phoneLink}
+          phones={phones}
+          fromScene={fromScene}
+          setFromScene={setFromScene}
+          sceneNames={Object.fromEntries(project.scenes.map((s) => [s.id, s.name]))}
           onClose={() => {
             setDialog(null);
             // Nothing was put on show, so there is nothing to keep sending.

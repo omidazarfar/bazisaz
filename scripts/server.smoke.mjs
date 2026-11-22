@@ -5,7 +5,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { check, finish, root, sleep } from './lib.mjs';
+import { check, finish, launch, root, sleep } from './lib.mjs';
 
 const PORT = 5199;
 const PHONE_PORT = 5198;
@@ -104,9 +104,38 @@ try {
   const again = await (await share({ project: { ...project, meta: { ...project.meta, name: 'Changed' } } })).json();
   const version = await (await fetch(`${phoneBase}/version`)).json();
   check('each change sent raises the version the phone watches, so it reloads', again.version === shared.version + 1 && version.version === again.version);
+  // The phone tells the computer how the game runs there; the editor asks the computer.
+  check('the phone checks for changes often, and reports how the game runs', onPhone.includes(',700)') && onPhone.includes("fetch('/report?'"));
+  const ua = encodeURIComponent('Mozilla/5.0 (Linux; Android 13; SM-A525F) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36');
+  const report = (id, fps, extra = '') => fetch(`${phoneBase}/report?id=${id}&fps=${fps}&v=${again.version}&scene=s1&light=0&ua=${ua}&errors=${encodeURIComponent(JSON.stringify(['oops']))}${extra}`);
+  check('a report without a phone id is refused', (await fetch(`${phoneBase}/report?fps=60`)).status === 400);
+  check('a phone report is taken', (await report('abc123', 57)).status === 200);
+  const status = await (await fetch(`${base}/api/phone/status`)).json();
+  const device = status.devices?.[0];
+  check('the editor hears what the phone said: its model, frames a second, the scene, errors, and that it shows the latest version',
+    status.on && device?.id === 'abc123' && device.fps === 57 && device.name.includes('SM-A525F') && device.scene === 's1' && device.current && device.errors[0] === 'oops', JSON.stringify(status));
+  await report('abc123', 41);
+  const later = await (await fetch(`${base}/api/phone/status`)).json();
+  check('a phone that reports again is updated, not listed twice', later.devices.length === 1 && later.devices[0].fps === 41);
+  // A real browser the size of a phone opens the game, plays it, and its own report reaches the editor.
+  const browser = await launch();
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await page.goto(`${phoneBase}/`);
+    let heard = null;
+    for (let i = 0; i < 20 && !heard; i++) {
+      await sleep(1000);
+      heard = (await (await fetch(`${base}/api/phone/status`)).json()).devices.find((d) => d.id !== 'abc123' && d.fps > 0 && d.scene);
+    }
+    check('a phone playing the game reports its own frames a second and the scene it is on', heard && heard.scene === project.startScene && heard.current, JSON.stringify(heard));
+  } finally {
+    await browser.close();
+  }
   check('the phone server only shows: it accepts no posts', (await fetch(`${phoneBase}/api/export`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status === 405);
   await fetch(`${base}/api/phone/stop`, { method: 'POST' });
   check('stopping takes the game off show', await fetch(`${phoneBase}/version`).then(() => false, () => true));
+  check('and forgets the phones', (await (await fetch(`${base}/api/phone/status`)).json()).devices.length === 0);
 } finally {
   server.kill();
   writeFileSync(strings, before.strings);

@@ -429,6 +429,11 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-22 — Claude, live editing on a phone
+
+- Trying on a phone already reloaded on every change; now it checks every 0.7 s, starts on the scene open in the editor (a checkbox in the phone dialog turns that off), and each phone reports every 2 s (GET `/report` on the phone server, which still takes no posts): model from the user agent, frames a second measured with requestAnimationFrame, scene, whether it lightened, the last three errors. `GET /api/phone/status` lists phones heard from in the last 10 s; the dialog shows them (green 50+, yellow 30+, red below, with advice) and the top button shows the slowest phone's FPS. Server checks include a real browser opening the phone page and reporting.
+- Next: the owner tries a game on a real phone with this; then the keyframe animation timeline.
+
 ### 2026-11-22 — Claude, review of Codex and the rest of the plan
 
 - Reviewed and accepted e455345 (particle workshop, dialogue-aware bot tick).
