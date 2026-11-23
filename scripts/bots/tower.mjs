@@ -54,7 +54,13 @@ try {
       if (!onLadder) {
         // A slime ahead on the same floor and close: jump (onto it, or over it).
         const way = keys.includes('ArrowRight') ? 1 : keys.includes('ArrowLeft') ? -1 : 0;
-        const slime = s.entities.find((e) => e.visible && e.tags.includes('دشمن') && Math.abs(e.y + e.height - foot) < 30 && (e.x + e.width / 2 - mx) * way > 0 && Math.abs(e.x + e.width / 2 - mx) < 190);
+        // How soon depends on how fast they come together: a faster slime (in a later level) means jumping earlier.
+        const slime = s.entities.find((e) => {
+          if (!e.visible || !e.tags.includes('دشمن') || Math.abs(e.y + e.height - foot) >= 30) return false;
+          const ahead = (e.x + e.width / 2 - mx) * way;
+          const closing = Math.max(0, 320 - (e.vx ?? 0) * way);
+          return ahead > 0 && ahead < 90 + closing * 0.3;
+        });
         if (slime && me.grounded && s.time - lastJump > 0.5) {
           lastJump = s.time;
           await page.keyboard.press('Space');

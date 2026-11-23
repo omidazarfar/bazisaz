@@ -97,7 +97,7 @@ if (command === 'run') {
     const zip = `ci-output/${a.name}.zip`;
     writeFileSync(zip, Buffer.from(await r.arrayBuffer()));
     mkdirSync(`ci-output/${a.name}`, { recursive: true });
-    spawnSync(process.platform === 'win32' ? 'C:\Windows\System32\tar.exe' : 'tar', ['-xf', zip, '-C', `ci-output/${a.name}`]);
+    spawnSync(process.platform === 'win32' ? 'C:\\Windows\\System32\\tar.exe' : 'tar', ['-xf', zip, '-C', `ci-output/${a.name}`]);
     console.log(`ci-output/${a.name}/`);
   }
 } else if (command === 'watch') {
