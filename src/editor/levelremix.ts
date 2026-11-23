@@ -249,7 +249,13 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
 
   // Floating platforms over the ground (never over a step, so there is room to stand under them), coins on
   // them; the higher ones carry the gems.
-  const free = (r: number, from: number, n: number) => { for (let k = -1; k <= n; k++) if (grid[r]?.[from + k] !== EMPTY_TILE || grid[r + 1]?.[from + k] !== EMPTY_TILE || grid[r - 1]?.[from + k] !== EMPTY_TILE) return false; return true; };
+  // Only over solid ground with no gap within three cells: a jump from a gap's edge must never bump into it.
+  const solidBelow = (from: number, n: number) => { for (let k = -3; k < n + 3; k++) if (grid[top]?.[from + k] !== groundKey) return false; return true; };
+  const free = (r: number, from: number, n: number) => {
+    if (!solidBelow(from, n)) return false;
+    for (let k = -1; k <= n; k++) if (grid[r]?.[from + k] !== EMPTY_TILE || grid[r + 1]?.[from + k] !== EMPTY_TILE || grid[r - 1]?.[from + k] !== EMPTY_TILE) return false;
+    return true;
+  };
   const platforms = Math.max(gems, 3) + Math.round((f - 1) * 3);
   let gemsLeft = gems;
   for (let i = 0, tries = 0; i < platforms && tries < 300; tries++) {
@@ -332,7 +338,7 @@ function tower(scene: Scene, e: Elements, f: number, rnd: () => number): Scene {
     const [left, right] = [...parts].sort((a, b) => a.x - b.x);
     const hole = right.x - (left.x + left.width);
     // The opening zigzags from one half to the other, at a new spot each time.
-    const half = i % 2 === 0 ? [W * 0.5, W - 60 - hole] : [60, W * 0.5 - hole];
+    const half = i % 2 === 0 ? [W - 100 - hole, W - 40 - hole] : [40, 100];
     const x = Math.round(half[0] + rnd() * Math.max(0, half[1] - half[0]));
     changed.set(left.id, { ...left, x: 0, width: x });
     changed.set(right.id, { ...right, x: x + hole, width: W - x - hole });
@@ -359,16 +365,23 @@ function tower(scene: Scene, e: Elements, f: number, rnd: () => number): Scene {
   const guarded = new Set(enemies.map(floorOf));
   const extra = Math.round((f - 1) * floors.length);
   let added = 0;
+  const removed = new Set<string>();
+  const goalT = scene.objects.find((o) => role(o) === 'goal');
+  const topHole0 = holes[holes.length - 1];
+  const goal = goalT && { ...goalT, x: topHole0.from > W / 2 ? 60 : W - 60 - goalT.width };
   floors.forEach(([y], i) => {
     const mine = enemies.filter((o) => floorOf(o) === i);
     const wanted = mine.length || (template && i < floors.length - 1 && !guarded.has(i) && added < extra ? 1 : 0);
-    const hole = holes[i];
-    const side = hole.from > W - hole.to ? [20, hole.from - 20] : [hole.to + 20, W - 20];
+    // On this floor the player walks from the opening they came up through to the next ladder (or the goal),
+    // and an enemy walks only the middle of that way, never at a ladder's foot or top.
+    const exit = (holes[i].from + holes[i].to) / 2;
+    const next = i + 1 < holes.length ? (holes[i + 1].from + holes[i + 1].to) / 2 : (goal ? goal.x + goal.width / 2 : W / 2);
+    const side = [Math.min(exit, next) + 100, Math.max(exit, next) - 100];
     for (let k = 0; k < wanted; k++) {
       const t = mine[k] ?? template!;
       const room = side[1] - side[0];
-      const walk = Math.min(patrolOf(t) || 120, room - t.width - 10);
-      if (walk < 40) continue;
+      const walk = Math.min(patrolOf(t) || 120, room - t.width);
+      if (walk < 40) { if (mine[k]) removed.add(t.id); continue; }
       const x = side[0] + rnd() * Math.max(0, room - t.width - walk);
       const moved = withPatrol({ ...t, x: Math.round(x), y: y - t.height }, walk);
       if (mine[k]) changed.set(t.id, moved);
@@ -376,10 +389,8 @@ function tower(scene: Scene, e: Elements, f: number, rnd: () => number): Scene {
     }
   });
   // The goal sits on the top floor, away from its opening.
-  const goal = scene.objects.find((o) => role(o) === 'goal');
-  const topHole = holes[holes.length - 1];
-  if (goal) changed.set(goal.id, { ...goal, x: topHole.from > W / 2 ? 60 : W - 60 - goal.width });
-  return { ...scene, objects: [...scene.objects.map((o) => changed.get(o.id) ?? o), ...made] };
+  if (goal) changed.set(goal.id, goal);
+  return { ...scene, objects: [...scene.objects.filter((o) => !removed.has(o.id)).map((o) => changed.get(o.id) ?? o), ...made] };
 }
 
 /**
@@ -406,6 +417,14 @@ function dungeon(scene: Scene, e: Elements, f: number, rnd: () => number, room: 
     if (o.visual.kind === 'tiles' || o.fixed) continue;
     if (!movable(o)) used.add(`${Math.floor((o.y + o.height / 2 - map.y) / cell)}:${Math.floor((o.x + o.width / 2 - map.x) / cell)}`);
   }
+  // Doorways: open cells next to an open cell of another room. Enemies keep three cells away from them.
+  const doors: [number, number][] = [];
+  for (let r = 0; r < rows.length; r++) for (let c = 0; c < rows[r].length; c++) {
+    if (wall(r, c)) continue;
+    const here = roomOf(map.x + c * cell + cell / 2, map.y + r * cell + cell / 2);
+    if ([[0, 1], [1, 0]].some(([i, j]) => !wall(r + i, c + j) && roomOf(map.x + (c + j) * cell + cell / 2, map.y + (r + i) * cell + cell / 2) !== here)) doors.push([r, c]);
+  }
+  const byDoor = (r: number, c: number) => doors.some(([dr, dc]) => Math.max(Math.abs(dr - r), Math.abs(dc - c)) <= 3);
   const spotIn = (room: string, d: number, awayFromPlayer: number) => {
     for (let tries = 0; tries < 400; tries++) {
       const r = Math.floor(rnd() * rows.length);
@@ -414,6 +433,7 @@ function dungeon(scene: Scene, e: Elements, f: number, rnd: () => number, room: 
       const y = map.y + r * cell;
       if (roomOf(x + cell / 2, y + cell / 2) !== room || !clear(r, c, d) || used.has(`${r}:${c}`)) continue;
       if (Math.max(Math.abs(r - pr), Math.abs(c - pc)) < awayFromPlayer) continue;
+      if (awayFromPlayer > 0 && byDoor(r, c)) continue;
       // Nothing right next to anything else either.
       if ([[-1, 0], [1, 0], [0, -1], [0, 1]].some(([i, j]) => used.has(`${r + i}:${c + j}`))) continue;
       used.add(`${r}:${c}`);
