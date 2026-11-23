@@ -90,12 +90,17 @@ jobs:
   bot:
     needs: [build, plan]
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
     strategy:
       fail-fast: false
       matrix:
         bot: ${{ fromJSON(needs.plan.outputs.bots) }}
     name: bot (${{ matrix.bot }})
+    # One go of up to an hour each: a game over three levels draws slowly here. (Run a bot again by hand
+    # if it was unlucky.)
+    env:
+      BOT_MINUTES: 60
+      BOT_TRIES: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

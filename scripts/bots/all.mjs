@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const run = (file, args = [], game = null) => spawnSync(process.execPath, [here + file, ...args], {
-  encoding: 'utf8', timeout: 1500000, env: game ? { ...process.env, BOT_GAME: game } : process.env,
+  // BOT_MINUTES: how long one game may take (GitHub's computers are slower); BOT_TRIES: goes allowed.
+  encoding: 'utf8', timeout: Number(process.env.BOT_MINUTES ?? 25) * 60000, env: game ? { ...process.env, BOT_GAME: game } : process.env,
 });
 const all = [
   ['platform', ['60']], ['adventure', ['60']], ['shooter', ['35']], ['puzzle'], ['physics'], ['rescue'], ['tower', ['90']], ['bricks', ['240']], ['runner', ['90']], ['hopper', ['90']],
@@ -37,7 +38,7 @@ for (const [genre, args = [], game = null] of bots) {
   const label = game ?? genre;
   // A bot, like a person, can be unlucky with random waves or boards: one more go is allowed, and said.
   let { ok, text } = play(genre, args, game);
-  if (!ok) {
+  if (!ok && Number(process.env.BOT_TRIES ?? 2) > 1) {
     console.log(`  ${label} lost once (${text}); trying again`);
     ({ ok, text } = play(genre, args, game));
   }
