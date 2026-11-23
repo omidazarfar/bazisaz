@@ -831,11 +831,18 @@ await page.mouse.click(...(await toPage(page, 360, 1280 * 0.58)));
 check('and Play leads into the game', await until(page, (id) => { const st = window.__game.getState(); return st.scene === id && !st.fading && st.time > 0.5; }, gameScene, 10000));
 const tilesNow = async () => (await gameState(page)).entities.filter((e) => e.tags.includes('کاشی'));
 const tilesBefore = await tilesNow();
-// A quick drag to the left is a swipe.
-await page.mouse.move(...(await toPage(page, 500, 700)));
-await page.mouse.down();
-await page.mouse.move(...(await toPage(page, 200, 700)), { steps: 2 });
-await page.mouse.up();
+// A quick drag to the left is a swipe. Sent in one go inside the page: on a slow machine, three separate
+// mouse steps from here can take longer than a swipe may (0.6 s) and count as a slow drag.
+const swipeFrom = await toPage(page, 500, 700);
+const swipeTo = await toPage(page, 200, 700);
+await page.evaluate(([a, b]) => {
+  const el = document.querySelector('canvas');
+  const at = (x, y) => ({ clientX: x, clientY: y, pointerId: 7, isPrimary: true, pointerType: 'touch', bubbles: true });
+  el.dispatchEvent(new PointerEvent('pointerdown', at(a[0], a[1])));
+  el.dispatchEvent(new PointerEvent('pointermove', at((a[0] + b[0]) / 2, a[1])));
+  el.dispatchEvent(new PointerEvent('pointermove', at(b[0], b[1])));
+  el.dispatchEvent(new PointerEvent('pointerup', at(b[0], b[1])));
+}, [swipeFrom, swipeTo]);
 check('2048: a swipe sends every tile to that side and brings a new one', await until(page, () => {
   const tiles = window.__game.getState().entities.filter((e) => e.tags.includes('کاشی'));
   // Two tiles on different rows both end against the left edge; the third is the newcomer.
