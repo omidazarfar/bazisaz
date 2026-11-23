@@ -1550,8 +1550,8 @@ await page.click('[data-edit-animation]');
 await page.waitForSelector('[data-anim-object]');
 const transformNow = () => page.$eval('[data-anim-object]', (el) => el.style.transform);
 const animFirst = await transformNow();
-await sleep(400);
-check('timeline: the preview plays the animation', (await transformNow()) !== animFirst, animFirst);
+// The preview runs on the browser's frames; a busy computer may take a moment to start them.
+check('timeline: the preview plays the animation', await until(page, (first) => document.querySelector('[data-anim-object]').style.transform !== first, animFirst, 5000), animFirst);
 await page.click('[data-anim-preset="spin"]');
 await page.click('[data-anim-play]');
 await page.evaluate(() => { const r = document.querySelector('[data-anim-scrub]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '1'); r.dispatchEvent(new Event('input', { bubbles: true })); });
