@@ -195,11 +195,14 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
   const gems = gemT ? countOf((o) => role(o) === 'prize' && o.visual.kind !== 'tiles') : 0;
   let coins0 = 0;
   for (const row of map.visual.rows) for (const ch of row) if (ch === coinKey) coins0 += 1;
-  type Piece = { kind: 'walker' | 'spikes' | 'gap' | 'lift' | 'step' | 'plain'; size: number };
+  type Piece = { kind: 'walker' | 'spikes' | 'gap' | 'lift' | 'step' | 'plain'; size: number; flyer?: boolean };
   const wide = () => 2 + (rnd() < Math.min(0.7, (f - 1) * 0.8) ? 1 : 0);
   const pieces = ([
     ...Array.from({ length: walkers }, (): Piece => ({ kind: 'walker', size: 5 })),
-    ...Array.from({ length: spikes }, (): Piece => ({ kind: 'spikes', size: 4 })),
+    // Two clear cells on each side of the spikes: room to land after a gap and to take off.
+    ...Array.from({ length: spikes }, (): Piece => ({ kind: 'spikes', size: 6 })),
+    // Flying enemies only over plain ground, never where a jump is needed anyway.
+    ...Array.from({ length: flyers }, (): Piece => ({ kind: 'plain', size: 5, flyer: true })),
     ...Array.from({ length: gaps }, (): Piece => { const g = wide(); return { kind: 'gap', size: g + 2 }; }),
     ...(liftT ? [{ kind: 'lift', size: 6 } as Piece] : []),
     { kind: 'step', size: 4 }, ...(f > 1.4 ? [{ kind: 'step', size: 4 } as Piece] : []),
@@ -232,7 +235,7 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
       c += piece.size;
     } else if (piece.kind === 'spikes') {
       for (let k = 0; k < piece.size; k++) { ground(c + k); open.push(c + k); }
-      add(spikeT, at(c + 1), topY - spikeT!.height);
+      add(spikeT, at(c + 2), topY - spikeT!.height);
       c += piece.size;
     } else if (piece.kind === 'step') {
       const rise = 1 + (f > 1.5 && rnd() < 0.5 ? 1 : 0);
@@ -241,7 +244,9 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
       put(top - rise - 2, c + 2, coinKey);
       c += piece.size;
     } else {
-      for (let k = 0; k < piece.size; k++) { ground(c + k); flat.push(c + k); open.push(c + k); }
+      // (No floating platform over a flying enemy: it flies at about that height.)
+      for (let k = 0; k < piece.size; k++) { ground(c + k); flat.push(c + k); if (!piece.flyer) open.push(c + k); }
+      if (piece.flyer) add(withPatrol(flyerT!, Math.min(patrolOf(flyerT!) || 160, 2 * cell)), at(c + 1), flyerT!.y);
       c += piece.size;
     }
   }
@@ -281,11 +286,6 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     const k = flat[Math.floor(rnd() * flat.length)];
     if (k > 6) put(top - 1, k, coinKey);
     tally();
-  }
-  // Flying enemies, spread out over the length of the level.
-  for (let i = 0; i < flyers; i++) {
-    const k = Math.round(10 + ((i + 0.5) / flyers) * (cols - 20) + (rnd() - 0.5) * 4);
-    add(withPatrol(flyerT!, Math.min(patrolOf(flyerT!) || 200, 3 * cell)), at(k), flyerT!.y);
   }
 
   // Checkpoints a third and two thirds of the way, on flat ground; the goal at the end, on the ground.
