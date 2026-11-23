@@ -261,7 +261,8 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
   for (let i = 0, tries = 0; i < platforms && tries < 300; tries++) {
     const from = open[Math.floor(rnd() * open.length)];
     const n = 3 + Math.floor(rnd() * 2);
-    if (from < 7 || from + n >= cols - 6 || !open.includes(from + n - 1) || !free(top - 3, from, n)) continue;
+    // (None in the last stretch before the goal: a jump off one could sail right over it.)
+    if (from < 7 || from + n + 5 >= cols - 12 || !open.includes(from + n - 1) || !free(top - 3, from, n)) continue;
     const higher = gemsLeft > 0 && free(top - 5, from + n + 1, 3);
     for (let k = 0; k < n; k++) { grid[top - 3][from + k] = platKey; put(top - 4, from + k, coinKey); }
     if (higher) {
