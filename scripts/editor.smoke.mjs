@@ -177,6 +177,8 @@ const [nx, ny] = await toPage(page, before.x + before.width + 60, before.y + bef
 await page.mouse.move(hx, hy);
 await page.mouse.down();
 await page.mouse.move(nx, ny, { steps: 5 });
+// (Let the last move land before letting go: a slow machine can still be busy with the one before.)
+await sleep(120);
 await page.mouse.up();
 await sleep(150);
 let after = await object(prize);
