@@ -488,7 +488,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   const { page, errors } = await openPage(browser, url, { project });
   await loaded(page);
   const samples = [];
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 600; i++) {  // until 2.4 s of game time, however slow the machine
     const s = await gameState(page);
     const at = (name) => s.entities.find((e) => e.id === name);
     samples.push({ t: s.time, run: at('runner').anim, stand: at('stander').anim, standFrame: at('stander').frame, pop: at('popper').scale, heart: at('heart').scale, glide: at('glider').x });
@@ -522,6 +522,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('health: the last hit fires «dead», which removes it', await until(page, () => { const st = window.__game.getState(); return st.variables.kills === 1 && !st.entities.some((e) => e.id === 'brick'); }, null, 5000));
 
   await clickGame(page, 350, 1200);
+  await until(page, () => window.__game.getState().paused === true, null, 10000);
   s = await gameState(page);
   const frozenAt = s.time;
   await sleep(400);
@@ -2406,7 +2407,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   const low = (await gameState(page)).entities.find((e) => e.id === 'hero');
   check('crouch: down on the ground makes it lower, its feet where they were', low.height === 60 && Math.abs(low.y + low.height - (standing.y + standing.height)) < 1, `${standing.height} → ${low.height}`);
   await page.keyboard.down('ArrowRight');
-  await until(page, () => window.__game.getState().entities.find((e) => e.id === 'hero').x > 340, null, 8000);
+  await until(page, () => window.__game.getState().entities.find((e) => e.id === 'hero').x > 340, null, 30000);
   const under = (await gameState(page)).entities.find((e) => e.id === 'hero');
   check('crouch: it creeps slowly, and fits under a low ceiling', under.x > 320 && under.x < 500 && under.height === 60, `x ${under.x.toFixed(0)}`);
   await page.keyboard.up('ArrowRight');
