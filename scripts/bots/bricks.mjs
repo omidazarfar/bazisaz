@@ -10,6 +10,8 @@ let outcome = 'timeout';
 let offset = 0;
 await page.mouse.move(...(await toPage(page, 360, 1150)));
 await page.mouse.down();
+// If the page itself goes down, say so (the error after it, about the mouse, says nothing).
+page.on('error', (e) => console.log('  PAGE CRASHED:', e.message));
 try {
   while (true) {
     const s = await state(page);
@@ -21,15 +23,27 @@ try {
     // A new side to hit it with each time it goes back up.
     if (ball.vy < 0 && Math.abs(offset) < 1) offset = (Math.random() < 0.5 ? -1 : 1) * (25 + Math.random() * 45);
     if (ball.vy > 0) offset *= 1;
-    const aim = ball.x + ball.width / 2 + (ball.vy > 0 ? offset : 0);
+    // Where the ball will come down to the paddle, bouncing off the side walls on the way (a faster ball in
+    // a later level cannot be caught by just following it).
+    let landing = ball.x + ball.width / 2;
+    if (ball.vy > 0) {
+      const r = ball.width / 2;
+      const [lo, hi] = [24 + r, 696 - r];
+      let x = landing + ball.vx * Math.max(0, (1032 - ball.y - ball.height) / ball.vy);
+      for (let i = 0; i < 6 && (x < lo || x > hi); i++) x = x < lo ? 2 * lo - x : 2 * hi - x;
+      landing = x;
+    }
+    const aim = landing + (ball.vy > 0 ? offset : 0);
     await page.mouse.move(...(await toPage(page, Math.max(100, Math.min(620, aim)), 1150)));
     if (ball.vy > 0 && ball.y > 900) offset = offset || 30;
     if (ball.vy < 0) offset = 0;
     if (Math.floor(s.time / 15) !== Math.floor((s.time - 0.05) / 15)) console.log(`  t ${s.time.toFixed(0)} score ${s.variables.score} lives ${s.variables.lives}`);
     await tick(page, 0.03);
   }
+} catch (e) {
+  console.log('  bot stopped:', e.message);
 } finally {
-  await page.mouse.up();
+  await page.mouse.up().catch(() => {});
   const s = await state(page);
   await w.shot('end');
   report('bricks', outcome, w, { score: s.variables.score, lives: s.variables.lives, errors });

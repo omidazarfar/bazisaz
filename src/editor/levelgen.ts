@@ -84,7 +84,8 @@ function faster(scene: Scene, f: number): Scene {
       case 'patrol': return { ...b, speed: Math.round(b.speed * f) };
       case 'chase': return { ...b, speed: Math.round(b.speed * f) };
       case 'mover': return { ...b, vx: Math.round(b.vx * f), vy: Math.round(b.vy * f) };
-      case 'launch': return { ...b, vx: Math.round(b.vx * f), vy: Math.round(b.vy * f), ...(b.speed ? { speed: Math.round(b.speed * f) } : {}) };
+      // A thrown or bounced ball (a launch) speeds up more gently: the player has to meet it every time.
+      case 'launch': { const g = Math.sqrt(f); return { ...b, vx: Math.round(b.vx * g), vy: Math.round(b.vy * g), ...(b.speed ? { speed: Math.round(b.speed * g) } : {}) }; }
       case 'spawner': return { ...b, minInterval: +(b.minInterval / f).toFixed(2), maxInterval: +(b.maxInterval / f).toFixed(2) };
       default: return b;
     }
@@ -205,10 +206,13 @@ function runnerLayout(scene: Scene, f: number, rnd: () => number): Scene {
     gap = Math.min(widest, gap + 8 + 16 * rnd());
     n += 1;
   }
-  made.push({ ...roof, id: newId('obj'), name: 'بام آخر', x, width: length - x });
-  if (flag) made.push({ ...flag, id: newId('obj'), x: length - 200 - flag.width / 2 });
+  // The last rooftop is always long, with the flag well past its start: a runner landing from a wide gap
+  // must not sail over the flag.
+  const last = 680;
+  made.push({ ...roof, id: newId('obj'), name: 'بام آخر', x, width: last });
+  if (flag) made.push({ ...flag, id: newId('obj'), x: x + last - 200 - flag.width / 2 });
   // Rooftops go first so they are drawn behind the runner, as in the level made by hand.
-  return { ...scene, width: length, objects: [...made, ...kept] };
+  return { ...scene, width: x + last, objects: [...made, ...kept] };
 }
 
 /** Sky Hopper: gaps between the pipes at new heights, a little narrower each level. */

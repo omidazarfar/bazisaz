@@ -619,6 +619,9 @@ export class Game {
 
   // Input since the last frame, and what is being held right now. All in screen coordinates.
   private readonly pointers = new Map<number, Pointer>();
+  // Fingers already on the screen when a new scene began: a paddle or a ship that follows the finger
+  // keeps following them into the next level. Nothing else sees them (no taps, no jumps, no buttons).
+  private readonly heldOver = new Map<number, Point>();
   private taps: Point[] = [];
   private swipes: string[] = [];
   private keyTap = false;
@@ -1346,6 +1349,8 @@ export class Game {
     this.swipes = [];
     this.keyTap = false;
     this.pressed.clear();
+    this.heldOver.clear();
+    for (const [id, p] of this.pointers) this.heldOver.set(id, { x: p.x, y: p.y });
     this.pointers.clear();
     this.ruleClock.clear();
     this.ruleDone.clear();
@@ -1985,7 +1990,7 @@ export class Game {
             }
             break;
           case 'followFinger': {
-            const pointer = [...this.pointers.values()].find((p) => !p.drag && !this.onControl(p));
+            const pointer = [...this.pointers.values()].find((p) => !p.drag && !this.onControl(p)) ?? [...this.heldOver.values()].find((p) => !this.onControl(p));
             const finger = pointer && this.inSpaceOf(e, pointer);
             const dx = finger && b.axis !== 'y' ? finger.x - (e.x + e.width / 2) : 0;
             const dy = finger && b.axis !== 'x' ? finger.y - (e.y + e.height / 2) : 0;
@@ -4550,7 +4555,7 @@ export class Game {
     const onMove = (ev: PointerEvent) => {
       const screen = this.toScreen(ev.clientX, ev.clientY);
       if (this.editDrag) return this.editMove(screen, ev);
-      const pointer = this.pointers.get(ev.pointerId);
+      const pointer = this.pointers.get(ev.pointerId) ?? this.heldOver.get(ev.pointerId);
       if (pointer) Object.assign(pointer, screen);
       // The thing taken out of the bag follows the finger, held a little above it so it can be seen.
       if (this.bagDrag?.pointer === ev.pointerId) this.bagDrag.view.position.set(screen.x, screen.y - this.bagDrag.size * 0.4);
@@ -4559,6 +4564,7 @@ export class Game {
       if (this.bagDrag?.pointer === ev.pointerId) this.endBagDrag(this.toScreen(ev.clientX, ev.clientY));
       const pointer = this.pointers.get(ev.pointerId);
       this.pointers.delete(ev.pointerId);
+      this.heldOver.delete(ev.pointerId);
       if (pointer?.drag?.held && this.mode.kind === 'play') {
         // Where the finger was last is where the pull ended.
         this.physics?.aim(pointer.drag.entity, this.inSpaceOf(pointer.drag.entity, pointer));

@@ -2505,6 +2505,39 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13p. Lab 27: a finger held on the screen while the next level starts ──
+{
+  const paddle = (id) => ({
+    id, name: id, x: 270, y: 1000, width: 180, height: 36, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true,
+    behaviors: [{ type: 'followFinger', speed: 2400, axis: 'x' }],
+  });
+  const scene = (id, rules) => ({ id, name: id, width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules, objects: [paddle('paddle-' + id)] });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab27', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentyseven', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [],
+    startScene: 'one',
+    scenes: [
+      scene('one', [{ id: 'r1', when: { type: 'after', seconds: 0.6 }, condition: null, then: [{ type: 'goToScene', scene: 'two' }] }]),
+      scene('two', []),
+    ],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.2);
+  await page.mouse.move(...(await toPage(page, 600, 1100)));
+  await page.mouse.down();
+  await until(page, () => window.__game.getState().scene === 'two', null, 10000);
+  await untilTime(page, 0.6);
+  const p = (await gameState(page)).entities.find((e) => e.id === 'paddle-two');
+  check('a paddle in the next level follows the finger that was already held down', Math.abs(p.x + p.width / 2 - 600) < 20, (p.x + p.width / 2).toFixed(0));
+  await page.mouse.up();
+  check('lab 27: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },
