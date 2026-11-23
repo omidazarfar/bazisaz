@@ -262,11 +262,11 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     const from = open[Math.floor(rnd() * open.length)];
     const n = 3 + Math.floor(rnd() * 2);
     if (from < 7 || from + n >= cols - 6 || !open.includes(from + n - 1) || !free(top - 3, from, n)) continue;
-    const higher = gemsLeft > 0 && free(top - 5, from + n - 1, 3);
+    const higher = gemsLeft > 0 && free(top - 5, from + n + 1, 3);
     for (let k = 0; k < n; k++) { grid[top - 3][from + k] = platKey; put(top - 4, from + k, coinKey); }
     if (higher) {
-      for (let k = 0; k < 3; k++) grid[top - 5][from + n - 1 + k] = platKey;
-      add(gemT, at(from + n) + (cell - gemT!.width) / 2, topY - 5 * cell - gemT!.height - 10);
+      for (let k = 0; k < 3; k++) grid[top - 5][from + n + 1 + k] = platKey;
+      add(gemT, at(from + n + 2) + (cell - gemT!.width) / 2, topY - 5 * cell - gemT!.height - 10);
       gemsLeft -= 1;
     }
     i += 1;
@@ -296,7 +296,7 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     }
   }
   // (On the ground: in the level made by hand it may stand on steps that are not there any more.)
-  if (goalT) add(goalT, at(cols - 3) - goalT.width / 2, topY - goalT.height);
+  if (goalT) add(goalT, at(cols - 6) - goalT.width / 2, topY - goalT.height);
   // Trees and bushes on the ground here and there, clouds spread over the whole sky.
   const spots = flat.filter((k) => grid[top - 1][k] === EMPTY_TILE).sort(() => rnd() - 0.5);
   decorLow.forEach((d, i) => { const k = spots[i % Math.max(1, spots.length)] ?? i * 5; made.push(renumber(copy(d, { x: at(k), y: topY - d.height }), i + 1)); });
