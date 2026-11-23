@@ -9,7 +9,10 @@ export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const shots = resolve(root, 'test-output');
 mkdirSync(shots, { recursive: true });
 
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// TIME_SCALE=3 (set on GitHub's computers, which run the games slower than this laptop): every pause and
+// every "wait at most" lasts three times as long. Nothing is checked against the clock itself.
+export const TIME_SCALE = Number(process.env.TIME_SCALE ?? 1) || 1;
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms * TIME_SCALE));
 
 let failures = 0;
 export function check(name, ok, detail = '') {
@@ -53,7 +56,7 @@ export const entity = async (page, id) => (await gameState(page)).entities.find(
 
 /** Waits on the game's own clock or state, never wall-clock time: headless rendering runs slower than real time. */
 export const until = (page, fn, arg, timeout = 60000) =>
-  page.waitForFunction(fn, { timeout }, arg).then(() => true, () => false);
+  page.waitForFunction(fn, { timeout: timeout * TIME_SCALE }, arg).then(() => true, () => false);
 export const untilTime = (page, seconds) =>
   until(page, (t) => window.__game.getState().time >= t, seconds);
 

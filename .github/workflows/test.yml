@@ -20,6 +20,10 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+# GitHub's computers draw the games more slowly than the laptop: the checks wait three times as long.
+env:
+  TIME_SCALE: 3
+
 jobs:
   build:
     runs-on: ubuntu-latest
