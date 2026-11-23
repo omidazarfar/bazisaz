@@ -14,3 +14,4 @@ server/default-res
 scripts/look/out/
 scripts/bots/games/
 scripts/bots/out/
+ci-output/

@@ -293,6 +293,9 @@ export function generateLevels(project: GameProject, sceneId: string, options: L
   const win = winTarget(project, source);
   const layout = layoutKind(source);
   const scoreGoal = source.rules.some((r) => r.when.type === 'variable' && r.when.name === 'score');
+  // Lives the level takes away (a variable some rule subtracts from): each new level gives them all back.
+  const lives = project.variables.filter((v) => typeof v.initial === 'number' && v.initial > 0 && /lives|life|جان/.test(v.name)
+    && source.rules.some((r) => ruleActions(r).some((a) => a.type === 'setVariable' && a.name === v.name && a.op === 'subtract')));
   const { width: W, height: H } = project.meta;
   // New levels are named after the level they come from: «صحنه‌ی ۱ · مرحله‌ی ۲».
   const base = source.name.replace(/\s*·\s*مرحله‌ی\s*[0-9۰-۹]+$/, '');
@@ -319,6 +322,7 @@ export function generateLevels(project: GameProject, sceneId: string, options: L
     if (options.newLook) scene = newLook(scene, n, rnd);
     // A goal in points counts this level's points: the score starts again at each level.
     if (scoreGoal) scene = { ...scene, rules: [{ id: newId('rule'), when: { type: 'start' }, condition: null, then: [{ type: 'setVariable', name: 'score', op: 'set', amount: 0 }] }, ...scene.rules] };
+    if (lives.length) scene = { ...scene, rules: [{ id: newId('rule'), when: { type: 'start' }, condition: null, then: lives.map((v): Action => ({ type: 'setVariable', name: v.name, op: 'set', amount: v.initial as number })) }, ...scene.rules] };
     scene = levelBanner(scene, n + 1, W, H);
     // In a few words, what is new in this level, for the person who made it.
     const hasFoes = before.counts.enemy > 0 || scene.objects.some((o) => o.behaviors.some((b) => b.type === 'spawner'));

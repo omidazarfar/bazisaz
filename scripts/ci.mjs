@@ -3,6 +3,7 @@
 //   node scripts/ci.mjs watch         the same every 30 seconds, until it is over
 //   node scripts/ci.mjs run [bots]    start a run by hand, with bots: all (default), none, or names
 //   node scripts/ci.mjs log <part>    the end of what one part of the latest run printed, e.g. log server
+//   node scripts/ci.mjs photos [part] the bot photos and test pictures it kept, into ci-output/
 // The time left is guessed from how long each part took the last time it passed.
 // Needs a GitHub login: GITHUB_TOKEN, or `gh auth login`, or the login git already uses for pushing.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -85,6 +86,20 @@ if (command === 'run') {
   const r = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${job.id}/logs`, { headers: { Authorization: `Bearer ${auth}`, 'User-Agent': 'bazisaz-ci' } });
   const text = (await r.text()).split(/\r?\n/).map((l) => l.replace(/^\S+Z /, ''));
   console.log(text.slice(-Number(process.argv[4] ?? 60)).join('\n'));
+} else if (command === 'photos') {
+  // The bot photos and test pictures the latest run kept, into ci-output/<part>/ (unzipped).
+  const run = (await api('/actions/workflows/test.yml/runs?per_page=1')).workflow_runs[0];
+  const { artifacts } = await api(`/actions/runs/${run.id}/artifacts?per_page=100`);
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  for (const a of artifacts.filter((x) => x.name !== 'built' && (bots === 'all' || x.name.includes(bots)))) {
+    const r = await fetch(a.archive_download_url, { headers: { Authorization: `Bearer ${auth}`, 'User-Agent': 'bazisaz-ci' } });
+    mkdirSync('ci-output', { recursive: true });
+    const zip = `ci-output/${a.name}.zip`;
+    writeFileSync(zip, Buffer.from(await r.arrayBuffer()));
+    mkdirSync(`ci-output/${a.name}`, { recursive: true });
+    spawnSync(process.platform === 'win32' ? 'C:\Windows\System32\tar.exe' : 'tar', ['-xf', zip, '-C', `ci-output/${a.name}`]);
+    console.log(`ci-output/${a.name}/`);
+  }
 } else if (command === 'watch') {
   while (!(await status())) await new Promise((r) => setTimeout(r, 30000));
 } else {

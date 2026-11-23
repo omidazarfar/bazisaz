@@ -287,7 +287,7 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     add(withPatrol(flyerT!, Math.min(patrolOf(flyerT!) || 200, 3 * cell)), at(k), flyerT!.y);
   }
 
-  // Checkpoints a third and two thirds of the way, on flat ground; the goal at the end, as high as it was.
+  // Checkpoints a third and two thirds of the way, on flat ground; the goal at the end, on the ground.
   const flats = flat.filter((k) => k > 6 && k < cols - 8 && grid[top - 1][k] === EMPTY_TILE && grid[top - 1][k + 1] === EMPTY_TILE);
   if (checkT && flats.length) {
     for (const share of [1 / 3, 2 / 3]) {
@@ -295,7 +295,8 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
       add(checkT, at(k) + (cell - checkT.width) / 2, topY - checkT.height);
     }
   }
-  if (goalT) add(goalT, at(cols - 3) - goalT.width / 2, goalT.y);
+  // (On the ground: in the level made by hand it may stand on steps that are not there any more.)
+  if (goalT) add(goalT, at(cols - 3) - goalT.width / 2, topY - goalT.height);
   // Trees and bushes on the ground here and there, clouds spread over the whole sky.
   const spots = flat.filter((k) => grid[top - 1][k] === EMPTY_TILE).sort(() => rnd() - 0.5);
   decorLow.forEach((d, i) => { const k = spots[i % Math.max(1, spots.length)] ?? i * 5; made.push(renumber(copy(d, { x: at(k), y: topY - d.height }), i + 1)); });
