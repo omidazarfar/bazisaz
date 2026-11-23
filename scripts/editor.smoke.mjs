@@ -1610,6 +1610,56 @@ const back = sc.objects.find((o) => o.visual.kind === 'tiles' && o.id !== frontM
 check('a map\'s back layer: an empty map of the same grid behind it, slower and touching nothing',
   back && back.parallax === 0.7 && back.tags.length === 0 && back.visual.rows.every((r) => /^\.+$/.test(r)) && sc.objects.indexOf(back) < sc.objects.findIndex((o) => o.id === frontMap));
 
+// ── Making a game's next levels ──
+await freshGame();
+await openLibrary('راهنمای سبک');
+await page.click('.modal [data-genre="runner"]');
+await until(page, () => !document.querySelector('.modal'), null, 30000);
+const levelOne = (await editor()).sceneId;
+const scenesBefore = (await editor()).project.scenes.length;
+await page.click('[data-make-levels]');
+await page.waitForSelector('[data-levels-make]');
+check('the level maker offers a new layout for this kind of game', (await page.$eval('.modal', (m) => m.textContent)).includes('بام‌ها و شکاف‌های تازه'));
+await page.click('[data-levels-make]');
+await until(page, () => !document.querySelector('[data-levels-make]'), null, 15000);
+let levelProject = (await editor()).project;
+const levelNames = levelProject.scenes.map((s) => s.name);
+const newLevels = levelProject.scenes.slice(levelProject.scenes.findIndex((s) => s.id === levelOne) + 1, levelProject.scenes.findIndex((s) => s.id === levelOne) + 6);
+check('five new levels come right after the level, named in order', levelProject.scenes.length === scenesBefore + 5 && newLevels.every((s, i) => s.name.endsWith('مرحله‌ی ' + (i + 2).toLocaleString('fa-IR'))), levelNames.join(' | '));
+const goesTo = (s) => [...new Set(s.rules.flatMap((r) => [...r.then, ...(r.otherwise ?? [])]).filter((a) => a.type === 'goToScene').map((a) => levelProject.scenes.find((x) => x.id === a.scene)?.name))];
+const firstLevel = levelProject.scenes.find((s) => s.id === levelOne);
+check('each level leads to the next, and the last to the win screen', goesTo(firstLevel).includes(newLevels[0].name) && goesTo(newLevels[4]).includes('You win') && goesTo(newLevels[1]).includes(newLevels[2].name), goesTo(firstLevel).join(',') + ' / ' + goesTo(newLevels[4]).join(','));
+const roofWidths = (s) => s.objects.filter((o) => o.name.startsWith('بام')).map((o) => o.width).join(',');
+check('each new level has its own rooftops', new Set([firstLevel, ...newLevels].map(roofWidths)).size === 6);
+const widest = (s) => { const pits = s.objects.filter((o) => o.name.startsWith('چاله')).map((o) => o.width); return Math.max(...pits); };
+const meanGap = (s) => { const pits = s.objects.filter((o) => o.name.startsWith('چاله')).map((o) => o.width - 80); return pits.reduce((a, b) => a + b, 0) / pits.length; };
+check('and gaps that get wider from level to level, never too wide to jump', meanGap(newLevels[4]) > meanGap(newLevels[0]) && newLevels.every((s) => widest(s) <= 250 + 80), newLevels.map((s) => Math.round(meanGap(s))).join(','));
+check('each new level says which it is when it starts', newLevels.every((s, i) => s.objects.some((o) => o.visual.kind === 'text' && o.visual.text === 'Level ' + (i + 2))));
+check('the editor opens the first new level', (await editor()).sceneId === newLevels[0].id);
+await click('یک قدم به عقب', '.topbar');
+check('one undo takes all the new levels away', (await editor()).project.scenes.length === scenesBefore);
+
+// A game with enemyCount: they get faster and more numerous, the coins move, the place changes.
+await freshGame();
+await openLibrary('راهنمای سبک');
+await page.click('.modal [data-genre="platform"]');
+await until(page, () => !document.querySelector('.modal'), null, 30000);
+await page.evaluate(() => window.__editor.makeLevels(3, 11));
+await until(page, () => window.__editor.getState().project.scenes.length >= 7, null, 10000);
+levelProject = (await editor()).project;
+const platformLevels = levelProject.scenes.filter((s) => s.objects.some((o) => o.name === 'مرحله' && o.visual.kind === 'tiles'));
+const speedOf = (s) => Math.max(...s.objects.flatMap((o) => o.behaviors.filter((b) => b.type === 'patrol' && !o.tags.includes('زمین')).map((b) => b.speed)));
+const enemyCount = (s) => s.objects.filter((o) => o.tags.includes('خطر') && o.behaviors.some((b) => b.type === 'patrol')).length;
+const coinsAt = (s) => s.objects.filter((o) => o.tags.includes('سکه')).map((o) => Math.round(o.x) + ':' + Math.round(o.y)).join(',');
+check('enemies get faster level by level', platformLevels.length === 4 && speedOf(platformLevels[3]) > speedOf(platformLevels[0]), platformLevels.map(speedOf).join(','));
+check('and there are more of them', enemyCount(platformLevels[3]) > enemyCount(platformLevels[0]), platformLevels.map(enemyCount).join(','));
+check('coins are in new places', coinsAt(platformLevels[1]) !== coinsAt(platformLevels[0]));
+check('the place and weather change', new Set(platformLevels.map((s) => s.sky + '/' + (s.weather ?? 'none'))).size >= 2, platformLevels.map((s) => s.sky + '/' + (s.weather ?? 'none')).join(','));
+check('the player stays as fast as before', new Set(platformLevels.map((s) => JSON.stringify(s.objects.find((o) => o.name === 'قهرمان').behaviors))).size === 1);
+await click('امتحان کن');
+check('a newLevels level plays without errors in the try-out', await until(page, () => window.__game.getState().time > 0.5, null, 60000));
+await click('توقف');
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

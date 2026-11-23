@@ -431,6 +431,12 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-23 — Claude, making a game's next levels
+
+- `src/editor/levelgen.ts` + `LevelMaker.tsx` (button «🪄 ساختن مرحله‌های بعدی» under the scene buttons). No AI: copies of the level (`duplicateScene`), each harder by `hardness(curve, n)`. For every game: enemies and spawners faster (never the player), more patrol enemies, prizes swapped between their spots, fewer moves/shots/time and a higher score goal, a new theme (sky, weather, natural tile material; dark scenes untouched). New layouts for runner (rooftops, widening gaps up to 250), hopper (gap heights, narrower) and bricks (wall shapes). Levels are chained by redirecting the level's win `goToScene`; a points goal resets score at each level; a «Level N» label pops at the start.
+- Tests: editor checks (runner levels, chaining, undo; Sky Quest enemies faster and more, coins moved, theme). `npm run bots` now also exports runner, hopper and bricks with two made levels (`export.mjs genre:2`, `BOT_GAME`) and plays them through. Bots reset their own timers when the scene changes.
+- Not done: new layouts for the other kinds (platformer chunks, dungeon rooms, tower floors); for games made from scratch only the general changes apply.
+
 ### 2026-11-22 — Claude, the rest of the plan
 
 - Cut-out animation: `animate.pivot` (shares of the box) turns and scales about a joint; the timeline dialog has pivot sliders and the preview uses transform-origin. The `cutout` part builds a walking paper doll (body with patrol and bob, head, arms and legs attached by `attach`, each swinging about shoulder or hip).

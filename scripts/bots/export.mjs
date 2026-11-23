@@ -9,7 +9,8 @@ mkdirSync(dir, { recursive: true });
 const genres = (process.argv[2] ?? 'platform,adventure,shooter,puzzle,physics,rescue,tower,bricks,runner,hopper').split(',');
 const browser = await launch();
 try {
-  for (const genre of genres) {
+  for (const entry of genres) {
+    const [genre, levels] = entry.split(':');
     const { page, errors } = await openPage(browser, new URL('../../dist-editor/editor.html', import.meta.url).href, { viewport: { width: 1440, height: 900 } });
     const click = (t) => page.evaluate((t) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === t || b.textContent.includes(t))?.click(), t);
     await page.waitForFunction(() => window.__game && window.__editor);
@@ -18,9 +19,15 @@ try {
     await page.click('[data-library-tab="genre"]');
     await page.click(`[data-genre="${genre}"]`);
     await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 60000 });
+    // The genre helper leaves the level open in the editor: its next levels are made from it.
+    if (levels) {
+      await page.evaluate((n) => window.__editor.makeLevels(Number(n)), levels);
+      await sleep(300);
+    }
     const project = await page.evaluate(() => window.__editor.getState().project);
-    writeFileSync(`${dir}${genre}.json`, JSON.stringify(project));
-    console.log(genre, 'saved', `${Math.round(JSON.stringify(project).length / 1024)} KB`, errors.length ? errors : '');
+    const name = levels ? `${genre}-levels` : genre;
+    writeFileSync(`${dir}${name}.json`, JSON.stringify(project));
+    console.log(name, 'saved', `${Math.round(JSON.stringify(project).length / 1024)} KB`, errors.length ? errors : '');
     await page.close();
   }
 } finally {

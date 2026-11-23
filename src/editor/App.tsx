@@ -18,6 +18,7 @@ import { PhoneDialog, phoneStatus, sendToPhone, stopPhone, type PhoneLink, type 
 import { Dialog } from './Pick';
 import { Preview } from './Preview';
 import { Rules } from './Rules';
+import { DEFAULT_LEVEL_OPTIONS, generateLevels } from './levelgen';
 import { Tutor, Welcome } from './Tutor';
 import {
   copyObjects, duplicateObjects, getScene, initialState, newId, pasteObjects, reducer, removeObjects, saveProject, syncTemplates, updateScene,
@@ -27,7 +28,7 @@ import {
 declare global {
   interface Window {
     /** For automated tests: read the editor's state, and open a game as "open file" would. */
-    __editor?: { getState: () => EditorState; open: (project: GameProject) => void };
+    __editor?: { getState: () => EditorState; open: (project: GameProject) => void; makeLevels: (count: number, seed?: number) => void };
   }
 }
 
@@ -152,7 +153,12 @@ export function App({ saved }: { saved: GameProject | null }) {
     }
   };
   useEffect(() => {
-    window.__editor = { getState: () => state, open };
+    window.__editor = {
+      getState: () => state,
+      open,
+      // For the tests and bots: the next levels of the scene being edited, made as the dialog makes them.
+      makeLevels: (count: number, seed = 7) => open(generateLevels(state.project, state.sceneId, { ...DEFAULT_LEVEL_OPTIONS, count, seed }).project),
+    };
   });
   // A note about what was just done stays long enough to be read, then goes.
   useEffect(() => {

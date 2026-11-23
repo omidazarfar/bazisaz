@@ -2284,3 +2284,5 @@ ol.rule-then li::before {
 .anim-key.selected { background: #ffd23f; }
 .anim-key-fields { margin: 6px 0; }
 @media (max-width: 640px) { .anim-workbench { grid-template-columns: 1fr; } }
+
+.level-maker-title { margin: 12px 0 4px; color: #ffd23f; }

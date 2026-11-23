@@ -5,11 +5,12 @@ import { report, startGame, state, tick, watcher } from './bot.mjs';
 const limit = Number(process.argv[2] ?? 90);
 const { browser, page, project, errors, names } = await startGame('runner');
 const w = watcher(page, names, 'runner');
-const level = project.scenes.find((s) => s.objects.some((o) => o.name === 'دونده'));
-const roofs = level.objects.filter((o) => o.name.startsWith('بام')).sort((a, b) => a.x - b.x);
+// Each level has its own rooftops: read those of the scene being played.
+const roofsOf = new Map(project.scenes.map((s) => [s.id, s.objects.filter((o) => o.name.startsWith('بام')).sort((a, b) => a.x - b.x)]));
 let outcome = 'timeout';
 let jumpedAt = -1;
 let doubled = false;
+let lastScene = null;
 const tap = () => page.keyboard.press('Space');
 try {
   while (true) {
@@ -19,10 +20,13 @@ try {
     if (s.time > limit) break;
     const me = s.entities.find((e) => e.tags.includes('بازیکن'));
     if (!me) { await tick(page, 0.1); continue; }
+    // A new level starts its clock again: forget when the last jump was.
+    if (s.scene !== lastScene) { lastScene = s.scene; jumpedAt = -1; doubled = false; }
+    const roofs = roofsOf.get(s.scene) ?? [];
     const front = me.x + me.width;
     const roof = roofs.find((r) => r.x <= me.x + me.width / 2 && r.x + r.width >= me.x + me.width / 2);
     const edgeAhead = roof ? roof.x + roof.width - front : 0;
-    const crate = s.entities.find((e) => e.tags.includes('زمین') && e.width === 80 && e.x - front > 0 && e.x - front < 120);
+    const crate = s.entities.find((e) => e.tags.includes('زمین') && e.width === 80 && e.x - front > -4 && e.x - front < 120 && e.y < me.y + me.height);
     if (me.grounded) {
       doubled = false;
       if ((roof && edgeAhead < 70) || crate) { await tap(); jumpedAt = s.time; }

@@ -4,6 +4,7 @@ import type { Editor } from './editor';
 import { pickFile, readImage } from './images';
 import { fa, PALETTE } from './labels';
 import { Library } from './Library';
+import { LevelMaker } from './LevelMaker';
 import { describeObject } from './sentences';
 import { addObject, duplicateScene, freeSpot, makeObject, newId, type ObjectList as ListName } from './state';
 
@@ -11,6 +12,7 @@ import { addObject, duplicateScene, freeSpot, makeObject, newId, type ObjectList
 export function ObjectList({ editor, onNote }: { editor: Editor; onNote: (text: string) => void }) {
   const { project, scene, selected, change, select, setScene } = editor;
   const [library, setLibrary] = useState<ListName | null>(null);
+  const [makingLevels, setMakingLevels] = useState(false);
   // The scene is stored back-to-front; listing it front-to-back puts what is drawn on top first.
   const placed = [...scene.objects].reverse();
 
@@ -96,7 +98,14 @@ export function ObjectList({ editor, onNote }: { editor: Editor; onNote: (text: 
         <button type="button" className="chip" title="یک صحنه‌ی تازه با همه‌ی اشیا و قانون‌های همین صحنه؛ برای ساختن مرحله‌ی بعد" onClick={copyScene}>
           کپی این صحنه
         </button>
+        <button type="button" className="chip" data-make-levels title="از روی همین صحنه چند مرحله‌ی تازه می‌سازد، هر کدام کمی سخت‌تر" onClick={() => setMakingLevels(true)}>
+          🪄 ساختن مرحله‌های بعدی
+        </button>
       </div>
+      {makingLevels && (
+        <LevelMaker project={project} sceneId={scene.id} onClose={() => setMakingLevels(false)}
+          onMade={(next, first, note) => { change(next, 'levels.' + first); setScene(first); setMakingLevels(false); onNote(note); }} />
+      )}
 
       <h3 className="list-title">چیزهایی که در این صحنه هستند</h3>
       {placed.length === 0 && <p className="empty">این صحنه خالی است. با دکمه‌ی زیر اولین چیز بازی‌ات را اضافه کن.</p>}
