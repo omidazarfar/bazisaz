@@ -1,0 +1,108 @@
+# Runs the checks on GitHub's computers instead of the owner's laptop.
+# - Every push to main: build, then the three test suites side by side (runtime, editor, server).
+# - By hand (Actions → Tests → Run workflow), or from scripts/ci.mjs: the same, plus bots that play the
+#   games to the end, each bot on its own computer at the same time. "bots" is all, none, or names
+#   such as platform-levels,tower-levels.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+    inputs:
+      bots:
+        description: 'Bots to play: all, none, or names (platform-levels,tower-levels,…)'
+        default: all
+
+# A newer push makes the older run pointless: stop it and save the minutes.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: built
+          path: |
+            dist
+            dist-editor
+          retention-days: 3
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [smoke, editor.smoke, server.smoke]
+    name: test (${{ matrix.suite }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: built
+      - run: node scripts/${{ matrix.suite }}.mjs
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.suite }}
+          path: test-output
+          retention-days: 7
+
+  plan:
+    if: github.event_name == 'workflow_dispatch' && inputs.bots != 'none'
+    runs-on: ubuntu-latest
+    outputs:
+      bots: ${{ steps.pick.outputs.bots }}
+    steps:
+      - id: pick
+        run: |
+          all='platform adventure shooter puzzle physics rescue tower bricks runner hopper runner-levels hopper-levels bricks-levels platform-levels tower-levels adventure-levels'
+          wanted='${{ inputs.bots }}'
+          [ "$wanted" = all ] && wanted="$all"
+          echo "bots=$(echo "$wanted" | tr ', ' '\n\n' | grep -v '^$' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+
+  bot:
+    needs: [build, plan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        bot: ${{ fromJSON(needs.plan.outputs.bots) }}
+    name: bot (${{ matrix.bot }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: built
+      - run: node scripts/bots/all.mjs ${{ matrix.bot }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bot-photos-${{ matrix.bot }}
+          path: scripts/bots/out
+          retention-days: 7

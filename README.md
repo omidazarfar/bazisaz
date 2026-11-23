@@ -22,7 +22,10 @@ Other commands:
 npm run dev        # editor with live reload at http://localhost:5173/editor.html (no export)
 npm run build      # dist/index.html (the player) and dist-editor/editor.html (the editor)
 npm test           # browser tests of the games and editor, and a server test with Gradle replaced
-npm run bots       # bots play six genre-helper games (five wins and 35 seconds of shooter waves) (after npm run build)
+npm run bots       # bots play the genre-helper games to the end, and six of them over three made levels (after npm run build)
+npm run bots -- platform-levels,tower   # only the named bots
+node scripts/ci.mjs run [bots]   # the same checks on GitHub's computers (.github/workflows/test.yml), bots side by side
+node scripts/ci.mjs watch        # what that run is doing, and about how long is left
 npm run check      # all of it in one go: build, then the tests, then the bots (one after another, to spare memory)
 ```
 

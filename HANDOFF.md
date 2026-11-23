@@ -267,6 +267,8 @@ look:
 
 ## Current state (keep this up to date)
 
+- Checks run on GitHub Actions (`.github/workflows/test.yml`), because the owner's 8 GB laptop cannot run the bots (Claude Code stops background runs when memory is low, and headless Chrome crashed in Brick Blitz). Every push to main (not docs-only): build once, then smoke / editor.smoke / server.smoke side by side. By hand: `node scripts/ci.mjs run all` (or names, or none) adds one job per bot, all at once. `node scripts/ci.mjs watch` prints each job and the time left, guessed from the last passing run. The repo is private: about 2000 free minutes a month, so bots run only by hand. Failed runs upload `test-output` and bot photos as artifacts.
+
 - 2026-11-22, Codex. Open an object's «ذرات» behaviour and choose «ویرایش جلوه‌ی ذرات» for a live preview of all 30 presets. Apply makes one undoable edit. The rear wheel in newly generated Rescue Relay games emits dust while rolling on the ground. Dungeon Escape's opening conversation exposed a bot timing bug, fixed in the shared bot wait. See today's session log for verification.
 
 - Updated 2026-11-23 by Claude: the level maker («🪄 ساختن مرحله‌های بعدی»). Verified on the current code: `npm test` **656 PASS, 0 FAIL**. Bots: platform, adventure, shooter, puzzle, rescue, tower, runner, hopper, hopper-levels won; physics and runner-levels won after the fixes (run alone); bricks and bricks-levels not confirmed: headless Chrome crashed mid-game on this machine (see the 2026-11-23 entry).
