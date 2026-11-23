@@ -1,6 +1,7 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TileStyle, Weather } from '../format/types';
 import { EMPTY_TILE, ruleActions } from '../format/types';
 import { DANGER, PLAYER, PRIZE } from './presets';
+import { describeChange, findElements, placesEnemies, remix, REMIX_SAID, remixKind, type RemixKind } from './levelremix';
 import { duplicateScene, getScene, newId } from './state';
 
 /**
@@ -27,15 +28,19 @@ export interface LevelOptions {
 
 export const DEFAULT_LEVEL_OPTIONS: LevelOptions = { count: 5, curve: 'normal', faster: true, moreEnemies: true, movePrizes: true, newLayout: true, fewerTries: true, newLook: true, seed: 1 };
 
-/** The kinds of game whose layout can be made afresh, found by the objects only they have. */
-export type LayoutKind = 'runner' | 'hopper' | 'bricks' | null;
+/**
+ * The kinds of game whose layout can be made afresh. Three are known by their
+ * parts' names; the rest are found from what the level's rules make of its
+ * objects (see levelremix.ts), so a game made from scratch can have one too.
+ */
+export type LayoutKind = 'runner' | 'hopper' | 'bricks' | RemixKind | null;
 
 export function layoutKind(scene: Scene): LayoutKind {
   const names = new Set(scene.objects.map((o) => o.name));
   if (names.has('دونده') && scene.objects.some((o) => o.name.startsWith('بام'))) return 'runner';
   if (names.has('پرنده') && scene.objects.some((o) => o.name.startsWith('دروازه'))) return 'hopper';
   if (scene.objects.some((o) => o.name.startsWith('آجر ')) && names.has('راکت')) return 'bricks';
-  return null;
+  return remixKind(scene, findElements(scene));
 }
 
 /** A small, fixed random number source: the same seed makes the same levels. */
@@ -49,7 +54,7 @@ function random(seed: number): () => number {
   };
 }
 
-const STEP = { gentle: 0.12, normal: 0.22, steep: 0.38 };
+const STEP = { gentle: 0.15, normal: 0.3, steep: 0.5 };
 
 /** How much harder level `n` (1 for the first new one) is than the one made by hand: 1 is the same. */
 export const hardness = (curve: LevelOptions['curve'], n: number) => 1 + STEP[curve] * n;
@@ -283,7 +288,7 @@ function levelBanner(scene: Scene, n: number, width: number, height: number): Sc
 }
 
 /** Makes `options.count` new levels after the scene, each harder than the last, and chains them. */
-export function generateLevels(project: GameProject, sceneId: string, options: LevelOptions): { project: GameProject; ids: string[]; layout: LayoutKind; chained: boolean } {
+export function generateLevels(project: GameProject, sceneId: string, options: LevelOptions): { project: GameProject; ids: string[]; layout: LayoutKind; chained: boolean; changes: string[] } {
   const source = getScene(project, sceneId);
   const win = winTarget(project, source);
   const layout = layoutKind(source);
@@ -293,6 +298,8 @@ export function generateLevels(project: GameProject, sceneId: string, options: L
   const base = source.name.replace(/\s*·\s*مرحله‌ی\s*[0-9۰-۹]+$/, '');
   let p = project;
   const ids: string[] = [];
+  const changes: string[] = [];
+  const before = findElements(source);
   for (let n = 1; n <= options.count; n++) {
     const rnd = random(options.seed * 1009 + n * 7919);
     const f = hardness(options.curve, n);
@@ -302,7 +309,10 @@ export function generateLevels(project: GameProject, sceneId: string, options: L
     if (options.newLayout && layout === 'runner') scene = runnerLayout(scene, f, rnd);
     if (options.newLayout && layout === 'hopper') scene = hopperLayout(scene, f, rnd);
     if (options.newLayout && layout === 'bricks') scene = bricksLayout(scene, f, rnd);
-    if (options.moreEnemies) scene = moreEnemies(scene, f, rnd);
+    const remixed = options.newLayout && layout && !['runner', 'hopper', 'bricks'].includes(layout);
+    if (remixed) scene = remix(scene, layout as RemixKind, f, rnd, { width: W, height: H });
+    // Kinds that lay out their own enemies have them where they fit; stray copies could end up in a wall.
+    if (options.moreEnemies && !(remixed && placesEnemies(layout as RemixKind))) scene = moreEnemies(scene, f, rnd);
     if (options.faster) scene = faster(scene, f);
     if (options.movePrizes) scene = movePrizes(scene, rnd);
     if (options.fewerTries) scene = fewerTries(scene, f);
@@ -310,6 +320,18 @@ export function generateLevels(project: GameProject, sceneId: string, options: L
     // A goal in points counts this level's points: the score starts again at each level.
     if (scoreGoal) scene = { ...scene, rules: [{ id: newId('rule'), when: { type: 'start' }, condition: null, then: [{ type: 'setVariable', name: 'score', op: 'set', amount: 0 }] }, ...scene.rules] };
     scene = levelBanner(scene, n + 1, W, H);
+    // In a few words, what is new in this level, for the person who made it.
+    const hasFoes = before.counts.enemy > 0 || scene.objects.some((o) => o.behaviors.some((b) => b.type === 'spawner'));
+    const tries = source.rules.some((r) => r.when.type === 'start' && r.then.some((a) => a.type === 'setVariable' && a.op === 'set' && ['moves', 'shots', 'time', 'seconds', 'timer'].includes(a.name)));
+    const said = [
+      options.newLayout && layout ? (remixed ? REMIX_SAID[layout as RemixKind] : 'چیدمان تازه') : '',
+      describeChange(before, findElements(scene)),
+      options.faster && hasFoes ? `دشمن‌ها ${Math.round((f - 1) * 100).toLocaleString('fa-IR')}٪ تندتر` : '',
+      options.fewerTries && tries ? 'حرکت یا تیر کمتر' : '',
+      options.fewerTries && scoreGoal ? 'امتیاز بیشتری برای برد' : '',
+      options.newLook && scene.sky !== source.sky ? 'منظره‌ی تازه' : '',
+    ].filter(Boolean).join('، ');
+    changes.push(`مرحله‌ی ${(n + 1).toLocaleString('fa-IR')}: ${said || 'مثل قبلی'}`);
     p = { ...p, scenes: p.scenes.map((s) => (s.id === copy.id ? scene : s)) };
     ids.push(copy.id);
   }
@@ -323,5 +345,5 @@ export function generateLevels(project: GameProject, sceneId: string, options: L
   const rest = p.scenes.filter((s) => !made.has(s.id));
   const at = rest.findIndex((s) => s.id === sceneId);
   p = { ...p, scenes: [...rest.slice(0, at + 1), ...ids.map((id) => getScene(p, id)), ...rest.slice(at + 1)] };
-  return { project: p, ids, layout, chained: Boolean(win) };
+  return { project: p, ids, layout, chained: Boolean(win), changes };
 }

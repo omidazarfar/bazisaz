@@ -4,9 +4,10 @@ import { Check, Select, Slider } from './controls';
 import { fa } from './labels';
 import { DEFAULT_LEVEL_OPTIONS, generateLevels, layoutKind, type LevelOptions } from './levelgen';
 import { Dialog } from './Pick';
+import { describeElements, findElements, REMIX_NAMES } from './levelremix';
 import { getScene } from './state';
 
-const LAYOUT_NAMES = { runner: 'بام‌ها و شکاف‌های تازه', hopper: 'ارتفاع تازه‌ی شکاف لوله‌ها', bricks: 'شکل تازه‌ی دیوار آجرها' };
+const LAYOUT_NAMES = { runner: 'بام‌ها و شکاف‌های تازه', hopper: 'ارتفاع تازه‌ی شکاف لوله‌ها', bricks: 'شکل تازه‌ی دیوار آجرها', ...REMIX_NAMES };
 
 /**
  * The choices for making a game's next levels, and the button that makes
@@ -17,13 +18,15 @@ export function LevelMaker(props: { project: GameProject; sceneId: string; onMad
   const set = (patch: Partial<LevelOptions>) => setOptions((o) => ({ ...o, ...patch }));
   const scene = getScene(props.project, props.sceneId);
   const layout = layoutKind(scene);
+  const found = describeElements(findElements(scene));
   const make = () => {
     const made = generateLevels(props.project, props.sceneId, options);
-    const note = `${fa(made.ids.length)} مرحله‌ی تازه بعد از «${scene.name}» ساخته شد${made.chained ? '، و هر مرحله به مرحله‌ی بعد می‌رود' : '؛ این مرحله جایی برای رفتن بعد از برد نداشت، پس مرحله‌ها به هم وصل نشدند'}. هر مرحله یک صحنه‌ی معمولی است و می‌شود عوضش کرد.`;
+    const note = `${fa(made.ids.length)} مرحله‌ی تازه بعد از «${scene.name}» ساخته شد${made.chained ? '، و هر مرحله به مرحله‌ی بعد می‌رود' : '؛ این مرحله جایی برای رفتن بعد از برد نداشت، پس مرحله‌ها به هم وصل نشدند'}. ${made.changes.slice(0, 3).join(' · ')}${made.changes.length > 3 ? ' · …' : ''}`;
     props.onMade(made.project, made.ids[0], note);
   };
   return (
     <Dialog title="ساختن مرحله‌های بعدی" about={`از روی «${scene.name}»، مرحله‌های تازه ساخته می‌شود، هر کدام کمی سخت‌تر از قبلی. با «🎲 دسته‌ی دیگر» مرحله‌های دیگری ساخته می‌شود. بعد از ساختن، هر مرحله را باز کن و امتحان کن.`} onClose={props.onClose}>
+      {found && <p className="hint" data-levels-found>در این مرحله پیدا شد: {found}</p>}
       <Slider label="چند مرحله" min={1} max={20} step={1} value={options.count} onChange={(count) => set({ count })} />
       <Select label="سخت شدن" value={options.curve} options={[
         { value: 'gentle', label: 'آرام' }, { value: 'normal', label: 'معمولی' }, { value: 'steep', label: 'تند' },
@@ -36,7 +39,7 @@ export function LevelMaker(props: { project: GameProject; sceneId: string; onMad
       <Check label="منظره و آب و هوای تازه" value={options.newLook} onChange={(newLook) => set({ newLook })} />
       {layout
         ? <Check label={`چیدمان تازه: ${LAYOUT_NAMES[layout]}`} value={options.newLayout} onChange={(newLayout) => set({ newLayout })} />
-        : <p className="hint">برای این بازی چیدمان تازه ساخته نمی‌شود؛ بقیه‌ی تغییرها انجام می‌شوند. چیدمان تازه برای بازی‌های دونده، پرنده و آجرشکن هست.</p>}
+        : <p className="hint">برای این بازی چیدمان تازه ساخته نمی‌شود (شکلش را نشناختم)؛ بقیه‌ی تغییرها انجام می‌شوند.</p>}
       <div className="adders">
         <button type="button" className="chip" data-levels-make onClick={make}>🪄 بساز</button>
         <button type="button" className="chip" data-levels-seed onClick={() => set({ seed: Math.floor(Math.random() * 100000) })}>🎲 دسته‌ی دیگر</button>

@@ -13,6 +13,7 @@ const all = [
   ['platform', ['60']], ['adventure', ['60']], ['shooter', ['35']], ['puzzle'], ['physics'], ['rescue'], ['tower', ['90']], ['bricks', ['240']], ['runner', ['90']], ['hopper', ['90']],
   // The same games with their next two levels made: the bot must win all three in a row.
   ['runner', ['120'], 'runner-levels'], ['hopper', ['90'], 'hopper-levels'], ['bricks', ['300'], 'bricks-levels'],
+  ['platform', ['120'], 'platform-levels'], ['tower', ['150'], 'tower-levels'], ['adventure', ['150'], 'adventure-levels'],
 ];
 const wanted = process.argv[2]?.split(',').map((s) => s.trim()).filter(Boolean);
 const bots = wanted ? all.filter(([genre, , game]) => wanted.includes(game ?? genre)) : all;
@@ -22,6 +23,7 @@ if (!wanted || wanted.includes('shooter')) {
   if (steering.status !== 0) { console.log(steering.stdout, steering.stderr); process.exit(1); }
 }
 const exported = run('export.mjs', [bots.map(([genre, , game]) => (game ? genre + ':2' : genre)).join(',')]);
+// (Several of the bots go through levels made by the level maker: each must win all three in a row.)
 if (exported.status !== 0) { console.log(exported.stdout, exported.stderr); process.exit(1); }
 let failed = 0;
 const play = (genre, args, game) => {
@@ -42,5 +44,5 @@ for (const [genre, args = [], game = null] of bots) {
   if (!ok) failed += 1;
   console.log(`${ok ? 'PASS' : 'FAIL'} ${label}: ${text}`);
 }
-console.log(failed ? `${failed} game(s) failed` : wanted ? `All ${bots.length} chosen game(s) played through` : 'All ten games played through, and three of them over three levels');
+console.log(failed ? `${failed} game(s) failed` : wanted ? `All ${bots.length} chosen game(s) played through` : 'All ten games played through, and six of them over three levels');
 process.exit(failed ? 1 : 0);

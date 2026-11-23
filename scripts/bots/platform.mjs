@@ -16,6 +16,7 @@ let outcome = 'timeout';
 let best = 0;
 let bestAt = 0;
 let doubled = false;
+let lastScene = null;
 await page.keyboard.down('ArrowRight');
 try {
   while (true) {
@@ -25,6 +26,8 @@ try {
     if (s.time > Number(process.argv[2] ?? 60)) break;
     const me = s.entities.find((e) => e.tags.includes('بازیکن'));
     if (!me) { await tick(page, 0.1); continue; }
+    // A new level starts from its left end, with its own clock.
+    if (s.scene !== lastScene) { lastScene = s.scene; best = 0; bestAt = s.time; doubled = false; }
     const solids = s.entities.filter((e) => e.tags.includes(GROUND) && e.visible);
     const feet = me.y + me.height;
     const solidAt = (x, y) => solids.some((b) => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height);

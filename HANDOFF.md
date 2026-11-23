@@ -431,6 +431,16 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-24 — Claude, level maker that understands the parts
+
+- Owner feedback: levels "did not change at all" (true for platform, shooter, puzzle, physics, rescue: only a speed or the sky changed). New `src/editor/levelremix.ts`:
+  - `findElements(scene)` reads roles from the rules, not names: touching it costs a life (a `send` to a message that subtracts lives, `damage first`, `respawn first`) → hazard, or enemy if it moves; `checkpoint` → checkpoint; `goToScene`/win sound → goal; destroy second/add → prize; `noneLeft`/`hit` → target; `line` → piece; the player's `solidTag` → ground; untagged images → decor. The dialog shows «در این مرحله پیدا شد: …» (`data-levels-found`).
+  - `remixKind` from those roles: platformer (gravity, jumper, wide tile map), tower (tall, climb tag), dungeon (no gravity, steer, tile walls), physics (`thrown` + targets), puzzle (`line`), shooter (followFinger + spawner), rescue (`cut`).
+  - `remix`: platformer rebuilds the tile map from pieces counted from the original (walkers, spikes, gaps with pits, the lift, steps; floating platforms, gems on higher ones, coins at least as many; checkpoints at thirds, goal at the end); tower moves each floor's opening and its ladder (zigzag), re-lays coins, adds floor enemies; dungeon moves pillars (2-cell clearance), coins, key, enemies within their own room and adds enemies outside the start room; physics builds 2–3 new towers, targets on top/inside, beam + barrel; puzzle shuffles with fewest starting lines; shooter adds tougher spawns and health; rescue narrows the mat.
+  - `generateLevels` returns `changes` (per level, in Persian) shown in the note after making. Curve steps are now 0.15 / 0.3 / 0.5.
+- Bots: `platform-levels`, `tower-levels`, `adventure-levels` added; tower bot reads each level's ladders, platform bot resets per level.
+- Editor checks (level block alone): 21 PASS — platform new ground/longer/more spikes, tower ladders move, dungeon pillars/enemies, physics towers and targets, puzzle board shuffled.
+
 ### 2026-11-23 — Claude, making a game's next levels
 
 - `src/editor/levelgen.ts` + `LevelMaker.tsx` (button «🪄 ساختن مرحله‌های بعدی» under the scene buttons). No AI: copies of the level (`duplicateScene`), each harder by `hardness(curve, n)`. For every game: enemies and spawners faster (never the player), more patrol enemies, prizes swapped between their spots, fewer moves/shots/time and a higher score goal, a new theme (sky, weather, natural tile material; dark scenes untouched). New layouts for runner (rooftops, widening gaps up to 250), hopper (gap heights, narrower) and bricks (wall shapes). Levels are chained by redirecting the level's win `goToScene`; a points goal resets score at each level; a «Level N» label pops at the start.

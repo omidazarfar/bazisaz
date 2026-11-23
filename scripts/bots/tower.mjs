@@ -6,9 +6,11 @@ import { report, startGame, state, tick, watcher } from './bot.mjs';
 const limit = Number(process.argv[2] ?? 90);
 const { browser, page, project, errors, names } = await startGame('tower');
 const w = watcher(page, names, 'tower');
-const level = project.scenes.find((s) => s.objects.some((o) => o.name === 'زنگ بالای برج'));
-const ladders = level.objects.filter((o) => o.name.startsWith('نردبان ')).sort((a, b) => b.y - a.y);
-const bell = level.objects.find((o) => o.name === 'زنگ بالای برج');
+// Each level (the one made by hand and the ones made from it) has its own ladders and bell.
+const towerOf = new Map(project.scenes.filter((s) => s.objects.some((o) => o.name === 'زنگ بالای برج')).map((s) => [s.id, {
+  ladders: s.objects.filter((o) => o.name.startsWith('نردبان ')).sort((a, b) => b.y - a.y),
+  bell: s.objects.find((o) => o.name === 'زنگ بالای برج'),
+}]));
 const held = new Set();
 const hold = async (keys) => {
   for (const k of [...held]) if (!keys.includes(k)) { await page.keyboard.up(k); held.delete(k); }
@@ -24,7 +26,8 @@ try {
     if (s.time > limit) break;
     if (s.dialogue) { await hold([]); await page.keyboard.press('Space'); await new Promise((r) => setTimeout(r, 300)); continue; }
     const me = s.entities.find((e) => e.tags.includes('بازیکن'));
-    if (!me) { await tick(page, 0.1); continue; }
+    if (!me || !towerOf.has(s.scene)) { await tick(page, 0.1); continue; }
+    const { ladders, bell } = towerOf.get(s.scene);
     const mx = me.x + me.width / 2;
     const foot = me.y + me.height;
     // Which floor the hero is at or above: each ladder's top sticks up 40 past the floor it leads to.

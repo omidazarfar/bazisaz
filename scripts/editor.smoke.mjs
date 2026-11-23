@@ -1620,6 +1620,7 @@ const scenesBefore = (await editor()).project.scenes.length;
 await page.click('[data-make-levels]');
 await page.waitForSelector('[data-levels-make]');
 check('the level maker offers a new layout for this kind of game', (await page.$eval('.modal', (m) => m.textContent)).includes('بام‌ها و شکاف‌های تازه'));
+check('and says what it found in the level, from its rules', (await page.$eval('[data-levels-found]', (p) => p.textContent)).includes('جایزه'), await page.$eval('[data-levels-found]', (p) => p.textContent));
 await page.click('[data-levels-make]');
 await until(page, () => !document.querySelector('[data-levels-make]'), null, 15000);
 let levelProject = (await editor()).project;
@@ -1657,9 +1658,40 @@ check('and there are more of them', enemyCount(platformLevels[3]) > enemyCount(p
 check('coins are in new places', coinsAt(platformLevels[1]) !== coinsAt(platformLevels[0]));
 check('the place and weather change', new Set(platformLevels.map((s) => s.sky + '/' + (s.weather ?? 'none'))).size >= 2, platformLevels.map((s) => s.sky + '/' + (s.weather ?? 'none')).join(','));
 check('the player stays as fast as before', new Set(platformLevels.map((s) => JSON.stringify(s.objects.find((o) => o.name === 'قهرمان').behaviors))).size === 1);
+const groundOf = (s) => s.objects.find((o) => o.name === 'مرحله').visual.rows.join('/');
+check('each new level has new ground: gaps, steps and floating platforms laid out afresh, longer', new Set(platformLevels.map(groundOf)).size === 4 && platformLevels[1].width > platformLevels[0].width, platformLevels.map((s) => s.width).join(','));
+const spikesOf = (s) => s.objects.filter((o) => o.tags.includes('تیغ')).length;
+check('with more spikes, and the checkpoints and the goal still there', spikesOf(platformLevels[3]) > spikesOf(platformLevels[0]) && platformLevels.every((s) => s.objects.filter((o) => o.tags.includes('ایست بازرسی')).length === 2 && s.objects.some((o) => o.tags.includes('پایان'))), platformLevels.map(spikesOf).join(','));
 await click('امتحان کن');
 check('a newLevels level plays without errors in the try-out', await until(page, () => window.__game.getState().time > 0.5, null, 60000));
 await click('توقف');
+
+// Other kinds, found from what their parts do: each new level is laid out afresh in its own way.
+const levelsOf = async (genre) => {
+  await freshGame();
+  await openLibrary('راهنمای سبک');
+  await page.click(`.modal [data-genre="${genre}"]`);
+  await until(page, () => !document.querySelector('.modal'), null, 30000);
+  const first = (await editor()).sceneId;
+  const count = (await editor()).project.scenes.length;
+  await page.evaluate(() => window.__editor.makeLevels(2, 3));
+  await until(page, (n) => window.__editor.getState().project.scenes.length >= n + 2, count, 10000);
+  const p = (await editor()).project;
+  const at = p.scenes.findIndex((s) => s.id === first);
+  return [p.scenes[at], p.scenes[at + 1], p.scenes[at + 2]];
+};
+const spots = (s, pick) => s.objects.filter(pick).map((o) => Math.round(o.x) + ':' + Math.round(o.y)).sort().join(',');
+let lv = await levelsOf('tower');
+check('tower: the ladders (and the openings in the floors) move', spots(lv[1], (o) => o.tags.includes('نردبان')) !== spots(lv[0], (o) => o.tags.includes('نردبان')));
+lv = await levelsOf('adventure');
+check('dungeon: pillars and enemies stand somewhere new, and there are more enemies', spots(lv[1], (o) => o.name.startsWith('ستون')) !== spots(lv[0], (o) => o.name.startsWith('ستون'))
+  && lv[2].objects.filter((o) => o.tags.includes('خطر')).length > lv[0].objects.filter((o) => o.tags.includes('خطر')).length);
+lv = await levelsOf('physics');
+check('rock smash: new towers of blocks, with at least as many targets', spots(lv[1], (o) => o.tags.includes('جعبه')) !== spots(lv[0], (o) => o.tags.includes('جعبه'))
+  && lv[1].objects.filter((o) => o.tags.includes('هدف')).length >= lv[0].objects.filter((o) => o.tags.includes('هدف')).length);
+lv = await levelsOf('puzzle');
+const board = (s) => s.objects.filter((o) => o.tags.includes('مهره')).sort((a, b) => a.y - b.y || a.x - b.x).map((o) => o.values?.kind).join('');
+check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
 
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
