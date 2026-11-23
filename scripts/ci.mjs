@@ -70,7 +70,8 @@ async function status() {
   }
   // Parts that wait for the build start only after it; bot jobs appear once the plan is made.
   if (run.status !== 'completed') {
-    console.log(left > 0 || !unknown ? `About ${minutes(left)} left.` : 'No earlier run to guess from yet; the first run sets the times.');
+    const untimed = unknown ? ` ${unknown} part(s) still going have never passed before, so their time is not known (bots over three levels take 20–60 min here).` : '';
+    console.log(left > 0 ? `About ${minutes(left)} left for the parts timed before.${untimed}` : unknown ? `No earlier time to guess from.${untimed}` : 'Almost done.');
   }
   return run.status === 'completed';
 }

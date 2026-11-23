@@ -18,6 +18,7 @@ const hold = async (keys) => {
 };
 let outcome = 'timeout';
 let lastJump = 0;
+const lastSeen = new Map();
 try {
   while (true) {
     const s = await state(page);
@@ -54,13 +55,18 @@ try {
       if (!onLadder) {
         // A slime ahead on the same floor and close: jump (onto it, or over it).
         const way = keys.includes('ArrowRight') ? 1 : keys.includes('ArrowLeft') ? -1 : 0;
-        // How soon depends on how fast they come together: a faster slime (in a later level) means jumping earlier.
+        // When: so that, where the jump comes down (about 0.85 s later, 320 a second forward), the slime is
+        // already behind. Its speed is worked out from where it was a moment ago: one walking away is
+        // caught up with, so the jump waits; one coming closer is jumped earlier.
         const slime = s.entities.find((e) => {
           if (!e.visible || !e.tags.includes('دشمن') || Math.abs(e.y + e.height - foot) >= 30) return false;
           const ahead = (e.x + e.width / 2 - mx) * way;
-          const closing = Math.max(0, 320 - (e.vx ?? 0) * way);
-          return ahead > 0 && ahead < 90 + closing * 0.3;
+          const seen = lastSeen.get(e.id);
+          const v = seen && s.time > seen.t ? ((e.x - seen.x) / (s.time - seen.t)) * way : 0;
+          const landing = ahead + (v - 320) * 0.85;
+          return ahead > 0 && ahead < 220 && landing < -(e.width / 2 + me.width / 2 + 15);
         });
+        for (const e of s.entities) if (e.tags.includes('دشمن')) lastSeen.set(e.id, { x: e.x, t: s.time });
         if (slime && me.grounded && s.time - lastJump > 0.5) {
           lastJump = s.time;
           await page.keyboard.press('Space');
