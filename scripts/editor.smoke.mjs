@@ -1650,7 +1650,8 @@ levelProject = (await editor()).project;
 const platformLevels = levelProject.scenes.filter((s) => s.objects.some((o) => o.name === 'مرحله' && o.visual.kind === 'tiles'));
 const speedOf = (s) => Math.max(...s.objects.flatMap((o) => o.behaviors.filter((b) => b.type === 'patrol' && !o.tags.includes('زمین')).map((b) => b.speed)));
 const enemyCount = (s) => s.objects.filter((o) => o.tags.includes('خطر') && o.behaviors.some((b) => b.type === 'patrol')).length;
-const coinsAt = (s) => s.objects.filter((o) => o.tags.includes('سکه')).map((o) => Math.round(o.x) + ':' + Math.round(o.y)).join(',');
+// Coins painted into the map and gems placed as objects.
+const coinsAt = (s) => s.objects.find((o) => o.name === 'مرحله').visual.rows.join('/') + '|' + s.objects.filter((o) => o.tags.includes('الماس')).map((o) => Math.round(o.x) + ':' + Math.round(o.y)).join(',');
 check('enemies get faster level by level', platformLevels.length === 4 && speedOf(platformLevels[3]) > speedOf(platformLevels[0]), platformLevels.map(speedOf).join(','));
 check('and there are more of them', enemyCount(platformLevels[3]) > enemyCount(platformLevels[0]), platformLevels.map(enemyCount).join(','));
 check('coins are in new places', coinsAt(platformLevels[1]) !== coinsAt(platformLevels[0]));

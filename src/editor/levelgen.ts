@@ -1,5 +1,5 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TileStyle, Weather } from '../format/types';
-import { ruleActions } from '../format/types';
+import { EMPTY_TILE, ruleActions } from '../format/types';
 import { DANGER, PLAYER, PRIZE } from './presets';
 import { duplicateScene, getScene, newId } from './state';
 
@@ -117,7 +117,27 @@ function movePrizes(scene: Scene, rnd: () => number): Scene {
   const prize = (o: GameObject) => !isPlayer(o) && (o.tags.includes('سکه') || o.tags.includes('الماس') || o.tags.includes(PRIZE));
   const spots = scene.objects.filter(prize).map((o) => ({ x: o.x + o.width / 2, y: o.y + o.height / 2 })).sort(() => rnd() - 0.5);
   let i = 0;
-  return { ...scene, objects: scene.objects.map((o) => (prize(o) ? { ...o, x: spots[i].x - o.width / 2, y: spots[i++].y - o.height / 2 } : o)) };
+  const objects = scene.objects.map((o) => (prize(o) ? { ...o, x: spots[i].x - o.width / 2, y: spots[i++].y - o.height / 2 } : o));
+  return { ...scene, objects: objects.map((o) => (o.visual.kind === 'tiles' ? movePrizeCells(o, rnd) : o)) };
+}
+
+/** Coins painted into a tile map: each slides a few cells along its row, into an empty cell. */
+function movePrizeCells(o: GameObject, rnd: () => number): GameObject {
+  if (o.visual.kind !== 'tiles') return o;
+  const kinds = o.visual.kinds;
+  const prizeKeys = new Set(Object.entries(kinds).filter(([, k]) => k.tags.includes('سکه') || k.tags.includes('الماس') || k.tags.includes(PRIZE)).map(([key]) => key));
+  if (prizeKeys.size === 0) return o;
+  const grid = o.visual.rows.map((r) => [...r]);
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      if (!prizeKeys.has(grid[r][c])) continue;
+      const to = c + Math.round((rnd() - 0.5) * 6);
+      if (to === c || to < 0 || to >= grid[r].length || grid[r][to] !== EMPTY_TILE) continue;
+      grid[r][to] = grid[r][c];
+      grid[r][c] = EMPTY_TILE;
+    }
+  }
+  return { ...o, visual: { ...o.visual, rows: grid.map((r) => r.join('')) } };
 }
 
 /** Fewer moves, shots or seconds given at the start of the level; a points goal a little higher. Never below one. */
