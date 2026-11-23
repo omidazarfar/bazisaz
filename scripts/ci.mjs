@@ -2,6 +2,7 @@
 //   node scripts/ci.mjs status        what the latest run is doing, and about how long is left
 //   node scripts/ci.mjs watch         the same every 30 seconds, until it is over
 //   node scripts/ci.mjs run [bots]    start a run by hand, with bots: all (default), none, or names
+//   node scripts/ci.mjs log <part>    the end of what one part of the latest run printed, e.g. log server
 // The time left is guessed from how long each part took the last time it passed.
 // Needs a GitHub login: GITHUB_TOKEN, or `gh auth login`, or the login git already uses for pushing.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -77,6 +78,13 @@ const [command = 'status', bots = 'all'] = process.argv.slice(2);
 if (command === 'run') {
   await api('/actions/workflows/test.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { bots } }) });
   console.log(`Started a run with bots: ${bots}. Follow it with: node scripts/ci.mjs watch`);
+} else if (command === 'log') {
+  const run = (await api('/actions/workflows/test.yml/runs?per_page=1')).workflow_runs[0];
+  const job = (await api(`/actions/runs/${run.id}/jobs?per_page=100`)).jobs.find((j) => j.name.includes(bots));
+  if (!job) throw new Error('No part named like ' + bots);
+  const r = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${job.id}/logs`, { headers: { Authorization: `Bearer ${auth}`, 'User-Agent': 'bazisaz-ci' } });
+  const text = (await r.text()).split(/\r?\n/).map((l) => l.replace(/^\S+Z /, ''));
+  console.log(text.slice(-Number(process.argv[4] ?? 60)).join('\n'));
 } else if (command === 'watch') {
   while (!(await status())) await new Promise((r) => setTimeout(r, 30000));
 } else {

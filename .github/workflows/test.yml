@@ -59,6 +59,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: built
+      # The export server builds from the Android project, which holds a copy of the built player.
+      - if: matrix.suite == 'server.smoke'
+        run: npx cap copy android
       - run: node scripts/${{ matrix.suite }}.mjs
       - if: failure()
         uses: actions/upload-artifact@v4
