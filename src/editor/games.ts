@@ -1,6 +1,6 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TilesVisual, Visual } from '../format/types';
 import { CRATE, DANGER, GROUND, physics, PLAYER, THROWN, withVariable } from './presets';
-import { addAll, addClockwork, addRescueRig, badge, bagIfNone, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
+import { addAll, addClockwork, addRescueRig, badge, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
 import { SPRITES, useSprite } from './sprites';
 import { makeObject, newId, updateScene } from './state';
 
@@ -464,11 +464,12 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
       }));
     }
     for (const [sx, sy] of [[0.3, 0.4], [0.7, 0.6]]) objects.push(makeObject(`ستون ${room + 1}`, { kind: 'image', asset: stone.asset }, 80, 80, at(room, sx, sy), { tags: [GROUND] }));
-    for (const [sx, sy] of [[0.2, 0.25], [0.5, 0.2], [0.8, 0.3], [0.25, 0.7], [0.75, 0.78]]) {
+    // (Clear of the score, hearts and backpack along the top and of the stick and buttons along the bottom.)
+    for (const [sx, sy] of [[0.2, 0.25], [0.5, 0.28], [0.8, 0.3], [0.25, 0.7], [0.75, 0.74]]) {
       objects.push(makeObject(`سکه ${room + 1}`, { kind: 'image', asset: coin.asset }, 56, 56, at(room, sx, sy), { tags: [COIN], round: true, behaviors: [{ type: 'pulse', amount: 0.08, seconds: 1.1 }] }));
     }
   }
-  for (const [room, sx, sy] of [[1, 0.9, 0.05], [2, 0.1, 0.5], [3, 0.5, 0.15]] as const) {
+  for (const [room, sx, sy] of [[1, 0.92, 0.25], [2, 0.1, 0.5], [3, 0.65, 0.33]] as const) {
     objects.push(makeObject('الماس', { kind: 'image', asset: gem.asset }, 64, 64, at(room, sx, sy), {
       tags: [GEM], glow: '#7fe8ff', behaviors: [{ type: 'pulse', amount: 0.1, seconds: 0.9 }, { type: 'light', radius: 120, color: '#7fe8ff', flicker: false }],
     }));
@@ -502,7 +503,8 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
   const chest = await art(doorArt.project, 'chest');
   const item = withItem(chest.project, keyArt.asset, 'Key');
   p = item.project;
-  objects.push(makeObject('کلید', { kind: 'image', asset: keyArt.asset }, 100, 46, at(1, 0.85, 0.92), {
+  // In the open, where no button covers it (the bottom of a room is under the buttons on a phone).
+  objects.push(makeObject('کلید', { kind: 'image', asset: keyArt.asset }, 100, 46, at(1, 0.86, 0.47), {
     tags: [KEY], glow: '#ffd23f', behaviors: [{ type: 'pulse', amount: 0.1, seconds: 1 }, { type: 'light', radius: 140, color: '#ffd23f', flicker: false }],
   }));
   const door = makeObject('در قفل', { kind: 'image', asset: doorArt.asset }, CELL, CELL * 2, { x: map.door.col * CELL + CELL / 2, y: map.door.row * CELL + CELL }, { tags: [GROUND, DOOR] });
@@ -566,7 +568,8 @@ export async function buildAdventure(project: GameProject, sceneId: string): Pro
   p = await part(p, sceneId, 'sword');
   const rollButton = await picture(p, 'btn-roll', 'دکمه‌ی غلت', 110, 110, { x: W - 250, y: H - 160 }, { fixed: true, opacity: 0.9, tags: ['دکمه‌ی غلت'] });
   p = addAll(rollButton.project, sceneId, [rollButton.object]);
-  p = addAll(p, sceneId, bagIfNone(p, sceneId));
+  // A small backpack beside the hearts for the key: a full row of places under them covered the top of every room.
+  p = addAll(p, sceneId, [makeObject('کوله‌پشتی', { kind: 'bag', slots: 2 }, 150, 70, { x: 335, y: 160 }, { fixed: true })]);
   return {
     project: p,
     select: player.id,

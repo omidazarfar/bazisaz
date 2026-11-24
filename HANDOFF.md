@@ -433,6 +433,13 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-24 — Claude, bug hunt part 2: the key and the blinking knight (owner: "I meant the key that must be taken"; blinking also on the phone)
+
+- The key was hidden under the buttons: in room B's bottom right it sat under the roll button (design shape) and under the sword button (tall phones, where the buttons move down). It now lies in the open (room B, 0.86/0.47). A coin and two gems that sat under the backpack moved down too. editor.smoke checks room by room that no coin, gem, key, door or treasure is under a screen-fixed thing (words that come and go excepted).
+- The dungeon's backpack is now two small places beside the hearts (x 335, y 160) instead of a row of five under them, which covered the top of every room (the knight walked under it).
+- The blinking: a hero with `flip` turned round whenever x changed at all, so walking up or down with a finger on the stick (never quite straight) mirrored the picture nearly every frame (measured: 180 turns in 180 frames). Now, without gravity, it turns only when going sideways at least 30 px/s and at least 0.35 of its up-down speed, and not again within 0.15 s (`turnedAt`); measured 0 turns. With gravity it turns as before.
+- A picture that only bobs (the start screen's hero, a `wave`) no longer shows its walking pictures: up-down movement counts as walking only for a body without gravity or a steer/chase.
+
 ### 2026-11-24 — Claude, bug hunt in the games (owner's report: hearts behind, no keys in the dungeon, the knight blinking)
 
 - Filling the phone: the player (not the editor) makes the view taller or wider to the screen's shape (up to 1.6×), so there are no strips on modern phones (`fill` option, `view` size in Game.ts; tests turn it off with `__FILL__ = false` unless `openPage(..., { fill: true })`). Screen-fixed objects keep to their edge: top third stays, bottom third goes to the bottom, middle stays in the middle; a thing inside another (word on a button, button on a menu) goes with it; a whole-screen cover grows. A world with gravity that fits the view stands on the bottom edge (more sky above). Lab 28.

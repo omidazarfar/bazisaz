@@ -1408,6 +1408,37 @@ const skeletonId = await page.evaluate(() => {
   return bones.def.id;
 });
 check('a skeleton that sees the knight starts chasing it', await until(page, (id) => window.__game.getState().entities.find((e) => e.id === id)?.values.state === 1, skeletonId, 20000));
+// Room by room, nothing to pick up (coins, gems, the key, the treasure, the door) lies under the score, the
+// hearts, the backpack, the stick or a button: the key once sat under the roll button and could not be seen.
+const hiddenUnderHud = await page.evaluate(async () => {
+  const g = window.__game;
+  const knight = g.entities.find((e) => e.def.tags.includes('بازیکن'));
+  const wanted = ['سکه', 'الماس', 'کلید', 'پایان', 'در قفل'];
+  const box = (e) => { const b = e.view.getBounds(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
+  const meet = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  const { width: W, height: H } = g.app.renderer.screen;
+  const hidden = [];
+  for (const room of g.entities.filter((e) => e.def.tags.includes('اتاق'))) {
+    g.variables.set('hurt', 1);
+    knight.x = room.x + 100;
+    knight.y = room.y + room.height * 0.4;
+    g.followCameraTarget(true);
+    // A few frames, for the pictures to be drawn where the camera now looks.
+    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    // (Words that come and go, like the goal at the start, are not counted.)
+    const hud = g.entities.filter((e) => e.alive && e.def.fixed && e.visible && e.opacity > 0.05 && e.width < W * 0.9 && e.def.visual.kind !== 'text').map((e) => ({ name: e.def.name, ...box(e) }));
+    // The resting stick, drawn in the bottom left corner.
+    hud.push({ name: 'stick', x: 40, y: H - 220, w: 160, h: 160 });
+    for (const e of g.entities.filter((e) => e.alive && !e.def.fixed && e.def.tags.some((t) => wanted.includes(t)))) {
+      const b = box(e);
+      if (b.x + b.w / 2 < 0 || b.y + b.h / 2 < 0 || b.x + b.w / 2 > W || b.y + b.h / 2 > H) continue;
+      const over = hud.find((h) => meet(b, h));
+      if (over) hidden.push(`${e.def.name} under ${over.name} in ${room.def.name}`);
+    }
+  }
+  return hidden;
+});
+check('nothing to pick up hides under the score, hearts, backpack, stick or buttons', hiddenUnderHud.length === 0, hiddenUnderHud.join('; '));
 await click('توقف');
 
 // ── A quest label authored in the editor ───────────────────────────────────

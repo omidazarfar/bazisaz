@@ -188,6 +188,8 @@ interface Entity extends Box {
   lastY: number;
   /** When it last moved: the walking pictures go on a moment longer, so a stop-and-go step does not flicker. */
   movedAt?: number;
+  /** When it last turned round: a picture turned at every wobble of a finger flickers. */
+  turnedAt?: number;
   /** Where it was at the end of the previous step, so that what stands on it can be carried along. */
   prevX: number;
   prevY: number;
@@ -2242,8 +2244,9 @@ export class Game {
       const visual = e.def.visual;
       if (e.frames) {
         // In the air beats moving, which beats standing still.
-        // (Seen from above, with no gravity, walking up and down is moving too.)
-        if (Math.abs(e.x - e.lastX) > 0.01 || (!body?.gravity && !this.physics?.moves(e) && Math.abs(e.y - e.lastY) > 0.01)) e.movedAt = this.time;
+        // (Seen from above, with no gravity, walking up and down is moving too; a picture that only bobs is not walking.)
+        const fromAbove = body ? !body.gravity : !this.physics?.moves(e) && e.def.behaviors.some((b) => b.type === 'steer' || b.type === 'chase');
+        if (Math.abs(e.x - e.lastX) > 0.01 || (fromAbove && Math.abs(e.y - e.lastY) > 0.01)) e.movedAt = this.time;
         const moving = this.time - (e.movedAt ?? -1) < 0.12;
         e.anim = e.airFrames && (body?.gravity || this.physics?.moves(e)) && !e.grounded ? 'air' : e.moveFrames && moving ? 'move' : 'idle';
         if (e.hurtFrames && this.time < (e.hurtPoseUntil ?? 0)) e.anim = 'hurt';
@@ -2258,7 +2261,18 @@ export class Game {
           sprite.pivot.set(sprite.texture.width / 2, sprite.texture.height / 2);
         }
       }
-      if (visual.kind === 'image' && visual.flip && Math.abs(e.x - e.lastX) > 0.01) e.facing = e.x < e.lastX ? -1 : 1;
+      if (visual.kind === 'image' && visual.flip) {
+        // It turns to the way it goes sideways. Going (nearly) up or down without gravity keeps the way it faces:
+        // a finger on the stick never goes quite straight, and turning round at every wobble looked like blinking.
+        const [dx, dy] = [e.x - e.lastX, e.y - e.lastY];
+        // (Nor does a creep along a wall it is pushed against, slower than 30 pixels a second.)
+        const sideways = body?.gravity || this.physics?.moves(e) ? Math.abs(dx) > 0.01 : Math.abs(dx) >= Math.max(30 * dt, Math.abs(dy) * 0.35);
+        const way = dx < 0 ? -1 : 1;
+        if (sideways && way !== e.facing && this.time - (e.turnedAt ?? -1) > 0.15) {
+          e.facing = way;
+          e.turnedAt = this.time;
+        }
+      }
       e.lastX = e.x;
       e.lastY = e.y;
     }
