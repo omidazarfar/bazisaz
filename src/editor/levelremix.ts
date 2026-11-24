@@ -256,7 +256,8 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
   // Floating platforms over the ground (never over a step, so there is room to stand under them), coins on
   // them; the higher ones carry the gems.
   // Only over solid ground with no gap within three cells: a jump from a gap's edge must never bump into it.
-  const solidBelow = (from: number, n: number) => { for (let k = -3; k < n + 3; k++) if (grid[top]?.[from + k] !== groundKey) return false; return true; };
+  // (And no step under or beside it: jumping up onto a step must not bump into a platform.)
+  const solidBelow = (from: number, n: number) => { for (let k = -3; k < n + 3; k++) if (grid[top]?.[from + k] !== groundKey || grid[top - 1]?.[from + k] !== EMPTY_TILE) return false; return true; };
   const free = (r: number, from: number, n: number) => {
     if (!solidBelow(from, n)) return false;
     for (let k = -1; k <= n; k++) if (grid[r]?.[from + k] !== EMPTY_TILE || grid[r + 1]?.[from + k] !== EMPTY_TILE || grid[r - 1]?.[from + k] !== EMPTY_TILE) return false;

@@ -89,8 +89,9 @@ function faster(scene: Scene, f: number): Scene {
       case 'patrol': return { ...b, speed: Math.round(b.speed * f) };
       case 'chase': return { ...b, speed: Math.round(b.speed * f) };
       case 'mover': return { ...b, vx: Math.round(b.vx * f), vy: Math.round(b.vy * f) };
-      // A thrown or bounced ball (a launch) speeds up more gently: the player has to meet it every time.
-      case 'launch': { const g = Math.sqrt(f); return { ...b, vx: Math.round(b.vx * g), vy: Math.round(b.vy * g), ...(b.speed ? { speed: Math.round(b.speed * g) } : {}) }; }
+      // A thrown or bounced ball (a launch) speeds up much more gently: the player has to meet it every time
+      // (about 12% faster by the third level on the normal curve).
+      case 'launch': { const g = Math.pow(f, 0.25); return { ...b, vx: Math.round(b.vx * g), vy: Math.round(b.vy * g), ...(b.speed ? { speed: Math.round(b.speed * g) } : {}) }; }
       case 'spawner': return { ...b, minInterval: +(b.minInterval / f).toFixed(2), maxInterval: +(b.maxInterval / f).toFixed(2) };
       default: return b;
     }
