@@ -2,6 +2,7 @@
 //   node scripts/ci.mjs status        what the latest run is doing, and about how long is left
 //   node scripts/ci.mjs watch         the same every 30 seconds, until it is over
 //   node scripts/ci.mjs run [bots]    start a run by hand, with bots: all (default), none, or names
+//   node scripts/ci.mjs minutes       how many of the free GitHub minutes this month the runs used
 //   node scripts/ci.mjs log <part>    the end of what one part of the latest run printed, e.g. log server
 //   node scripts/ci.mjs photos [part] the bot photos and test pictures it kept, into ci-output/
 // The time left is guessed from how long each part took the last time it passed.
@@ -87,6 +88,21 @@ if (command === 'run') {
   const r = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${job.id}/logs`, { headers: { Authorization: `Bearer ${auth}`, 'User-Agent': 'bazisaz-ci' } });
   const text = (await r.text()).split(/\r?\n/).map((l) => l.replace(/^\S+Z /, ''));
   console.log(text.slice(-Number(process.argv[4] ?? 60)).join('\n'));
+} else if (command === 'minutes') {
+  // GitHub counts every part on its own, each rounded up to a whole minute, all added together, even
+  // when they run at the same time. This adds them up the same way for the runs of this month.
+  const month = new Date().toISOString().slice(0, 7);
+  const runs = (await api('/actions/runs?per_page=100')).workflow_runs.filter((r) => r.created_at.startsWith(month));
+  let total = 0;
+  for (const r of [...runs].reverse()) {
+    const jobs = (await api(`/actions/runs/${r.id}/jobs?per_page=100`)).jobs;
+    const each = jobs.filter((j) => j.started_at && j.completed_at).map((j) => [j.name, Math.ceil(took(j) / 60000)]);
+    const sum = each.reduce((s, [, m]) => s + m, 0);
+    total += sum;
+    const long = each.filter(([, m]) => m >= 15).map(([n, m]) => `${n.replace(/^(bot|test) \((.*)\)$/, '$2')} ${m}`).join(', ');
+    console.log(`run ${String(r.run_number).padStart(3)}  ${r.created_at.slice(5, 16).replace('T', ' ')}  ${String(sum).padStart(4)} min  ${long}`);
+  }
+  console.log(`This month: about ${total} of the 2000 free minutes (a private repository on the free plan).`);
 } else if (command === 'photos') {
   // The bot photos and test pictures the latest run kept, into ci-output/<part>/ (unzipped).
   const run = (await api('/actions/workflows/test.yml/runs?per_page=1')).workflow_runs[0];
