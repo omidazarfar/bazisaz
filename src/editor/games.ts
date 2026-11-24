@@ -87,7 +87,8 @@ async function part(project: GameProject, sceneId: string, id: string, centre = 
 async function screens(project: GameProject, levelId: string, look: { name: string; hero: string; sky: Sky; music: string }) {
   const { width: W, height: H } = project.meta;
   let p = project;
-  const start = scene('Start', W, H, look.sky, look.music, { bloom: true, vignette: true });
+  // (No glow on the start screen: on a bright sky it washes out the white words.)
+  const start = scene('Start', W, H, look.sky, look.music, { vignette: true });
   const win = scene('You win', W, H, 'night', 'music:happy', { bloom: true, vignette: true });
   const over = scene('Game over', W, H, 'night', 'music:calm', { vignette: true });
   const fresh: Action[] = [{ type: 'playSound', sound: 'click' }, { type: 'resetVariables' }, { type: 'goToScene', scene: levelId }];
@@ -929,6 +930,13 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
     const retry = await picture(p, 'btn-restart', 'شروع دوباره‌ی این مرحله', 64, 64, { x: W - 47, y: 47 }, { fixed: true });
     p = withRules(addAll(retry.project, id, [retry.object]), id, rule({ type: 'tapObject', target: byId(retry.object.id) }, [{ type: 'restartScene' }]));
   }
+  // Parts made for scenes with ground (the rescuer's limbs) also come to scenes without any: there the group
+  // to stand on is left empty instead of naming one that is not there (which the game check would point out).
+  p = { ...p, scenes: p.scenes.map((s) => {
+    const tags = new Set(s.objects.flatMap((o) => o.tags));
+    const fix = (o: GameObject): GameObject => ({ ...o, behaviors: o.behaviors.map((b) => (b.type === 'physics' && b.solidTag && !tags.has(b.solidTag) ? { ...b, solidTag: '' } : b)) });
+    return { ...s, objects: s.objects.map(fix), prefabs: s.prefabs.map(fix) };
+  }) };
   return { project: p, select: rig.select, note: 'مسیر امداد آماده است. قلاب را آزاد کن، کاوشگر را به مدار بفرست، با سه وسیله تا بندر بران و در آخر با چرخ‌دنده‌ها کپسول را به منطقه‌ی جاذبه‌ی وارونه برسان.' };
 }
 

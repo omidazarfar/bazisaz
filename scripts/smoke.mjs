@@ -2539,6 +2539,49 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13q. Lab 28: a tall phone filled to its edges ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({
+    id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra,
+  });
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab28', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentyeight', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 2400, prefabs: [], rules: [],
+      objects: [
+        box('ground', 0, 1200, 720, 80, { tags: ['زمین'] }),
+        box('score', 245, 30, 230, 80, { fixed: true }),
+        box('jump', 550, 1100, 140, 140, { fixed: true }),
+        box('menu', 100, 270, 520, 740, { fixed: true }),
+        box('sound', 190, 805, 340, 110, { fixed: true }),
+        box('curtain', 0, 0, 720, 1280, { fixed: true, opacity: 0.2 }),
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project, fill: true, viewport: { width: 390, height: 844, deviceScaleFactor: 1 } });
+  await loaded(page);
+  await untilTime(page, 0.3);
+  const canvas = await page.$eval('canvas', (c) => { const r = c.getBoundingClientRect(); return { w: r.width, h: r.height }; });
+  check('fill: on a tall phone the game covers the whole screen, no strips', Math.abs(canvas.w - 390) <= 1 && Math.abs(canvas.h - 844) <= 1, JSON.stringify(canvas));
+  const s = await gameState(page);
+  const e = (id) => s.entities.find((x) => x.id === id);
+  const extra = Math.round(720 / (390 / 844)) - 1280;
+  check('fill: the score at the top stays at the top', e('score').y === 30);
+  check('fill: a button at the bottom goes to the bottom edge', Math.abs(e('jump').y - (1100 + extra)) < 1, String(e('jump').y));
+  check('fill: a menu stays in the middle, with its button on it', Math.abs(e('menu').y - (270 + extra / 2)) < 1 && Math.abs(e('sound').y - (805 + extra / 2)) < 1, e('menu').y + ' / ' + e('sound').y);
+  check('fill: a cover over the whole screen grows to cover it all', e('curtain').height === 1280 + extra, String(e('curtain').height));
+  // The ground of a game with gravity stays at the bottom of the screen: the room is added to the sky.
+  const ground = await page.evaluate(() => { const g = window.__game; return g.camera.y; });
+  check('fill: a world with gravity stands on the bottom edge', Math.abs(ground - (1280 - (1280 + extra))) < 1, String(ground));
+  check('lab 28: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

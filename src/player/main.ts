@@ -14,6 +14,8 @@ declare global {
     __WATERMARK__?: boolean;
     /** false keeps every effect however slow the game runs. */
     __LIGHTEN__?: boolean;
+    /** false keeps the design's shape, with strips beside it, on a screen of another shape (the tests use this). */
+    __FILL__?: boolean;
     __game?: Game;
     /** The game being played, so tests can hand an example to the editor. */
     __project?: GameProject;
@@ -35,6 +37,8 @@ async function main(): Promise<void> {
     window.__game = await Game.create(project, mount, {
       // The tests turn this off: headless Chrome is slow, and they check the full look.
       lighten: window.__LIGHTEN__ !== false,
+      // A phone taller or wider than the game is filled to its edges, with no strips.
+      fill: window.__FILL__ !== false,
       onShowAd: () => ads.showInterstitial(),
       onShowRewardedAd: () => ads.showRewarded(),
     });

@@ -433,6 +433,14 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-24 — Claude, bug hunt in the games (owner's report: hearts behind, no keys in the dungeon, the knight blinking)
+
+- Filling the phone: the player (not the editor) makes the view taller or wider to the screen's shape (up to 1.6×), so there are no strips on modern phones (`fill` option, `view` size in Game.ts; tests turn it off with `__FILL__ = false` unless `openPage(..., { fill: true })`). Screen-fixed objects keep to their edge: top third stays, bottom third goes to the bottom, middle stays in the middle; a thing inside another (word on a button, button on a menu) goes with it; a whole-screen cover grows. A world with gravity that fits the view stands on the bottom edge (more sky above). Lab 28.
+- Text never runs off the screen: a line wider than its room is drawn smaller (`fitText`; "DUNGEON ESCAPE", "RESCUE RELAY" were cut). Outlines are thicker (size/7).
+- Achievement note: slim, along the very top edge (it covered "YOU WIN!").
+- Dungeon: the backpack sits below the hearts (it overlapped hearts 2 and 3); a faint joystick rests in the lower left when no finger is down (the stick was invisible until touched: "no keys"); a top-down hero now shows its walking pictures when walking up or down, and keeps them 0.12 s after each step (it flipped between standing and walking pictures every frame, which looked like blinking).
+- No glow on start screens (it washed out "Tap play to start" on bright skies). Rescue: limb physics no longer names a ground group a scene does not have (18 warnings in the game check). Game check: a prefab fired by `shoot` counts as made (the boss orb warning).
+
 ### 2026-11-24 — Claude, level maker that understands the parts
 
 - Owner feedback: levels "did not change at all" (true for platform, shooter, puzzle, physics, rescue: only a speed or the sky changed). New `src/editor/levelremix.ts`:

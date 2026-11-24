@@ -69,7 +69,7 @@ export function withItem(project: GameProject, asset: string, base: string): { p
 export const bagIfNone = (project: GameProject, sceneId: string): GameObject[] =>
   getScene(project, sceneId).objects.some((o) => o.visual.kind === 'bag')
     ? []
-    : [makeObject('کوله‌پشتی', { kind: 'bag', slots: 5 }, Math.min(450, project.meta.width - 40), 90, { x: project.meta.width / 2, y: 215 }, { fixed: true })];
+    : [makeObject('کوله‌پشتی', { kind: 'bag', slots: 5 }, Math.min(450, project.meta.width - 40), 90, { x: project.meta.width / 2, y: 250 }, { fixed: true })];
 
 const playersOf = (scene: Scene) => [...scene.objects, ...scene.prefabs].filter((o) => o.tags.includes(PLAYER));
 
@@ -1156,7 +1156,7 @@ export const RECIPES: Recipe[] = [
       const objects = [key, door];
       const scene = getScene(project, s);
       if (!scene.objects.some((o) => o.visual.kind === 'bag')) {
-        objects.push(makeObject('کوله‌پشتی', { kind: 'bag', slots: 5 }, Math.min(450, width - 40), 90, { x: width / 2, y: 215 }, { fixed: true }));
+        objects.push(makeObject('کوله‌پشتی', { kind: 'bag', slots: 5 }, Math.min(450, width - 40), 90, { x: width / 2, y: 250 }, { fixed: true }));
       }
       const open: Rule = {
         ...rule({ type: 'near', a: byTag(PLAYER), b: byTag(DOOR), distance: 150 }, [

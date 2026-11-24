@@ -87,6 +87,12 @@ export interface GameOptions {
    * For the player on a phone; the editor's try-out always shows everything.
    */
   lighten?: boolean;
+  /**
+   * Fill the whole screen of a phone taller (or wider) than the game: the view grows along that side,
+   * showing more of the world, and what is fixed to the screen keeps to its edge (top things at the top,
+   * the buttons at the bottom, menus in the middle). For the player; the editor shows the design's shape.
+   */
+  fill?: boolean;
   /** Called by the "show ad" action. */
   onShowAd?: () => void;
   /** Called by the "show rewarded ad" action. Resolves true if the player watched it through. */
@@ -179,6 +185,9 @@ interface Entity extends Box {
   facing: 1 | -1;
   /** Where it was on the previous frame, to tell which way it is moving. */
   lastX: number;
+  lastY: number;
+  /** When it last moved: the walking pictures go on a moment longer, so a stop-and-go step does not flicker. */
+  movedAt?: number;
   /** Where it was at the end of the previous step, so that what stands on it can be carried along. */
   prevX: number;
   prevY: number;
@@ -469,6 +478,10 @@ export class Game {
   readonly app: Application;
   private readonly mount: HTMLElement;
   private readonly options: GameOptions;
+  /** The screen in game pixels: the design's size, or taller or wider when filling a phone's screen. */
+  private view = { width: 0, height: 0 };
+  /** Where each screen-fixed object was designed to be, before keeping it to its edge of a larger screen. */
+  private readonly hudBase = new WeakMap<Entity, { x: number; y: number; width: number; height: number }>();
   /** Objects in the world, shifted as the camera moves. */
   private readonly world = new Container();
   /** Objects fixed to the screen, drawn over the world. */
@@ -478,6 +491,8 @@ export class Game {
   /** The joystick drawn under a finger that is steering. */
   private readonly stick = new Graphics();
   private hasStick = false;
+  // Text views already fitted to the screen for the words they show.
+  private readonly fitted = new WeakSet<Text>();
   /** Real physics for the scene being played, if any of its objects asks for it. */
   private physics: Physics<Entity> | null = null;
   /** Ropes, springs and a sling's band and aim, drawn over the world. */
@@ -664,6 +679,7 @@ export class Game {
 
   private async start(): Promise<void> {
     const { meta } = this.project;
+    this.view = { width: meta.width, height: meta.height };
     await this.app.init({
       width: meta.width,
       height: meta.height,
@@ -680,8 +696,8 @@ export class Game {
     this.app.stage.addChild(this.scenery, this.stick, this.debugView, this.curtain, this.overlay);
     this.vignette.texture = softSpot(512, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.65)', 0.45);
     this.resetVariables(true);
+    this.fitToMount(false);
     this.loadScene(this.scene.id);
-    this.fitToMount();
     this.listen();
     this.app.ticker.add((ticker) => this.advance(ticker.deltaMS / 1000));
   }
@@ -826,7 +842,7 @@ export class Game {
     if (this.retroFilter) filters.push(this.retroFilter);
     filters.push(...this.waves.map((w) => w.filter));
     this.scenery.filters = filters;
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     this.vignette.visible = Boolean(this.scene.vignette);
     this.vignette.width = width;
     this.vignette.height = height;
@@ -844,7 +860,7 @@ export class Game {
       this.shade.visible = false;
       return;
     }
-    const { width: W, height: H } = this.project.meta;
+    const { width: W, height: H } = this.view;
     if (!this.shadeTexture || this.shadeTexture.width !== W || this.shadeTexture.height !== H) {
       this.shadeTexture?.destroy(true);
       this.shadeTexture = RenderTexture.create({ width: W, height: H });
@@ -1009,8 +1025,9 @@ export class Game {
     this.project = project;
     this.endFade();
     if (sizeChanged) {
+      this.view = { width: project.meta.width, height: project.meta.height };
       this.app.renderer.resize(project.meta.width, project.meta.height);
-      this.fitToMount();
+      this.fitToMount(false);
     }
     this.resetVariables(true);
     // While editing, the view stays where the user left it instead of jumping back.
@@ -1085,7 +1102,7 @@ export class Game {
 
   /** Edit mode: zooms out until the whole world, and a little around it, can be seen. */
   fitWorld(): void {
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     this.zoom = clamp(Math.min(width / (this.scene.width * 1.12), height / (this.scene.height * 1.12)), MIN_ZOOM, MAX_ZOOM);
     this.setCamera((this.scene.width - width / this.zoom) / 2, (this.scene.height - height / this.zoom) / 2);
     this.drawOverlay();
@@ -1094,7 +1111,7 @@ export class Game {
 
   /** The middle of what is on view, in world pixels: where a newly added object should appear. */
   viewCentre(): Point {
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     return { x: Math.round(this.camera.x + width / this.z / 2), y: Math.round(this.camera.y + height / this.z / 2) };
   }
 
@@ -1110,7 +1127,7 @@ export class Game {
 
   /** Changes the zoom, keeping the world point under `anchor` (a point on the screen) where it is. */
   private zoomTo(zoom: number, anchor?: Point): void {
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     const at = anchor ?? { x: width / 2, y: height / 2 };
     const next = clamp(zoom, MIN_ZOOM, MAX_ZOOM);
     const world = { x: at.x / this.zoom + this.camera.x, y: at.y / this.zoom + this.camera.y };
@@ -1122,7 +1139,7 @@ export class Game {
 
   /** Edit mode: where the phone-sized frame that holds screen-fixed objects sits on the canvas. At zoom 1 it is the canvas. */
   private hudOrigin(): Point {
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     return { x: (width - width * this.hudZ) / 2, y: (height - height * this.hudZ) / 2 };
   }
 
@@ -1190,7 +1207,7 @@ export class Game {
   }
 
   /** A touch at a point on the screen, in design pixels (the middle if omitted). For tests and keyboards. */
-  tap(x = this.project.meta.width / 2, y = this.project.meta.height / 2): void {
+  tap(x = this.view.width / 2, y = this.view.height / 2): void {
     if (this.mode.kind !== 'play') return;
     this.taps.push({ x, y });
     this.lastTap = { x, y };
@@ -1260,7 +1277,7 @@ export class Game {
     const backdrop = this.scene.background ?? this.project.meta.background;
     this.app.renderer.background.color = backdrop;
     // A little larger than the screen, so a shake never shows its edge.
-    this.backdrop.clear().rect(-60, -60, this.project.meta.width + 120, this.project.meta.height + 120).fill(backdrop);
+    this.backdrop.clear().rect(-60, -60, this.view.width + 120, this.view.height + 120).fill(backdrop);
     // On a phone taller or wider than the game, the strips beside it take the scene's colour instead of standing out.
     this.mount.style.background = backdrop;
     for (const layer of [this.world, this.hud]) {
@@ -1272,6 +1289,7 @@ export class Game {
       play && def.visual.kind === 'tiles' ? this.tileEntities(def, def.visual) : [this.createEntity(def, def.x, def.y)],
     );
     this.entities.forEach((e) => this.layerOf(e).addChild(e.view));
+    this.placeOnScreen(this.entities);
     this.healthBars = new Graphics();
     this.world.addChild(this.healthBars);
     // Coming through a door: whoever came is put at the door they arrive by, standing on its bottom edge.
@@ -1286,7 +1304,7 @@ export class Game {
     this.playZoom = 1;
     this.zoomGlide = null;
     this.musicOverride = null;
-    this.curtain.clear().rect(0, 0, this.project.meta.width, this.project.meta.height).fill('#000000');
+    this.curtain.clear().rect(0, 0, this.view.width, this.view.height).fill('#000000');
     if (!this.fade) this.curtain.alpha = 0;
     this.landings = [];
     this.gravity = this.scene.gravity;
@@ -1302,11 +1320,11 @@ export class Game {
     this.skyView?.destroy();
     this.skyView = null;
     if (this.scene.sky && this.scene.sky !== 'none') {
-      this.skyView = new SkyView(this.scene.sky, this.project.meta.width, this.project.meta.height);
+      this.skyView = new SkyView(this.scene.sky, this.view.width, this.view.height);
       this.scenery.addChildAt(this.skyView.container, 1);
     }
     this.darkness = clamp(this.scene.darkness ?? 0, 0, 1);
-    this.weather.set(this.scene.weather ?? 'none', this.project.meta.width, this.project.meta.height);
+    this.weather.set(this.scene.weather ?? 'none', this.view.width, this.view.height);
     for (const f of this.floats.splice(0)) f.view.destroy();
     this.darknessGlide = null;
     this.look = this.scene.look ?? 'none';
@@ -1445,7 +1463,7 @@ export class Game {
   private addSelectedPrefabSample(): void {
     const prefab = this.scene.prefabs.find((p) => p.id === this.selection);
     if (!prefab) return;
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     const centre = prefab.fixed ? { x: width / 2, y: height / 2 } : this.viewCentre();
     const entity = this.createEntity(prefab, centre.x - prefab.width / 2, centre.y - prefab.height / 2);
     this.entities.push(entity);
@@ -1517,6 +1535,7 @@ export class Game {
       frame: 0,
       facing: 1,
       lastX: x,
+      lastY: y,
       prevX: x,
       prevY: y,
       ground: null,
@@ -1695,7 +1714,8 @@ export class Game {
             fontSize: v.size,
             fontWeight: v.weight ?? 'normal',
             fill: color,
-            stroke: v.outline ? { color: v.outline, width: Math.max(2, Math.round(v.size / 10)), join: 'round' } : undefined,
+            // A line thick enough to read white letters over a bright sky or a light.
+            stroke: v.outline ? { color: v.outline, width: Math.max(3, Math.round(v.size / 7)), join: 'round' } : undefined,
             dropShadow: v.shadow ? { color: '#000000', alpha: 0.45, blur: Math.max(2, v.size / 14), distance: Math.max(2, v.size / 14), angle: Math.PI / 2 } : undefined,
             // Marks above and below the measured line box get clipped without padding.
             padding: Math.ceil(v.size * 0.4),
@@ -1807,14 +1827,14 @@ export class Game {
   // ── Camera ───────────────────────────────────────────────────────────────
 
   private setCamera(x: number, y: number): void {
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     const z = this.z;
     const margin = this.mode.kind === 'edit' ? EDIT_MARGIN / z : 0;
     // A world that fits in the view with room to spare sits in its middle; a larger one is slid over.
-    const fit = (at: number, world: number, view: number) =>
-      world + margin * 2 <= view ? (world - view) / 2 : clamp(at, -margin, world - view + margin);
+    const fit = (at: number, world: number, view: number, low = false) =>
+      world + margin * 2 <= view ? (low ? world - view : (world - view) / 2) : clamp(at, -margin, world - view + margin);
     this.camera.x = fit(x, this.scene.width, width / z);
-    this.camera.y = fit(y, this.scene.height, height / z);
+    this.camera.y = fit(y, this.scene.height, height / z, this.mode.kind === 'play' && this.scene.gravity > 0);
     this.world.scale.set(z);
     this.world.position.set(-this.camera.x * z, -this.camera.y * z);
     const origin = this.hudOrigin();
@@ -1832,7 +1852,7 @@ export class Game {
     }
     const target = focus ?? this.entities.find((e) => e.alive && !e.def.fixed && e.def.behaviors.some((b) => b.type === 'camera'));
     if (!target) return;
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     const camera = focus ? undefined : target.def.behaviors.find((b) => b.type === 'camera');
     const lock = camera?.type === 'camera' && !fresh ? camera.lock : 'free';
     const smooth = focus ? 0.35 : camera?.type === 'camera' && !fresh ? (camera.smooth ?? 0) : 0;
@@ -1861,7 +1881,7 @@ export class Game {
   private bringSelectionIntoView(): void {
     const e = this.entities.find((x) => x.def.id === this.selection);
     if (!e || e.def.fixed) return;
-    const [width, height] = [this.project.meta.width / this.z, this.project.meta.height / this.z];
+    const [width, height] = [this.view.width / this.z, this.view.height / this.z];
     const box = this.boxOf(e);
     const inView =
       box.x + box.width > this.camera.x && box.x < this.camera.x + width &&
@@ -1887,7 +1907,7 @@ export class Game {
     if (this.mode.kind !== 'play') return;
     if (this.paused) return this.updatePaused();
     this.time += dt;
-    const { width: W, height: H } = this.project.meta;
+    const { width: W, height: H } = this.view;
     const tapsOnScreen = this.time > TAP_GRACE ? this.taps.filter((t) => !this.onControl(t)) : [];
     const screenTapped = this.time > TAP_GRACE && (tapsOnScreen.length > 0 || this.keyTap);
     const spawned: { entity: Entity; above: Entity }[] = [];
@@ -2222,7 +2242,9 @@ export class Game {
       const visual = e.def.visual;
       if (e.frames) {
         // In the air beats moving, which beats standing still.
-        const moving = Math.abs(e.x - e.lastX) > 0.01;
+        // (Seen from above, with no gravity, walking up and down is moving too.)
+        if (Math.abs(e.x - e.lastX) > 0.01 || (!body?.gravity && !this.physics?.moves(e) && Math.abs(e.y - e.lastY) > 0.01)) e.movedAt = this.time;
+        const moving = this.time - (e.movedAt ?? -1) < 0.12;
         e.anim = e.airFrames && (body?.gravity || this.physics?.moves(e)) && !e.grounded ? 'air' : e.moveFrames && moving ? 'move' : 'idle';
         if (e.hurtFrames && this.time < (e.hurtPoseUntil ?? 0)) e.anim = 'hurt';
         const set = e.anim === 'hurt' ? e.hurtFrames! : e.anim === 'air' ? e.airFrames! : e.anim === 'move' ? e.moveFrames! : e.frames;
@@ -2238,6 +2260,7 @@ export class Game {
       }
       if (visual.kind === 'image' && visual.flip && Math.abs(e.x - e.lastX) > 0.01) e.facing = e.x < e.lastX ? -1 : 1;
       e.lastX = e.x;
+      e.lastY = e.y;
     }
 
     this.separateBodies();
@@ -2310,6 +2333,13 @@ export class Game {
         this.stick
           .circle(finger.startX, finger.startY, STICK_REACH).fill({ color: '#ffffff', alpha: 0.18 }).stroke({ width: 4, color: '#ffffff', alpha: 0.5 })
           .circle(finger.startX + (finger.x - finger.startX) * reach, finger.startY + (finger.y - finger.startY) * reach, 34).fill({ color: '#ffffff', alpha: 0.6 });
+      } else if (this.mode.kind === 'play') {
+        // No finger down: a faint stick resting in the lower left says how to move (a finger anywhere works).
+        const { height: H } = this.view;
+        const [x, y] = [40 + STICK_REACH, H - 60 - STICK_REACH];
+        this.stick
+          .circle(x, y, STICK_REACH).fill({ color: '#ffffff', alpha: 0.1 }).stroke({ width: 4, color: '#ffffff', alpha: 0.3 })
+          .circle(x, y, 34).fill({ color: '#ffffff', alpha: 0.35 });
       }
     }
 
@@ -2603,7 +2633,7 @@ export class Game {
     }
     // The pedal of anything the player drives: the right arrow or a touch on the right half of the screen is forward, the left backward.
     let pedal = (this.keys.has('ArrowRight') ? 1 : 0) - (this.keys.has('ArrowLeft') ? 1 : 0);
-    for (const p of this.pointers.values()) if (!p.drag && !this.onControl({ x: p.startX, y: p.startY })) pedal += p.x > this.project.meta.width / 2 ? 1 : -1;
+    for (const p of this.pointers.values()) if (!p.drag && !this.onControl({ x: p.startX, y: p.startY })) pedal += p.x > this.view.width / 2 ? 1 : -1;
     physics.throttle = Math.sign(pedal);
     const falling = new Map(this.entities.map((e) => [e, e.vy]));
     physics.step(this.entities, dt, this.gravity);
@@ -3026,7 +3056,7 @@ export class Game {
   }
 
   private perform(action: Exclude<Action, { type: 'wait' }>, context: Context): void {
-    const { width: W, height: H } = this.project.meta;
+    const { width: W, height: H } = this.view;
     switch (action.type) {
       case 'setTextVariable':
         this.setTextVariable(action.name, action.text);
@@ -3691,7 +3721,7 @@ export class Game {
   /** A character starts to speak: the game waits, the box shows, and the words appear letter by letter. */
   private speak(action: Extract<Action, { type: 'say' }>, rest: Action[], context: Context): void {
     this.dialogue?.view.destroy({ children: true });
-    const { width: W, height: H } = this.project.meta;
+    const { width: W, height: H } = this.view;
     const font = [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'];
     const view = new Container();
     const box = new Graphics().roundRect(24, H - 330, W - 48, 290, 28).fill({ color: '#141a2e', alpha: 0.94 }).stroke({ width: 5, color: action.color });
@@ -3761,19 +3791,22 @@ export class Game {
 
   private stepToast(dt: number): void {
     if (!this.toast && this.toasts.length) {
-      const { width: W } = this.project.meta;
+      const { width: W } = this.view;
       const font = [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'];
       const view = new Container();
-      view.addChild(new Graphics().roundRect(0, 0, W - 120, 110, 26).fill({ color: '#2a1f05', alpha: 0.95 }).stroke({ width: 5, color: '#ffd23f' }));
-      const text = new Text({ text: this.toasts.shift()!, style: { fontFamily: font, fontSize: 38, fontWeight: 'bold', fill: '#ffe066', padding: 10 } });
-      text.position.set(120, 50);
-      const heading = new Text({ text: 'Achievement unlocked', style: { fontFamily: font, fontSize: 26, fill: '#ffd23f', padding: 10 } });
-      heading.position.set(120, 12);
+      // Slim, along the very top edge: above a menu's title (which starts lower), over the score only briefly.
+      view.addChild(new Graphics().roundRect(0, 0, W - 160, 84, 22).fill({ color: '#2a1f05', alpha: 0.95 }).stroke({ width: 4, color: '#ffd23f' }));
+      const text = new Text({ text: this.toasts.shift()!, style: { fontFamily: font, fontSize: 30, fontWeight: 'bold', fill: '#ffe066', padding: 8 } });
+      text.position.set(96, 36);
+      const heading = new Text({ text: 'Achievement unlocked', style: { fontFamily: font, fontSize: 20, fill: '#ffd23f', padding: 8 } });
+      heading.position.set(96, 8);
       view.addChild(text, heading);
-      const cup = new Text({ text: '🏆', style: { fontSize: 58, padding: 10 } });
-      cup.position.set(28, 18);
+      const cup = new Text({ text: '🏆', style: { fontSize: 46, padding: 8 } });
+      cup.position.set(22, 12);
       view.addChild(cup);
-      view.position.set(60, -130);
+      // Never wider than the box: a long name gets smaller letters.
+      if (text.width > W - 160 - 110) text.scale.set((W - 160 - 110) / text.width);
+      view.position.set(80, -110);
       this.app.stage.addChild(view);
       this.toast = { view, left: 2.6 };
       this.sound('powerup', 60);
@@ -3782,7 +3815,7 @@ export class Game {
     this.toast.left -= dt;
     const shown = 2.6 - this.toast.left;
     // Slides down, waits, slides back up.
-    const y = shown < 0.3 ? -130 + (shown / 0.3) * 170 : this.toast.left < 0.3 ? 40 - ((0.3 - this.toast.left) / 0.3) * 170 : 40;
+    const y = shown < 0.3 ? -110 + (shown / 0.3) * 122 : this.toast.left < 0.3 ? 12 - ((0.3 - this.toast.left) / 0.3) * 122 : 12;
     this.toast.view.y = y;
     if (this.toast.left <= 0) {
       this.toast.view.destroy({ children: true });
@@ -3984,7 +4017,7 @@ export class Game {
         for (const w of done) w.filter.destroy();
       }
     }
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     let scale = 1;
     if (this.punch) {
       this.punch.left -= dt;
@@ -4027,7 +4060,7 @@ export class Game {
     const part = glide.seconds > 0 ? glide.elapsed / glide.seconds : 1;
     const eased = part * part * (3 - 2 * part);
     // Zoom about the middle of the view, so the scene does not slide off to one side.
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     const middle = { x: this.camera.x + width / this.z / 2, y: this.camera.y + height / this.z / 2 };
     this.playZoom = glide.from + (glide.to - glide.from) * eased;
     this.setCamera(middle.x - width / this.z / 2, middle.y - height / this.z / 2);
@@ -4505,8 +4538,8 @@ export class Game {
   private toScreen(clientX: number, clientY: number): Point {
     const rect = this.app.canvas.getBoundingClientRect();
     return {
-      x: ((clientX - rect.left) / rect.width) * this.project.meta.width,
-      y: ((clientY - rect.top) / rect.height) * this.project.meta.height,
+      x: ((clientX - rect.left) / rect.width) * this.view.width,
+      y: ((clientY - rect.top) / rect.height) * this.view.height,
     };
   }
 
@@ -4584,7 +4617,7 @@ export class Game {
       ev.preventDefault();
       if (ev.ctrlKey || ev.metaKey) return this.zoomTo(this.zoom * Math.exp(-ev.deltaY * 0.002), this.toScreen(ev.clientX, ev.clientY));
       // The wheel reports page pixels; the view moves in the game's own.
-      const scale = this.project.meta.width / (this.app.canvas.getBoundingClientRect().width || 1) / this.z;
+      const scale = this.view.width / (this.app.canvas.getBoundingClientRect().width || 1) / this.z;
       const [dx, dy] = ev.shiftKey ? [ev.deltaY, 0] : [ev.deltaX, ev.deltaY];
       this.setCamera(this.camera.x + dx * scale, this.camera.y + dy * scale);
       this.drawOverlay();
@@ -4830,7 +4863,7 @@ export class Game {
     // A text's box does not start at its own position; the difference stays the same as it moves.
     const left = wanted.x + (box.x - e.x);
     const top = wanted.y + (box.y - e.y);
-    const { width, height } = this.project.meta;
+    const { width, height } = this.view;
     const [spaceW, spaceH] = fixed ? [width, height] : [this.scene.width, this.scene.height];
     const xs = [0, spaceW / 2, spaceW];
     const ys = [0, spaceH / 2, spaceH];
@@ -4861,7 +4894,7 @@ export class Game {
   private drawOverlay(): void {
     const g = this.overlay.clear();
     if (this.mode.kind !== 'edit') return;
-    const { width: W, height: H } = this.project.meta;
+    const { width: W, height: H } = this.view;
     const z = this.z;
     const origin = this.hudOrigin();
     const onCanvas = (fixed: boolean, p: Point): Point =>
@@ -5023,17 +5056,106 @@ export class Game {
       if (e.def.visual.kind !== 'text') continue;
       // While editing, the text shows what was typed, placeholders included.
       const filled = this.mode.kind === 'edit' ? e.def.visual.text : fillTemplate(e.text ?? e.def.visual.text, this.variables, e.values, this.textVariables);
-      (e.view as Text).text = applyDirection(filled);
+      const view = e.view as Text;
+      const next = applyDirection(filled);
+      // Measured again only when the words change (fitting changes the letters' size, which redraws them).
+      if (view.text !== next || !this.fitted.has(view)) {
+        view.text = next;
+        this.fitText(e, view);
+        this.fitted.add(view);
+      }
     }
   }
 
-  /** Scales the canvas to the largest size that fits the mount, keeping the design's shape. */
-  private fitToMount(): void {
-    const { width, height } = this.project.meta;
+  /**
+   * A line of text never runs off the screen: one wider than the room it has (from where it stands to the
+   * screen's edges, a small margin kept) is drawn in smaller letters. Text in a world wider than the screen
+   * moves with it, so only text on the screen itself, or in a scene no wider than it, is fitted.
+   */
+  private fitText(e: Entity, view: Text): void {
+    const v = e.def.visual;
+    if (v.kind !== 'text') return;
+    const W = this.project.meta.width;
+    if (!e.def.fixed && this.scene.width > W) return;
+    const margin = 24;
+    const x = e.def.x;
+    const room = v.align === 'left' ? W - margin - x : v.align === 'right' ? x - margin : 2 * Math.min(x - margin, W - margin - x);
+    if (view.style.fontSize !== v.size) view.style.fontSize = v.size;
+    const wide = view.width / Math.max(0.01, Math.abs(view.scale.x));
+    if (room > 40 && wide > room) view.style.fontSize = Math.max(8, Math.floor((v.size * room) / wide));
+  }
+
+  /**
+   * Scales the canvas to the largest size that fits the mount. Filling (see the option), a screen of
+   * another shape than the design makes the view itself taller or wider (up to 1.6 times), so that no
+   * strips are left; `relayout` lays out the scene on view for the new size.
+   */
+  private fitToMount(relayout = true): void {
+    const { width: W, height: H } = this.project.meta;
     const box = this.mount.getBoundingClientRect();
-    const scale = Math.min(box.width / width, box.height / height) || 1;
-    this.app.canvas.style.width = `${Math.floor(width * scale)}px`;
-    this.app.canvas.style.height = `${Math.floor(height * scale)}px`;
+    let next = { width: W, height: H };
+    if (this.options.fill && this.mode.kind === 'play' && box.width > 0 && box.height > 0) {
+      const shape = box.width / box.height;
+      if (shape < W / H - 0.01) next = { width: W, height: Math.round(Math.min(H * 1.6, W / shape)) };
+      else if (shape > W / H + 0.01) next = { width: Math.round(Math.min(W * 1.6, H * shape)), height: H };
+    }
+    if (next.width !== this.view.width || next.height !== this.view.height) {
+      this.view = next;
+      this.app.renderer.resize(next.width, next.height);
+      if (relayout) this.relayout();
+    }
+    const scale = Math.min(box.width / this.view.width, box.height / this.view.height) || 1;
+    this.app.canvas.style.width = `${Math.floor(this.view.width * scale)}px`;
+    this.app.canvas.style.height = `${Math.floor(this.view.height * scale)}px`;
+  }
+
+  /** After the screen changed shape (a phone turned round): what covers the screen is sized anew, the HUD put back to its edges. */
+  private relayout(): void {
+    const backdrop = this.scene.background ?? this.project.meta.background;
+    this.backdrop.clear().rect(-60, -60, this.view.width + 120, this.view.height + 120).fill(backdrop);
+    this.curtain.clear().rect(0, 0, this.view.width, this.view.height).fill('#000000');
+    if (this.skyView && this.scene.sky && this.scene.sky !== 'none') {
+      this.skyView.destroy();
+      this.skyView = new SkyView(this.scene.sky, this.view.width, this.view.height);
+      this.scenery.addChildAt(this.skyView.container, 1);
+    }
+    this.weather.set(this.scene.weather ?? 'none', this.view.width, this.view.height);
+    this.applyLook();
+    this.placeOnScreen(this.entities);
+    this.setCamera(this.camera.x, this.camera.y);
+    this.followCameraTarget(true);
+  }
+
+  /**
+   * Screen-fixed objects on a screen larger than the design keep to their edge: those in the top third of
+   * the design stay at the top, the bottom third goes to the bottom, the middle stays in the middle. Something
+   * inside another (a word on a button, a button on a menu) goes with it. A cover the size of the whole
+   * screen grows to the new size.
+   */
+  private placeOnScreen(entities: Entity[]): void {
+    if (this.mode.kind !== 'play') return;
+    const { width: W, height: H } = this.project.meta;
+    const [moreW, moreH] = [this.view.width - W, this.view.height - H];
+    const fixed = entities.filter((e) => e.def.fixed);
+    for (const e of fixed) if (!this.hudBase.has(e)) this.hudBase.set(e, { x: e.x, y: e.y, width: e.width, height: e.height });
+    const share = (centre: number, size: number) => (centre < size / 3 ? 0 : centre > (size * 2) / 3 ? 1 : 0.5);
+    const cover = (b: { width: number; height: number }) => b.width >= W * 0.9 && b.height >= H * 0.9;
+    for (const e of fixed) {
+      const base = this.hudBase.get(e)!;
+      if (cover(base)) {
+        Object.assign(e, { x: base.x, y: base.y, width: base.width + moreW, height: base.height + moreH });
+        continue;
+      }
+      const centre = { x: base.x + base.width / 2, y: base.y + base.height / 2 };
+      // The smallest other fixed thing it sits inside decides where it goes (never a whole-screen cover).
+      const holder = fixed
+        .map((o) => ({ o, b: this.hudBase.get(o)! }))
+        .filter(({ o, b }) => o !== e && !cover(b) && b.width * b.height > base.width * base.height && contains(b, centre))
+        .sort((a, b) => a.b.width * a.b.height - b.b.width * b.b.height)[0]?.b ?? base;
+      const at = { x: holder.x + holder.width / 2, y: holder.y + holder.height / 2 };
+      e.x = base.x + moreW * share(at.x, W);
+      e.y = base.y + moreH * share(at.y, H);
+    }
   }
 
   /** The area an object covers, in its own space. Text is measured; everything else uses its own size. */

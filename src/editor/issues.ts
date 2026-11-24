@@ -85,7 +85,7 @@ export function findIssues(project: GameProject): Issue[] {
     for (const o of all) for (const b of o.behaviors) if (b.type === 'spawner') b.prefabs.forEach((p) => spawned.add(p));
     for (const r of scene.rules) {
       for (const a of ruleActions(r)) {
-        if (a.type === 'spawn' || a.type === 'slideAll') spawned.add(a.prefab);
+        if (a.type === 'spawn' || a.type === 'slideAll' || a.type === 'shoot') spawned.add(a.prefab);
         if (a.type === 'settle') a.prefabs.forEach((p) => spawned.add(p));
       }
     }

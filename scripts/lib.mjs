@@ -38,7 +38,7 @@ export function launch() {
 }
 
 /** Opens a page and collects any errors it logs. */
-export async function openPage(browser, url, { viewport, project, adaptiveGraphics = false } = {}) {
+export async function openPage(browser, url, { viewport, project, adaptiveGraphics = false, fill = false } = {}) {
   const page = await browser.newPage();
   await page.setViewport(viewport ?? { width: 412, height: 915, deviceScaleFactor: 1 });
   const errors = [];
@@ -47,6 +47,8 @@ export async function openPage(browser, url, { viewport, project, adaptiveGraphi
   if (project) await page.evaluateOnNewDocument((p) => (window.__GAME_PROJECT__ = p), project);
   // Headless Chrome runs slowly; the player would drop its costly effects, which the tests check.
   if (!adaptiveGraphics) await page.evaluateOnNewDocument(() => (window.__LIGHTEN__ = false));
+  // The checks work in the design's own coordinates: the screen is not filled unless a check asks for it.
+  if (!fill) await page.evaluateOnNewDocument(() => (window.__FILL__ = false));
   await page.goto(url);
   return { page, errors };
 }
