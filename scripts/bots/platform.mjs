@@ -35,7 +35,8 @@ try {
     // Something in the way at body height, a gap under the next step, a hazard close ahead.
     const wall = solidAt(ahead + 30, feet - 20) || solidAt(ahead + 30, me.y + me.height / 2);
     const gap = !solidAt(ahead + 40, feet + 10) && !solidAt(ahead + 90, feet + 10);
-    const hazard = s.entities.some((e) => e.visible && (e.tags.includes(ENEMY) || e.tags.includes(SPIKES)) && e.x - ahead < 170 && e.x + e.width > me.x && Math.abs(e.y + e.height - feet) < 260);
+    // (Not a bat flying above head height: walking under it is safe, jumping would go right into it.)
+    const hazard = s.entities.some((e) => e.visible && (e.tags.includes(ENEMY) || e.tags.includes(SPIKES)) && e.x - ahead < 170 && e.x + e.width > me.x && Math.abs(e.y + e.height - feet) < 260 && e.y + e.height > me.y + 10);
     if (me.grounded) doubled = false;
     if (me.grounded && (wall || gap || hazard)) await jump();
     // Falling with nothing below: the second jump.

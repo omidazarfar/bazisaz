@@ -182,7 +182,10 @@ await sleep(120);
 await page.mouse.up();
 await sleep(150);
 let after = await object(prize);
-check('dragging a corner handle resizes the object', Math.abs(after.width - before.width - 60) <= 3 && Math.abs(after.height - before.height - 40) <= 3 && after.x === before.x, `${after.width}x${after.height}`);
+// The mouse moves in whole screen pixels: on a small stage one pixel is several game pixels.
+const onePixel = 100 / ((await toPage(page, 100, 0))[0] - (await toPage(page, 0, 0))[0]);
+const near = Math.max(3, onePixel * 2 + 1);
+check('dragging a corner handle resizes the object', Math.abs(after.width - before.width - 60) <= near && Math.abs(after.height - before.height - 40) <= near && after.x === before.x, `${before.width}x${before.height} → ${after.width}x${after.height}, one screen pixel = ${onePixel.toFixed(1)}`);
 await page.evaluate(() => document.activeElement?.blur());
 await page.keyboard.press('ArrowRight');
 await page.keyboard.down('Shift');
