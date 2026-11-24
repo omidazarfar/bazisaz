@@ -230,11 +230,12 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
       c += g;
       for (let k = 0; k < 2; k++, c++) { ground(c); flat.push(c); open.push(c); }
     } else if (piece.kind === 'walker') {
-      for (let k = 0; k < piece.size; k++) { ground(c + k); open.push(c + k); }
+      // (Over a walking enemy or spikes there is no floating platform: jumping them must not bump into one.)
+      for (let k = 0; k < piece.size; k++) { ground(c + k); }
       add(withPatrol(walkerT!, (piece.size - 2) * cell - walkerT!.width), at(c) + 10, topY - walkerT!.height);
       c += piece.size;
     } else if (piece.kind === 'spikes') {
-      for (let k = 0; k < piece.size; k++) { ground(c + k); open.push(c + k); }
+      for (let k = 0; k < piece.size; k++) { ground(c + k); }
       add(spikeT, at(c + 2), topY - spikeT!.height);
       c += piece.size;
     } else if (piece.kind === 'step') {
@@ -269,7 +270,7 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     const from = open[Math.floor(rnd() * open.length)];
     const n = 3 + Math.floor(rnd() * 2);
     // (None in the last stretch before the goal: a jump off one could sail right over it.)
-    if (from < 7 || from + n + 5 >= cols - 12 || !open.includes(from + n - 1) || !free(top - 3, from, n)) continue;
+    if (from < 7 || from + n + 5 >= cols - 12 || !Array.from({ length: n + 2 }, (_, k) => from - 1 + k).every((k) => open.includes(k)) || !free(top - 3, from, n)) continue;
     const higher = gemsLeft > 0 && free(top - 5, from + n + 1, 3);
     for (let k = 0; k < n; k++) { grid[top - 3][from + k] = platKey; put(top - 4, from + k, coinKey); }
     if (higher) {
