@@ -190,6 +190,8 @@ interface Entity extends Box {
   movedAt?: number;
   /** When it last turned round: a picture turned at every wobble of a finger flickers. */
   turnedAt?: number;
+  /** Seen from above, the way it last went (one of eight): what it makes "ahead" of it goes that way. */
+  went?: Point;
   /** Where it was at the end of the previous step, so that what stands on it can be carried along. */
   prevX: number;
   prevY: number;
@@ -2261,6 +2263,10 @@ export class Game {
           sprite.pivot.set(sprite.texture.width / 2, sprite.texture.height / 2);
         }
       }
+      if (!(body?.gravity || this.physics?.moves(e)) && Math.hypot(e.x - e.lastX, e.y - e.lastY) >= 30 * dt) {
+        const turn = Math.round(Math.atan2(e.y - e.lastY, e.x - e.lastX) / (Math.PI / 4)) * (Math.PI / 4);
+        e.went = { x: Math.round(Math.cos(turn) * 1000) / 1000, y: Math.round(Math.sin(turn) * 1000) / 1000 };
+      }
       if (visual.kind === 'image' && visual.flip) {
         // It turns to the way it goes sideways. Going (nearly) up or down without gravity keeps the way it faces:
         // a finger on the stick never goes quite straight, and turning round at every wobble looked like blinking.
@@ -3118,10 +3124,17 @@ export class Game {
           break;
         }
         for (const at of this.targets(action.at, context)) {
-          const ahead = action.ahead ? (at.facing * (at.width + prefab.width)) / 2 : 0;
-          const entity = this.createEntity(prefab, at.x + (at.width - prefab.width) / 2 + ahead, at.y + (at.height - prefab.height) / 2);
+          // Ahead is the way it faces; seen from above, walking up or down (or slantwise), it is that way:
+          // a sword swung at a skeleton above the knight, not at the empty floor beside it.
+          const way = action.ahead && at.went && at.went.y !== 0 ? at.went : null;
+          const ahead = way
+            ? { x: (way.x * (at.width + prefab.width)) / 2, y: (way.y * (at.height + prefab.height)) / 2 }
+            : { x: action.ahead ? (at.facing * (at.width + prefab.width)) / 2 : 0, y: 0 };
+          const entity = this.createEntity(prefab, at.x + (at.width - prefab.width) / 2 + ahead.x, at.y + (at.height - prefab.height) / 2 + ahead.y);
           entity.spawned = true;
           if (action.ahead) entity.facing = at.facing;
+          // A picture drawn pointing right, turned to point that way (its mirror image when it faces left).
+          if (way) entity.angle = at.facing < 0 ? Math.atan2(-way.y, -way.x) : Math.atan2(way.y, way.x);
           this.insertAbove(entity, at);
         }
         break;

@@ -1439,6 +1439,34 @@ const hiddenUnderHud = await page.evaluate(async () => {
   return hidden;
 });
 check('nothing to pick up hides under the score, hearts, backpack, stick or buttons', hiddenUnderHud.length === 0, hiddenUnderHud.join('; '));
+// The sword swings the way the knight walks: up and down too, not only to the side it faces.
+const swings = await page.evaluate(() => {
+  const g = window.__game;
+  g.app.ticker.stop();
+  // Played one frame at a time, the knight's words tapped away first.
+  for (let i = 0; i < 120; i++) { if (g.dialogue) g.tap(); g.advance(1 / 60); }
+  const k = g.entities.find((e) => e.def.tags.includes('بازیکن'));
+  const room = g.entities.find((e) => e.def.name === 'اتاق A');
+  [k.x, k.y] = [room.x + room.width / 2, room.y + room.height / 2];
+  const button = g.entities.find((e) => e.def.name === 'دکمه‌ی شمشیر');
+  const out = {};
+  for (const key of ['ArrowUp', 'ArrowDown', 'ArrowLeft']) {
+    g.variables.set('hurt', 1);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { code: key, bubbles: true }));
+    for (let i = 0; i < 20; i++) g.advance(1 / 60);
+    document.body.dispatchEvent(new KeyboardEvent('keyup', { code: key, bubbles: true }));
+    g.advance(1 / 60);
+    g.tap(button.x + button.width / 2, button.y + button.height / 2);
+    g.advance(1 / 60);
+    const slash = g.entities.filter((e) => e.def.name === 'ضربه‌ی شمشیر' && e.alive).pop();
+    out[key] = slash ? [Math.round(slash.x + slash.width / 2 - k.x - k.width / 2), Math.round(slash.y + slash.height / 2 - k.y - k.height / 2)] : null;
+    for (let i = 0; i < 30; i++) g.advance(1 / 60);
+  }
+  g.app.ticker.start();
+  return out;
+});
+check('the sword swings up, down and to the side, the way the knight walks',
+  swings.ArrowUp?.[1] < -60 && swings.ArrowDown?.[1] > 60 && swings.ArrowLeft?.[0] < -60 && Math.abs(swings.ArrowLeft?.[1]) < 10, JSON.stringify(swings));
 await click('توقف');
 
 // ── A quest label authored in the editor ───────────────────────────────────
