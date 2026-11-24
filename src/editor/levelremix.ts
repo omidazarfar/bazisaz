@@ -202,7 +202,7 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     // Two clear cells on each side of the spikes: room to land after a gap and to take off.
     ...Array.from({ length: spikes }, (): Piece => ({ kind: 'spikes', size: 6 })),
     // Flying enemies only over plain ground, never where a jump is needed anyway.
-    ...Array.from({ length: flyers }, (): Piece => ({ kind: 'plain', size: 5, flyer: true })),
+    ...Array.from({ length: flyers }, (): Piece => ({ kind: 'plain', size: 7, flyer: true })),
     ...Array.from({ length: gaps }, (): Piece => { const g = wide(); return { kind: 'gap', size: g + 2 }; }),
     ...(liftT ? [{ kind: 'lift', size: 6 } as Piece] : []),
     { kind: 'step', size: 4 }, ...(f > 1.4 ? [{ kind: 'step', size: 4 } as Piece] : []),
@@ -246,7 +246,8 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     } else {
       // (No floating platform over a flying enemy: it flies at about that height.)
       for (let k = 0; k < piece.size; k++) { ground(c + k); flat.push(c + k); if (!piece.flyer) open.push(c + k); }
-      if (piece.flyer) add(withPatrol(flyerT!, Math.min(patrolOf(flyerT!) || 160, 2 * cell)), at(c + 1), flyerT!.y);
+      // Two clear cells on each side of where it flies: jumping a gap or spikes next to it never meets it.
+      if (piece.flyer) add(withPatrol(flyerT!, Math.min(patrolOf(flyerT!) || 100, 100)), at(c + 2), flyerT!.y);
       c += piece.size;
     }
   }

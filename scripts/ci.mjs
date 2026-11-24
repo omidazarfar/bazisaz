@@ -102,7 +102,8 @@ if (command === 'run') {
     const long = each.filter(([, m]) => m >= 15).map(([n, m]) => `${n.replace(/^(bot|test) \((.*)\)$/, '$2')} ${m}`).join(', ');
     console.log(`run ${String(r.run_number).padStart(3)}  ${r.created_at.slice(5, 16).replace('T', ' ')}  ${String(sum).padStart(4)} min  ${long}`);
   }
-  console.log(`This month: about ${total} of the 2000 free minutes (a private repository on the free plan).`);
+  const open = (await api('')).private === false;
+  console.log(open ? `This month: about ${total} minutes. The repository is public, so GitHub does not count them against any limit.` : `This month: about ${total} of the 2000 free minutes (a private repository on the free plan).`);
 } else if (command === 'photos') {
   // The bot photos and test pictures the latest run kept, into ci-output/<part>/ (unzipped).
   const run = (await api('/actions/workflows/test.yml/runs?per_page=1')).workflow_runs[0];
