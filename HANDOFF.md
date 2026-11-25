@@ -133,6 +133,7 @@ step that passes. One phase per session, in this order.
 - physics bot (Rock Smash): fails on CI (Game over, score 60–90) both before and after Phase 1 (checked on a
   temporary branch at a235f62); wins locally (score 123). The slow CI runner, not the game. platform-levels
   and bricks-levels bots also fail on CI, as before.
+- puzzle bot (Gem Crush): random boards, so it wins some runs and loses some on CI (lost 80 and 85 of 90 twice after Phase 1 step 2, won once; won 92 on the commit before Phase 1). The moved puzzle actions are line for line the same code. Its losing runs show moves 21 of 20: worth a look later.
 - Brick Blitz levels: the level maker's level 2 can have half the bricks of level 1 (a checkerboard shape)
   while being "harder".
 
@@ -440,7 +441,7 @@ say so in the log.
   script scripts/blocks-move.mjs. Then (owner: "go ahead") the other 39: all 68 actions are blocks (step 3).
   See "Phase 1 progress". Step 1 (registry + sound and effects) on CI: all
   four test suites pass; 12 of 16 bots win; the four that lose (physics, tower-levels, platform-levels,
-  bricks-levels) lose the same way without Phase 1 (see Later). Step 2 (looks, ads, puzzles): see the next run.
+  bricks-levels) lose the same way without Phase 1 (see Later). Steps 2 and 3 on CI: all four test suites pass; 12 of 16 bots win; the four that lose are the same, puzzle instead of physics (random boards; see Later). Game.ts 5365 -> 4821 lines.
 
 ### 2026-11-25 — Claude, a toolkit for other agents to make games (owner: "I want each agent to easily build its own game")
 
