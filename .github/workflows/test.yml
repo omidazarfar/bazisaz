@@ -2,8 +2,10 @@
 # - Every push to main: build, then the three test suites side by side (runtime, editor, server).
 # - By hand (Actions → Tests → Run workflow), or from scripts/ci.mjs: the same, plus bots that play the
 #   games to the end, each bot on its own computer at the same time. "bots" is all, none, or names
-#   such as platform-levels,tower-levels.
+#   such as platform-levels,tower-levels. "ref" tests an earlier commit instead of main (to compare a bot
+#   before and after a change); "repeat" plays each bot that many times, side by side.
 name: Tests
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Bots {0} x{1} at {2}', inputs.bots, inputs.repeat, inputs.ref || 'main') || github.event.head_commit.message }}
 
 on:
   push:
@@ -14,10 +16,17 @@ on:
       bots:
         description: 'Bots to play: all, none, or names (platform-levels,tower-levels,…)'
         default: all
+      ref:
+        description: 'Commit to test (empty: main)'
+        default: ''
+      repeat:
+        description: 'How many times to play each bot'
+        default: '1'
 
-# A newer push makes the older run pointless: stop it and save the minutes.
+# A newer push makes the older run pointless: stop it and save the minutes. A run of an earlier commit
+# (ref) is a group of its own, so it neither stops nor is stopped by the runs of main.
 concurrency:
-  group: tests-${{ github.ref }}
+  group: tests-${{ github.ref }}-${{ inputs.ref }}
   cancel-in-progress: true
 
 # GitHub's computers draw the games more slowly than the laptop: the checks wait three times as long.
@@ -30,6 +39,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -45,6 +56,8 @@ jobs:
           retention-days: 3
 
   test:
+    # An earlier commit (ref) is tested for its bots only: its suites passed when it was made.
+    if: inputs.ref == ''
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -55,6 +68,8 @@ jobs:
     name: test (${{ matrix.suite }})
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -85,7 +100,11 @@ jobs:
           all='platform adventure shooter puzzle physics rescue tower bricks runner hopper runner-levels hopper-levels bricks-levels platform-levels tower-levels adventure-levels'
           wanted='${{ inputs.bots }}'
           [ "$wanted" = all ] && wanted="$all"
-          echo "bots=$(echo "$wanted" | tr ', ' '\n\n' | grep -v '^$' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+          names=$(echo "$wanted" | tr ', ' '\n\n' | grep -v '^$')
+          # With repeat 3, tower-levels becomes tower-levels.1, tower-levels.2 and tower-levels.3.
+          repeat='${{ inputs.repeat }}'
+          if [ "${repeat:-1}" -gt 1 ]; then names=$(for n in $names; do for i in $(seq "$repeat"); do echo "$n.$i"; done; done); fi
+          echo "bots=$(echo "$names" | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
 
   bot:
     needs: [build, plan]
@@ -103,6 +122,8 @@ jobs:
       BOT_TRIES: 1
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -111,7 +132,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: built
-      - run: node scripts/bots/all.mjs ${{ matrix.bot }}
+      - run: node scripts/bots/all.mjs "$(echo '${{ matrix.bot }}' | cut -d. -f1)"
       - if: always()
         uses: actions/upload-artifact@v4
         with:

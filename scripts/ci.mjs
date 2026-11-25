@@ -1,7 +1,8 @@
 // The checks on GitHub's computers (.github/workflows/test.yml), from here:
 //   node scripts/ci.mjs status        what the latest run is doing, and about how long is left
 //   node scripts/ci.mjs watch         the same every 30 seconds, until it is over
-//   node scripts/ci.mjs run [bots]    start a run by hand, with bots: all (default), none, or names
+//   node scripts/ci.mjs run [bots]    start a run by hand, with bots: all (default), none, or names;
+//                                     CI_REF=<commit> plays them on an earlier commit, CI_REPEAT=<n> n times each
 //   node scripts/ci.mjs minutes       how many of the free GitHub minutes this month the runs used
 //   node scripts/ci.mjs log <part>    the end of what one part of the latest run printed, e.g. log server
 //   node scripts/ci.mjs photos [part] the bot photos and test pictures it kept, into ci-output/
@@ -73,7 +74,7 @@ async function status() {
   const before = await usual(run.id);
   const now = Date.now();
   const started = new Date(run.run_started_at ?? run.created_at);
-  console.log(`Run ${run.run_number} (${run.event}, ${run.head_commit?.message.split('\n')[0].slice(0, 60)}): ${run.status}${run.conclusion ? ' → ' + run.conclusion : ''}, ${minutes(now - started)} so far`);
+  console.log(`Run ${run.run_number} (${run.event}, ${(run.display_title ?? run.head_commit?.message ?? '').split('\n')[0].slice(0, 60)}):${run.status}${run.conclusion ? ' → ' + run.conclusion : ''}, ${minutes(now - started)} so far`);
   let left = 0;
   let unknown = 0;
   for (const j of jobs) {
@@ -97,8 +98,10 @@ async function status() {
 
 const [command = 'status', bots = 'all'] = process.argv.slice(2);
 if (command === 'run') {
-  await api('/actions/workflows/test.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { bots } }) });
-  console.log(`Started a run with bots: ${bots}. Follow it with: node scripts/ci.mjs watch`);
+  // CI_REF: an earlier commit to play the bots on instead of main; CI_REPEAT: each bot that many times.
+  const inputs = { bots, ref: process.env.CI_REF ?? '', repeat: process.env.CI_REPEAT ?? '1' };
+  await api('/actions/workflows/test.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main', inputs }) });
+  console.log(`Started a run with bots: ${bots}${inputs.repeat !== '1' ? ` x${inputs.repeat}` : ''}${inputs.ref ? ` at ${inputs.ref}` : ''}. Follow it with: node scripts/ci.mjs watch (CI_RUN=<number> for one of several)`);
 } else if (command === 'log') {
   const run = await pickRun();
   const job = (await api(`/actions/runs/${run.id}/jobs?per_page=100`)).jobs.find((j) => j.name.includes(bots));
