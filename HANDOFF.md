@@ -77,7 +77,7 @@ step that passes. One phase per session, in this order.
    does at run time; all listed in src/blocks/registry.ts. Game.ts keeps the core (loop, scenes, entities,
    input, drawing, edit mode) and asks the registry instead of the big switches. Code moves AS IT IS (no
    renaming or "improving"; doubts go under Later). Done when adding an action is one new file and one line
-   in the registry. — DONE 2026-11-25 (CI below), see "Phase 1 progress".
+   in the registry. — CODE DONE 2026-11-25; one bot question open, see "Phase 1 progress".
 2. **One contact model.** First a short report, no code: every place where `body` and `physics` decide
    contact differently, with an example scene each; show the owner in Finglish, recommend one direction,
    wait for the choice. Then build it, with a broadphase (spatial hash grid) for touch, near and overlaps,
@@ -145,8 +145,13 @@ step that passes. One phase per session, in this order.
 - **A new block is one file and one line** (step 6): see "A new block" under Gotchas. Tried with a dummy action,
   trigger and behavior (removed). SHORT_ABOUT is gone (each line is the block's `editor.short`). A block in no
   pick-list group shows in a last group «بقیه» (none today). README updated.
-- Phase 1 is DONE once CI is green on step 6 (see the session log). Next: Phase 2, which starts with a report and
-  the owner's choice, no code.
+- The code of Phase 1 is done. ONE OPEN QUESTION before calling it done: the tower-levels bot lost three runs in
+  a row after step 5 (runs 51, 53, 54: Game over at score 56–61 on level 2, slimes; no page errors), and won on
+  step 4 (run 47). The Later note says it lost "about one run in two" before Phase 1, so this may be chance
+  (1 in 8), but it is not shown. Game.ts's diff since step 4 is only the move (checked). To settle it: run
+  tower-levels at e56e9ac (step 4) and at main several times each, on CI (ci.mjs runs main only: needs a ref
+  input in the workflow, or a temporary branch) or locally when memory allows (a local run was stopped for low
+  memory). Then Phase 2, which starts with a report and the owner's choice, no code.
 
 ### Later (small things noticed, not blocking the phase)
 
@@ -451,12 +456,26 @@ say so in the log.
   in `src/blocks/registry.ts` (tsc names a block without one). It shows in the pick-list group «بقیه» until
   placed in a group in labels.ts. Also: the GUIDE block list and counts (§۵), a lab test, and
   `isVariableUsed` in state.ts if it names a variable. Nothing in Game.ts, sentences.ts or validate.ts.
+- **Do not push code while a CI run with bots is going**: a new run on main cancels the one in progress (run 49,
+  step 5, was cancelled by the push of step 6). Wait for it, or push docs only (HANDOFF/README pushes start no
+  run). `CI_RUN=<number> node scripts/ci.mjs status` (or `watch`) follows an earlier run; plain `watch` follows
+  the newest, which may be a push run that the bot run cancelled.
 - After any visual change, photograph it (scripts/look) and look before
   reporting.
 
 ---
 
 ## Session log (newest first)
+
+### 2026-11-25 — Claude, Phase 1 steps 5–6: the behaviors, and a new block is one file (owner: "go ahead")
+
+- Step 5: all 29 behaviors are blocks; step 6: MoreActions/MoreTriggers/MoreBehaviors in types.ts, SHORT_ABOUT
+  into the blocks (`editor.short`), the «بقیه» pick-list group, README. See "Phase 1 progress". Also
+  `CI_RUN=<n>` for ci.mjs, and the mover scripts leave comments alone (four comments fixed).
+- CI run 51 (main after step 6, all bots): all four test suites pass; 12 of 16 bots win. Lost: bricks-levels
+  (720), platform-levels (140), puzzle (86, moves 21 of 20) and tower-levels (108), no page errors; the first
+  three as before (Later). Rerun 53: puzzle won, tower-levels lost (56); rerun 54: tower-levels lost again.
+  Open, see "Phase 1 progress". Run 49 (step 5 with bots) was cancelled by the push of step 6 (see Gotchas).
 
 ### 2026-11-25 — Claude, Phase 1 step 4: the triggers (owner: "read HANDOFF and continue Phase 1 (triggers)")
 
