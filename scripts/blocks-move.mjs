@@ -61,7 +61,8 @@ function cutCase(name) {
   game.splice(a0, b - a0);
   if (body.at(-1)?.trim() === 'break;' && /^ {8}break;$/.test(body.at(-1))) body = body.slice(0, -1);
   body = body.map((l) => {
-    let line = l.replace(/\bthis\./g, 'game.').replace(/\bthis\b/g, 'game');
+    // `this` in code only: a comment saying "this device" keeps its words.
+    let line = /^\s*\/\//.test(l) ? l : l.replace(/\bthis\./g, 'game.').replace(/\bthis\b/g, 'game');
     if (/^ {8}\S/.test(line)) line = line.replace(/\bbreak;/, 'return;');
     return line.replace(/^ {4}/, '');
   });

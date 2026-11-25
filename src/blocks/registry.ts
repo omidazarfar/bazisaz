@@ -1,4 +1,4 @@
-import type { Action, Trigger } from '../format/types';
+import type { Action, Behavior, Trigger } from '../format/types';
 import { burst } from './actions/burst';
 import { effect } from './actions/effect';
 import { floatText } from './actions/floatText';
@@ -91,7 +91,36 @@ import { rest, thrown } from './triggers/thrownRest';
 import { useItem } from './triggers/useItem';
 import { useItemOn } from './triggers/useItemOn';
 import { reward } from './triggers/reward';
-import type { ActionBlock, TriggerBlock } from './types';
+import { animate } from './behaviors/animate';
+import { particles } from './behaviors/particles';
+import { light } from './behaviors/light';
+import { rotate } from './behaviors/rotate';
+import { pulse } from './behaviors/pulse';
+import { blink } from './behaviors/blink';
+import { trail } from './behaviors/trail';
+import { scrollImage } from './behaviors/scrollImage';
+import { spawner } from './behaviors/spawner';
+import { lifetime } from './behaviors/lifetime';
+import { body } from './behaviors/body';
+import { physics } from './behaviors/physics';
+import { joint } from './behaviors/joint';
+import { field } from './behaviors/field';
+import { camera } from './behaviors/camera';
+import { mover } from './behaviors/mover';
+import { homing } from './behaviors/homing';
+import { patrol } from './behaviors/patrol';
+import { route } from './behaviors/route';
+import { chase } from './behaviors/chase';
+import { launch } from './behaviors/launch';
+import { wave } from './behaviors/wave';
+import { attach } from './behaviors/attach';
+import { jumper } from './behaviors/jumper';
+import { walker } from './behaviors/walker';
+import { moves } from './behaviors/moves';
+import { steer } from './behaviors/steer';
+import { followFinger } from './behaviors/followFinger';
+import { draggable } from './behaviors/draggable';
+import type { ActionBlock, BehaviorBlock, TriggerBlock } from './types';
 
 /**
  * Every block that lives in its own file (src/blocks/). The runtime, the editor's panels, the sentences and the
@@ -168,3 +197,28 @@ export const triggerBlocks: ReadonlyMap<Trigger['type'], TriggerBlock> = new Map
 /** Every trigger of the format is a block: this fails to compile, naming the trigger, if one has no block. */
 type TriggerWithoutBlock = Exclude<Trigger['type'], BlockTriggerType>;
 export const everyTriggerIsABlock: [TriggerWithoutBlock] extends [never] ? true : TriggerWithoutBlock = true;
+
+/** Every behavior, in its own file in src/blocks/behaviors/. A new behavior: one file there, and one line below. */
+const behaviors = [
+  // Finger control.
+  jumper, walker, moves, steer, followFinger, draggable,
+  // Moving by itself.
+  mover, homing, patrol, route, chase, launch, wave, attach,
+  // Physics and camera.
+  body, physics, joint, field, camera,
+  // Making and ending.
+  spawner, lifetime,
+  // Looks.
+  animate, particles, light, rotate, pulse, blink, trail, scrollImage,
+] as const;
+export const BEHAVIOR_BLOCKS = behaviors as unknown as readonly BehaviorBlock[];
+
+/** The behaviors that are blocks in their own files. */
+export type BlockBehaviorType = (typeof behaviors)[number]['type'];
+
+/** The behavior blocks by type, for the runtime and the editor. */
+export const behaviorBlocks: ReadonlyMap<Behavior['type'], BehaviorBlock> = new Map(BEHAVIOR_BLOCKS.map((b) => [b.type, b]));
+
+/** Every behavior of the format is a block: this fails to compile, naming the behavior, if one has no block. */
+type BehaviorWithoutBlock = Exclude<Behavior['type'], BlockBehaviorType>;
+export const everyBehaviorIsABlock: [BehaviorWithoutBlock] extends [never] ? true : BehaviorWithoutBlock = true;

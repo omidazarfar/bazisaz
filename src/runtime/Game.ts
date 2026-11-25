@@ -46,9 +46,9 @@ import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './so
 import { applyDirection, fillTemplate } from './text';
 import { clamp } from './math';
 import { contains, cornersOf, terrainTop, test } from './geometry';
-import { SHAKE_SECONDS, TAP_GRACE } from './constants';
-import { actionBlocks, triggerBlocks } from '../blocks/registry';
-import type { TriggerStep } from '../blocks/types';
+import { SHAKE_SECONDS, STICK_REACH, TAP_GRACE } from './constants';
+import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
+import type { BehaviorStep, TriggerStep } from '../blocks/types';
 
 // Objects far outside the view are not drawn at all, which keeps a big level light on a weak phone.
 extensions.add(CullerPlugin);
@@ -444,14 +444,9 @@ const MAX_STEP = 1 / 120;
 const MAX_FRAME = 1 / 30;
 /** A jump still works this long after walking off an edge, and a press this long before landing still jumps. */
 const COYOTE = 0.1;
-const JUMP_BUFFER = 0.12;
-/** How much of its upward speed a jump keeps when the finger lets go early. */
-const JUMP_CUT = 0.45;
 const FADE_OUT = 0.14;
 const FADE_IN = 0.2;
 const MAX_PARTICLES = 400;
-/** How far a finger has to be dragged for the on-screen stick to give full speed. */
-const STICK_REACH = 80;
 /** An object that wandered this far beyond the view without ever being seen is removed. */
 const LOST_DISTANCE = 2000;
 const HIDDEN_ALPHA_IN_EDITOR = 0.35;
@@ -531,7 +526,7 @@ export class Game {
   /** The scene's gravity, which a rule can change while the scene runs. */
   gravity = 0;
   /** Route markers by group, found once per step. */
-  private readonly marks = new Map<string, Entity[]>();
+  readonly marks = new Map<string, Entity[]>();
   private readonly overlay = new Graphics();
   /** Loaded images by asset id, with the src they came from so a changed image is reloaded. */
   private readonly textures = new Map<string, { src: string; texture: Texture }>();
@@ -599,7 +594,7 @@ export class Game {
   diedLastFrame: Entity[] = [];
   rewards = 0;
   /** How far the camera moved during the last frame, for spawners that work by distance. */
-  private cameraTravel = 0;
+  cameraTravel = 0;
   shakeLeft = 0;
   shakeStrength = 0;
   /** Slow motion: how fast time runs, and for how many more real seconds. */
@@ -632,10 +627,10 @@ export class Game {
   readonly pointers = new Map<number, Pointer>();
   // Fingers already on the screen when a new scene began: a paddle or a ship that follows the finger
   // keeps following them into the next level. Nothing else sees them (no taps, no jumps, no buttons).
-  private readonly heldOver = new Map<number, Point>();
+  readonly heldOver = new Map<number, Point>();
   taps: Point[] = [];
   swipes: string[] = [];
-  private keyTap = false;
+  keyTap = false;
   /** Keys pressed down since the last step (not held from before). */
   private readonly pressed = new Set<string>();
   readonly keys = new Set<string>();
@@ -755,7 +750,7 @@ export class Game {
   }
 
   /** Lets out as many particles as a stream has due. */
-  private stream(e: Entity, b: ParticlesBehavior, dt: number): void {
+  stream(e: Entity, b: ParticlesBehavior, dt: number): void {
     e.emitIn -= dt;
     for (let n = 0; e.emitIn <= 0 && n < 8; n++) {
       e.emitIn += 1 / Math.max(0.2, b.rate);
@@ -1909,6 +1904,8 @@ export class Game {
     const tapsOnScreen = this.time > TAP_GRACE ? this.taps.filter((t) => !this.onControl(t)) : [];
     const screenTapped = this.time > TAP_GRACE && (tapsOnScreen.length > 0 || this.keyTap);
     const spawned: { entity: Entity; above: Entity }[] = [];
+    // What the behaviors of one object share during its step (src/blocks/behaviors/); the same each object, reset for it.
+    const frame: BehaviorStep = { dt, W, H, screenTapped, spawned, body: null, steered: false, attached: false };
     this.landings = [];
     this.marks.clear();
     this.blockedCells.clear();
@@ -1921,9 +1918,9 @@ export class Game {
       if (!e.alive) continue;
       e.age += dt;
       this.applyState(e);
-      let body: BodyBehavior | null = null;
-      let steered = false;
-      let attached = false;
+      frame.body = null;
+      frame.steered = false;
+      frame.attached = false;
       if (e.animApplied) {
         e.x -= e.animApplied.x;
         e.y -= e.animApplied.y;
@@ -1938,248 +1935,10 @@ export class Game {
         e.sway = 0;
       }
 
-      for (const b of e.def.behaviors) {
-        switch (b.type) {
-          case 'body':
-            body = b;
-            break;
-          case 'walker': {
-            let direction = 0;
-            if (b.control === 'auto') direction = 1;
-            else {
-              if (this.keys.has('ArrowLeft')) direction -= 1;
-              if (this.keys.has('ArrowRight')) direction += 1;
-              if (b.control === 'halves') {
-                for (const p of this.pointers.values()) direction += p.x < W / 2 ? -1 : 1;
-              } else {
-                if (this.held(b.leftTag)) direction -= 1;
-                if (this.held(b.rightTag)) direction += 1;
-              }
-            }
-            const wanted = Math.sign(direction) * b.speed;
-            if (b.ease && b.ease > 0) {
-              // Speeds up and slows down over `ease` seconds instead of snapping.
-              const change = (b.speed / b.ease) * dt;
-              e.vx += clamp(wanted - e.vx, -change, change);
-            } else e.vx = wanted;
-            steered = true;
-            break;
-          }
-          case 'jumper': {
-            const byTap = b.on === 'tap';
-            const asked = byTap ? screenTapped : b.on === 'button' && (this.keyTap || this.taps.some((t) => this.hitsTag(t, b.buttonTag)));
-            if (asked) e.jumpAsked = JUMP_BUFFER;
-            const walls = e.def.behaviors.some((m) => m.type === 'moves' && m.wallJump);
-            if (e.jumpAsked > 0 && walls && !e.grounded && e.wallSide) {
-              // Off the wall: up, and pushed away from it for a moment whatever the player is holding.
-              e.vy = -b.jumpSpeed;
-              e.kick = { vx: -e.wallSide * Math.max(420, b.jumpSpeed * 0.55), left: 0.2 };
-              e.facing = e.wallSide > 0 ? -1 : 1;
-              e.jumpsLeft = Math.max(0, b.maxJumps - 1);
-              e.jumpAsked = 0;
-              e.rising = true;
-              e.squash = { x: 0.82, y: 1.2, left: 0.22, span: 0.22 };
-              this.sound('jump');
-            } else if (e.jumpAsked > 0 && e.jumpsLeft > 0) {
-              e.vy = -b.jumpSpeed;
-              e.jumpsLeft -= 1;
-              e.jumpAsked = 0;
-              e.rising = true;
-              // Stretched tall for a moment as it springs up.
-              e.squash = { x: 0.82, y: 1.2, left: 0.22, span: 0.22 };
-              this.sound('jump');
-            } else if (e.jumpAsked > 0) e.jumpAsked -= dt;
-            if (e.rising && e.vy >= 0) e.rising = false;
-            if (e.rising && b.variable) {
-              const key = this.keys.has('Space') || this.keys.has('ArrowUp');
-              const held = key || (byTap ? [...this.pointers.values()].some((p) => !this.onControl(p)) : this.held(b.buttonTag));
-              if (!held) {
-                e.vy *= JUMP_CUT;
-                e.rising = false;
-              }
-            }
-            break;
-          }
-          case 'trail':
-            e.trailIn -= dt;
-            if (e.trailIn <= 0) {
-              e.trailIn = 1 / Math.max(1, b.rate);
-              if (e.visible) this.puff(e, b.color, b.size);
-            }
-            break;
-          case 'followFinger': {
-            const pointer = [...this.pointers.values()].find((p) => !p.drag && !this.onControl(p)) ?? [...this.heldOver.values()].find((p) => !this.onControl(p));
-            const finger = pointer && this.inSpaceOf(e, pointer);
-            const dx = finger && b.axis !== 'y' ? finger.x - (e.x + e.width / 2) : 0;
-            const dy = finger && b.axis !== 'x' ? finger.y - (e.y + e.height / 2) : 0;
-            const distance = Math.hypot(dx, dy);
-            // Never overshoot: close to the finger, slow down to arrive exactly on it.
-            const speed = distance > 0 ? Math.min(b.speed, distance / dt) / distance : 0;
-            if (b.axis !== 'y') e.vx = dx * speed;
-            if (b.axis !== 'x') e.vy = dy * speed;
-            steered = true;
-            break;
-          }
-          case 'steer': {
-            let dx = 0;
-            let dy = 0;
-            const arrows: [string, number, number][] = [['ArrowLeft', -1, 0], ['ArrowRight', 1, 0], ['ArrowUp', 0, -1], ['ArrowDown', 0, 1]];
-            if (b.control === 'swipe') {
-              // A swipe (or an arrow key) sets the way; it keeps going that way until the next one.
-              const ways: Record<string, Point> = { left: { x: -1, y: 0 }, right: { x: 1, y: 0 }, up: { x: 0, y: -1 }, down: { x: 0, y: 1 } };
-              for (const swipe of this.swipes) e.heading = ways[swipe];
-              for (const [key, x, y] of arrows) if (this.keys.has(key)) e.heading = { x, y };
-              if (e.heading) [dx, dy] = [e.heading.x, e.heading.y];
-            } else {
-              for (const [key, x, y] of arrows) {
-                if (!this.keys.has(key)) continue;
-                dx += x;
-                dy += y;
-              }
-              if (b.control === 'buttons') {
-                dx += (this.held(b.rightTag) ? 1 : 0) - (this.held(b.leftTag) ? 1 : 0);
-                dy += (this.held(b.downTag) ? 1 : 0) - (this.held(b.upTag) ? 1 : 0);
-              } else {
-                const finger = [...this.pointers.values()].find((p) => !p.drag && !this.onControl({ x: p.startX, y: p.startY }));
-                const pull = finger ? Math.hypot(finger.x - finger.startX, finger.y - finger.startY) : 0;
-                // A short drag is a gentle push; past the stick's reach it is full speed.
-                if (finger && pull > 8) {
-                  dx += ((finger.x - finger.startX) / pull) * Math.min(1, pull / STICK_REACH);
-                  dy += ((finger.y - finger.startY) / pull) * Math.min(1, pull / STICK_REACH);
-                }
-              }
-            }
-            const push = Math.hypot(dx, dy);
-            const scale = push > 1 ? 1 / push : 1;
-            e.vx = dx * scale * b.speed;
-            e.vy = dy * scale * b.speed;
-            if (b.roll) this.roll(e, b, push > 0 ? { x: dx / push, y: dy / push } : null, dt);
-            if (b.face && push > 0) e.angle = Math.atan2(dy, dx);
-            steered = true;
-            break;
-          }
-          case 'route': {
-            let marks = this.marks.get(b.tag);
-            if (!marks) {
-              marks = this.entities
-                .filter((m) => m.alive && m !== e && m.def.tags.includes(b.tag))
-                .sort((m, n) => m.def.name.localeCompare(n.def.name, undefined, { numeric: true }));
-              this.marks.set(b.tag, marks);
-            }
-            if (marks.length === 0) break;
-            const mark = marks[Math.min(e.routeAt, marks.length - 1)];
-            const tx = mark.x + mark.width / 2 - e.width / 2;
-            const ty = mark.y + mark.height / 2 - e.height / 2;
-            const far = Math.hypot(tx - e.x, ty - e.y);
-            const stride = b.speed * dt;
-            if (far > stride) {
-              e.x += ((tx - e.x) / far) * stride;
-              e.y += ((ty - e.y) / far) * stride;
-              break;
-            }
-            // Reached this marker: on to the next, or whatever the end of the route calls for.
-            e.x = tx;
-            e.y = ty;
-            const next = e.routeAt + e.routeWay;
-            if (next >= 0 && next < marks.length) e.routeAt = next;
-            else if (b.end === 'loop') e.routeAt = 0;
-            else if (b.end === 'back' && marks.length > 1) {
-              e.routeWay = e.routeWay === 1 ? -1 : 1;
-              e.routeAt += e.routeWay;
-            }
-            break;
-          }
-          case 'chase': {
-            const aim = this.chaseAim(e, b, dt);
-            const dx = aim && b.axis !== 'y' ? aim.x - (e.x + e.width / 2) : 0;
-            const dy = aim && b.axis !== 'x' ? aim.y - (e.y + e.height / 2) : 0;
-            const distance = Math.hypot(dx, dy);
-            // Never overshoot the point it is making for, or it would shake about it.
-            const speed = distance > 1 ? Math.min(b.speed, distance / dt) / distance : 0;
-            const away = b.away ? -1 : 1;
-            e.vx = dx * speed * away;
-            e.vy = dy * speed * away;
-            break;
-          }
-          case 'attach': {
-            const target = this.nearest(e, b.targetTag);
-            if (target) {
-              e.x = target.x + b.offsetX;
-              e.y = target.y + b.offsetY;
-              attached = true;
-            }
-            break;
-          }
-          case 'homing':
-            this.home(e, b, dt);
-            break;
-          case 'mover': {
-            // A homing object steers its own speed from the start.
-            if (e.homing || e.def.behaviors.some((h) => h.type === 'homing')) break;
-            const factor = b.speedVariable ? (this.variables.get(b.speedVariable) ?? 1) : 1;
-            e.x += b.vx * factor * dt;
-            e.y += b.vy * factor * dt;
-            break;
-          }
-          case 'patrol': {
-            // A triangle wave: out to `distance` and back, at a steady speed.
-            const along = (e.age * b.speed) % (2 * b.distance);
-            const offset = b.distance - Math.abs(along - b.distance);
-            if (b.axis === 'x') e.x = e.homeX + offset;
-            else e.y = e.homeY + offset;
-            break;
-          }
-          case 'rotate':
-            e.angle += (b.speed * Math.PI * dt) / 180;
-            break;
-          case 'pulse':
-            e.scale = 1 + b.amount * 0.5 * (1 - Math.cos((2 * Math.PI * e.age) / b.seconds));
-            break;
-          case 'blink':
-            // From solid to invisible and back, once every `seconds`.
-            e.fade = 0.5 + 0.5 * Math.cos((2 * Math.PI * e.age) / b.seconds);
-            break;
-          case 'lifetime':
-            if (e.age >= b.seconds) e.alive = false;
-            break;
-          case 'spawner':
-            // By the clock, or by how far the camera has travelled.
-            e.spawnIn -= b.everyDistance > 0 ? this.cameraTravel : dt;
-            if (e.spawnIn <= 0) {
-              e.spawnIn = b.everyDistance > 0 ? b.everyDistance : b.minInterval + Math.random() * (b.maxInterval - b.minInterval);
-              const id = b.prefabs[Math.floor(Math.random() * b.prefabs.length)];
-              const prefab = this.scene.prefabs.find((p) => p.id === id)!;
-              // A spawner fixed to the screen still creates things in the world, under where it is on the screen now.
-              const from = e.def.fixed && !prefab.fixed ? this.inSpace(false, { x: e.x, y: e.y }) : { x: e.x, y: e.y };
-              const entity = this.createEntity(
-                prefab,
-                from.x + (Math.random() * 2 - 1) * b.spreadX,
-                from.y - prefab.height + (Math.random() * 2 - 1) * b.spreadY,
-              );
-              entity.spawned = true;
-              spawned.push({ entity, above: e });
-            }
-            break;
-          case 'scrollImage':
-            if (e.view instanceof TilingSprite) {
-              e.view.tilePosition.x += b.vx * dt;
-              e.view.tilePosition.y += b.vy * dt;
-            }
-            break;
-          case 'particles':
-            if (!b.onGroundMove || (e.grounded && Math.abs(e.vx) > 10)) this.stream(e, b, dt);
-            break;
-          case 'draggable':
-          case 'camera':
-          case 'launch':
-          case 'wave':
-          case 'physics':
-          case 'joint':
-          case 'light':
-          case 'field':
-            break; // Handled outside this loop.
-        }
-      }
+      // Every behavior is a block in its own file (src/blocks/behaviors/); some leave their work to the core below.
+      for (const b of e.def.behaviors) behaviorBlocks.get(b.type)?.step?.(this, e, b as never, frame);
+      // Read back what the behaviors left (as BehaviorStep: TypeScript would otherwise still see the reset values above).
+      const { body, steered, attached } = frame as BehaviorStep;
 
       const dragging = [...this.pointers.values()].find((p) => p.drag?.entity === e && !p.drag.held);
       if (dragging?.drag) {
@@ -2911,7 +2670,7 @@ export class Game {
   }
 
   /** Leaves one dot of a trail where an object is, drawn behind it. */
-  private puff(from: Entity, color: string, size: number): void {
+  puff(from: Entity, color: string, size: number): void {
     if (this.particles.length >= MAX_PARTICLES) return;
     const view = new Graphics().circle(0, 0, size / 2).fill(color);
     view.position.set(from.x + from.width / 2, from.y + from.height / 2);
@@ -3260,7 +3019,7 @@ export class Game {
   focus: { entity: Entity; left: number } | null = null;
 
   /** A dodge roll: a quick dash the way it is going (or facing), safe from harm while it lasts. */
-  private roll(e: Entity, b: SteerBehavior, way: Point | null, dt: number): void {
+  roll(e: Entity, b: SteerBehavior, way: Point | null, dt: number): void {
     e.rollCool = Math.max(0, (e.rollCool ?? 0) - dt);
     if (e.rollCool <= 0 && this.asked(['ShiftLeft', 'ShiftRight', 'KeyX'], b.rollTag ?? '')) {
       e.rollLeft = 0.3;
@@ -3286,7 +3045,7 @@ export class Game {
   }
 
   /** A homing object turns toward the nearest of its group, no faster than its turn, keeping its speed. */
-  private home(e: Entity, b: HomingBehavior, dt: number): void {
+  home(e: Entity, b: HomingBehavior, dt: number): void {
     if (!e.homing) {
       // It sets off with the speed it was given: by a shot, or its mover.
       const mover = e.def.behaviors.find((m): m is MoverBehavior => m.type === 'mover');
@@ -3670,7 +3429,7 @@ export class Game {
    * of its target, or, when it goes around walls, the next point on its way
    * there. A target out of range is not noticed.
    */
-  private chaseAim(e: Entity, b: ChaseBehavior, dt: number): Point | null {
+  chaseAim(e: Entity, b: ChaseBehavior, dt: number): Point | null {
     const target = this.nearest(e, b.targetTag);
     if (!target) return null;
     const goal = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
@@ -3812,14 +3571,14 @@ export class Game {
 
   // ── Input ────────────────────────────────────────────────────────────────
 
-  private hitsTag(screen: Point, tag: string): boolean {
+  hitsTag(screen: Point, tag: string): boolean {
     return this.entities.some(
       (e) => e.alive && e.visible && e.def.tags.includes(tag) && contains(this.boxOf(e), this.inSpaceOf(e, screen)),
     );
   }
 
   /** Whether some finger is on an object of this group right now. */
-  private held(tag: string): boolean {
+  held(tag: string): boolean {
     return [...this.pointers.values()].some((p) => this.hitsTag(p, tag));
   }
 

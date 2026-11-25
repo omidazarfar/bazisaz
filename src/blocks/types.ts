@@ -1,4 +1,4 @@
-import type { Action, GameProject, Place, Ref, Rule, Scene, Trigger } from '../format/types';
+import type { Action, Behavior, BodyBehavior, GameObject, GameProject, Place, Ref, Rule, Scene, Trigger } from '../format/types';
 import type { Context as RuleContext, Entity, Game } from '../runtime/Game';
 import type { Block } from './fields';
 import type { Subjects } from './say';
@@ -85,3 +85,49 @@ export interface TriggerBlock<T extends Trigger['type'] = Trigger['type']> {
 
 /** Declares a trigger block, keeping its fields typed to its own trigger. */
 export const triggerBlock = <T extends Trigger['type']>(block: TriggerBlock<T>): TriggerBlock<T> => block;
+
+/** What one object's behaviors share while it takes its step: the step itself, and what they leave for the core. */
+export interface BehaviorStep {
+  /** The length of the step, in seconds. */
+  dt: number;
+  /** The size of the view. */
+  W: number;
+  H: number;
+  /** Whether the screen itself (not a button on it) was tapped. */
+  screenTapped: boolean;
+  /** Objects made this step, each to be put just above the object that made it. */
+  spawned: { entity: Entity; above: Entity }[];
+  /** Left for the core: the object's body (it then moves as a body), whether the player steers it, whether it is attached. */
+  body: BodyBehavior | null;
+  steered: boolean;
+  attached: boolean;
+}
+
+/** What a behavior's check may need: the project, the object, a way to report a problem (said after the scene), and common checks. */
+export interface BehaviorCheckKit {
+  project: GameProject;
+  object: GameObject;
+  say: (problem: string) => void;
+  needVariable: (name: string) => void;
+  /** Whether the object's scene has this prefab. */
+  hasPrefab: (id: string) => boolean;
+}
+
+export interface BehaviorBlock<T extends Behavior['type'] = Behavior['type']> {
+  type: T;
+  /** Its Persian title, help, starting value and fields in the editor. */
+  editor: Block<Extract<Behavior, { type: T }>>;
+  /** What it makes an object do, as a short Persian sentence. */
+  sentence: (behavior: Extract<Behavior, { type: T }>, kit: TriggerSentenceKit) => string;
+  /** Problems with it. */
+  check?: (behavior: Extract<Behavior, { type: T }>, kit: BehaviorCheckKit) => void;
+  /**
+   * What it does to its object at every step of a running game, in the order of the object's behaviors. None for a
+   * behavior whose work the core does elsewhere (camera, real physics, joints, fields, light, wave, launch,
+   * dragging, special moves, animation).
+   */
+  step?: (game: Game, e: Entity, behavior: Extract<Behavior, { type: T }>, frame: BehaviorStep) => void;
+}
+
+/** Declares a behavior block, keeping its fields typed to its own behavior. */
+export const behaviorBlock = <T extends Behavior['type']>(block: BehaviorBlock<T>): BehaviorBlock<T> => block;

@@ -41,8 +41,8 @@ export const touch = triggerBlock({
         if (before.has(key)) continue;
         if (w.from) {
           // Coming down onto its top: last frame the first one's feet were above the upper part of the second,
-          // and game frame it moved down toward it. Measured by how they moved, not by their speeds, which an
-          // earlier rule game frame may already have changed (a bounce off the very enemy being landed on).
+          // and this frame it moved down toward it. Measured by how they moved, not by their speeds, which an
+          // earlier rule this frame may already have changed (a bounce off the very enemy being landed on).
           const above = first.prevY + first.height <= second.prevY + second.height * 0.45 && first.y - first.prevY >= second.y - second.prevY;
           if ((w.from === 'above') !== above) continue;
         }

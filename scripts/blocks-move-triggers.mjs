@@ -38,7 +38,8 @@ function cutCase(name) {
     body = body.slice(0, -1);
   }
   game.splice(a0, b - a0);
-  body = body.map((l) => l.replace(/\bthis\./g, 'game.').replace(/\bthis\b/g, 'game').replace(/^ {4}/, ''));
+  // `this` in code only: a comment saying "this frame" keeps its words.
+  body = body.map((l) => (/^\s*\/\//.test(l) ? l : l.replace(/\bthis\./g, 'game.').replace(/\bthis\b/g, 'game')).replace(/^ {4}/, ''));
   return { comments: comments.map((l) => l.replace(/^ {4}/, '')), body };
 }
 

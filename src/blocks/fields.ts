@@ -145,3 +145,12 @@ export const COMPARE: Field = { key: 'op', label: 'مقایسه', kind: 'choice'
   { value: '>', label: 'بیشتر' },
   { value: '<', label: 'کمتر' },
 ] };
+
+export const SPEED = (key: string, label: string, hint: string) => slider(key, label, -1500, 1500, 10, hint);
+/** The group most games call their ground, if this scene has one, so new physics stands on it from the start. */
+export const groundTag = ({ scene }: Context): string => {
+  const tags = new Set(scene.objects.flatMap((o) => [...o.tags, ...(o.visual.kind === 'tiles' ? Object.values(o.visual.kinds).flatMap((k) => k.tags) : [])]));
+  return ['زمین', 'ground', 'دیوار'].find((tag) => tags.has(tag)) ?? '';
+};
+export const moving = (v: Record<string, unknown>) => v.kind !== 'still';
+export const custom = (v: Record<string, unknown>) => !v.material || v.material === 'custom';

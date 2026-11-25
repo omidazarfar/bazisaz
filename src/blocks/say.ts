@@ -31,3 +31,9 @@ export interface Subjects {
   first?: string;
   second?: string;
 }
+
+/** A group's name in a sentence, in quotes («…»); a question mark when none is chosen yet. */
+export const group = (tag: string) => `«${tag || '؟'}»`;
+
+/** The materials of real physics, in words. */
+export const MATERIAL_LABEL: Record<string, string> = { wood: 'چوب', stone: 'سنگ', metal: 'فلز', ice: 'یخ', rubber: 'لاستیک', glass: 'شیشه' };

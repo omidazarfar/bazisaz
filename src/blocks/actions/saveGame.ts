@@ -13,7 +13,7 @@ export const saveGame = actionBlock({
     try {
       localStorage.setItem(game.savedKey('#game'), JSON.stringify({ scene: game.scene.id, values: Object.fromEntries([...game.variables, ...game.textVariables]) }));
     } catch {
-      // Progress simply isn't kept on game device.
+      // Progress simply isn't kept on this device.
     }
   },
 });

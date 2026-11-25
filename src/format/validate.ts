@@ -1,5 +1,5 @@
-import { actionBlocks, triggerBlocks } from '../blocks/registry';
-import type { CheckKit } from '../blocks/types';
+import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
+import type { BehaviorCheckKit, CheckKit } from '../blocks/types';
 import { FORMAT_VERSION, isBuiltinMusic, ruleActions, type GameObject, type GameProject, type Place, type Ref } from './types';
 
 const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -112,24 +112,15 @@ export function validateProject(project: GameProject): string[] {
       const types = new Set(obj.behaviors.map((b) => b.type));
       if (types.has('jumper') && !types.has('body') && !types.has('physics')) say(`${where}: "${obj.id}" jumps but has no body.`);
       if (types.has('body') && types.has('physics')) say(`${where}: "${obj.id}" has both a body and real physics; it can have only one.`);
-      for (const b of obj.behaviors) {
-        if (b.type === 'particles' && b.onGroundMove !== undefined && typeof b.onGroundMove !== 'boolean')
-          say(`${where}: "${obj.id}" needs a boolean for moving ground particles.`);
-        if (b.type === 'physics' && !(b.weight > 0)) say(`${where}: "${obj.id}" needs a weight above zero.`);
-        if (b.type === 'animate' && (!Array.isArray(b.keys) || b.keys.length === 0 || !b.keys.every((k) => [k.t, k.x, k.y, k.angle, k.scale, k.opacity].every(Number.isFinite) && k.t >= 0)))
-          say(`${where}: "${obj.id}" has an animation without proper keys.`);
-      }
-      for (const b of obj.behaviors) {
-        if (b.type === 'mover' && b.speedVariable) needVariable(b.speedVariable, `${where}: "${obj.id}"`);
-        if (b.type !== 'spawner') continue;
-        if (b.prefabs.length === 0) say(`${where}: spawner "${obj.id}" has nothing to create.`);
-        for (const id of b.prefabs) {
-          if (!prefabIds.has(id)) say(`${where}: spawner "${obj.id}" refers to missing prefab "${id}".`);
-        }
-        if (!(b.minInterval > 0) || b.maxInterval < b.minInterval) {
-          say(`${where}: spawner "${obj.id}" needs 0 < minInterval <= maxInterval.`);
-        }
-      }
+      // Every behavior is a block in its own file (src/blocks/behaviors/), which checks itself.
+      const kit: BehaviorCheckKit = {
+        project,
+        object: obj,
+        say: (problem) => say(`${where}: ${problem}`),
+        needVariable: (variable) => needVariable(variable, `${where}: "${obj.id}"`),
+        hasPrefab: (id) => prefabIds.has(id),
+      };
+      for (const b of obj.behaviors) behaviorBlocks.get(b.type)?.check?.(b as never, kit);
     };
     scene.objects.forEach(checkObject);
     scene.prefabs.forEach(checkObject);
