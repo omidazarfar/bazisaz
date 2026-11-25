@@ -1,0 +1,31 @@
+import type { Action } from '../format/types';
+import { burst } from './actions/burst';
+import { effect } from './actions/effect';
+import { floatText } from './actions/floatText';
+import { focus } from './actions/focus';
+import { playMusic } from './actions/playMusic';
+import { playSound } from './actions/playSound';
+import { setSound } from './actions/setSound';
+import { shake } from './actions/shake';
+import { shockwave } from './actions/shockwave';
+import { slowMotion } from './actions/slowMotion';
+import { vibrate } from './actions/vibrate';
+import { zoomPunch } from './actions/zoomPunch';
+import type { ActionBlock } from './types';
+
+/**
+ * Every block that lives in its own file (src/blocks/). The runtime, the editor's panels, the sentences and the
+ * checks look a block up here first; blocks not yet moved out of Game.ts and labels.ts are still handled there.
+ * A new action: one file in src/blocks/actions/, and one line below.
+ */
+const blocks = [
+  // Sound and effects.
+  playSound, playMusic, effect, burst, floatText, shake, focus, zoomPunch, shockwave, slowMotion, vibrate, setSound,
+] as const;
+export const ACTION_BLOCKS = blocks as unknown as readonly ActionBlock[];
+
+/** The actions that are blocks in their own files. */
+export type BlockActionType = (typeof blocks)[number]['type'];
+
+/** The blocks by type, for the runtime and the editor. */
+export const actionBlocks: ReadonlyMap<Action['type'], ActionBlock> = new Map(ACTION_BLOCKS.map((b) => [b.type, b]));

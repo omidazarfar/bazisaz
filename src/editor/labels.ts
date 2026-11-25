@@ -1,5 +1,9 @@
-import type { Action, Behavior, GameProject, Ref, Scene, SoundName, Trigger } from '../format/types';
+import type { Action, Behavior, Scene, Trigger } from '../format/types';
 import { PARTICLE_COLORS } from '../runtime/particles';
+import { fa, firstRef, slider, SOUND_LABEL, TARGET, type Block, type Context, type Field, type Option } from '../blocks/fields';
+import { ACTION_BLOCKS, type BlockActionType } from '../blocks/registry';
+
+export { fa, SOUND_LABEL, type Context, type Field };
 
 /**
  * Everything the editor says about the format, in the user's words. Each
@@ -9,77 +13,10 @@ import { PARTICLE_COLORS } from '../runtime/particles';
  * entry here and nothing in the panels.
  */
 
-type Option = { value: string; label: string };
 
-export type Field = {
-  key: string;
-  label: string;
-  hint?: string;
-  /** Hides the field unless the block's other values make it relevant. */
-  showIf?: (value: Record<string, unknown>) => boolean;
-  /** What the field shows for a block saved before the field existed. */
-  fallback?: unknown;
-  /** Rarely needed: kept behind "more settings" unless it has been changed. */
-  advanced?: boolean;
-} & (
-  | { kind: 'slider'; min: number; max: number; step: number; unit?: string }
-  | { kind: 'number' }
-  | { kind: 'choice'; options: Option[] }
-  | { kind: 'bool' }
-  | { kind: 'color' }
-  /** A group name. */
-  | { kind: 'tag' }
-  /** The name of one of an object's own values. */
-  | { kind: 'valueName' }
-  /** One object or one group. */
-  | { kind: 'ref' }
-  /** Like ref, plus "the object this rule is about". */
-  | { kind: 'target' }
-  /** Like target, plus "where the screen was touched". */
-  | { kind: 'place' }
-  | { kind: 'textVariable' }
-  | { kind: 'variable'; optional?: boolean }
-  /** One of the things the player can carry in a bag. */
-  | { kind: 'item' }
-  /** Like target, or nothing at all: where a thing put into the bag flies from. */
-  | { kind: 'flyFrom' }
-  /** A number or a variable. */
-  | { kind: 'amount' }
-  | { kind: 'scene' }
-  | { kind: 'prefab' }
-  | { kind: 'prefabs' }
-  | { kind: 'sound' }
-  /** One of the game's pictures, or a new one from the library or the computer. */
-  | { kind: 'image' }
-  /** One of the sounds the user added, or none. */
-  | { kind: 'music' }
-  /** A line of text, which may show values by {name}. */
-  | { kind: 'text' }
-  /** The name of a message one rule sends to others. */
-  | { kind: 'message' }
-);
 
-/** What a new block can look at to start with values that already work. */
-export interface Context {
-  project: GameProject;
-  scene: Scene;
-}
 
-interface Block<T> {
-  title: string;
-  about?: string;
-  fields: Field[];
-  make: (ctx: Context) => T;
-  /** Offered only when this holds, e.g. a spawner needs something to spawn. */
-  available?: (ctx: Context) => boolean;
-  /** A behavior that only makes sense on an object with a picture. */
-  needsImage?: boolean;
-}
 
-const slider = (key: string, label: string, min: number, max: number, step: number, hint?: string, unit?: string): Field =>
-  ({ key, label, hint, unit, kind: 'slider', min, max, step });
-const firstRef = ({ scene }: Context): Ref =>
-  scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: '' };
 const hasTexts = ({ project }: Context) => Boolean(project.textVariables?.length);
 const hasVariables = ({ project }: Context) => project.variables.length > 0;
 const hasItems = ({ project }: Context) => project.variables.some((v) => v.item);
@@ -790,7 +727,6 @@ export const CONDITION_FIELDS: Field[] = [
   { key: 'value', label: 'با', kind: 'amount' },
 ];
 
-const TARGET: Field = { key: 'target', label: 'کدام شیء', kind: 'target' };
 
 /** A condition on one of an object's own values, rather than on a game variable. */
 export const OBJECT_CONDITION_FIELDS: Field[] = [
@@ -800,7 +736,8 @@ export const OBJECT_CONDITION_FIELDS: Field[] = [
   { key: 'value', label: 'با', kind: 'amount' },
 ];
 
-export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }>> } = {
+// The actions not yet moved to their own files (src/blocks/); those describe themselves (ACTIONS, below).
+const ACTIONS_HERE: { [K in Exclude<Action['type'], BlockActionType>]: Block<Extract<Action, { type: K }>> } = {
   give: {
     title: 'دادن وسیله به کوله‌پشتی',
     about: 'وسیله‌ای مثل کلید یا معجون به کوله‌پشتی بازیکن اضافه می‌شود. عکسش از روی شیئی که برداشته شد پرواز می‌کند و در خانه‌اش در کوله‌پشتی می‌نشیند.',
@@ -915,24 +852,6 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     fields: [{ key: 'scene', label: 'اگر چیزی ذخیره نشده، برو به', kind: 'scene' }],
   },
   restartScene: { title: 'شروع دوباره‌ی همین صحنه', make: () => ({ type: 'restartScene' }), fields: [] },
-  playSound: {
-    title: 'پخش صدا',
-    make: () => ({ type: 'playSound', sound: 'coin' }),
-    fields: [{ key: 'sound', label: 'کدام صدا', kind: 'sound' }, { key: 'volume', kind: 'slider', label: 'بلندی صدا', min: 0, max: 100, step: 1, unit: '٪', fallback: 100 }],
-  },
-  effect: {
-    title: 'جلوه‌ی نرم',
-    about: 'ظاهر شیء را نرم عوض می‌کند. «کوچک شدن و رفتن» در آخر شیء را حذف می‌کند.',
-    make: (ctx) => ({ type: 'effect', target: firstRef(ctx), kind: 'pop', seconds: 0.3 }),
-    fields: [TARGET, { key: 'kind', label: 'چه جلوه‌ای', kind: 'choice', options: [
-      { value: 'pop', label: 'یک لحظه بزرگ شود' },
-      { value: 'grow', label: 'از هیچ بزرگ شود' },
-      { value: 'shrink', label: 'کوچک شود و برود' },
-      { value: 'fadeIn', label: 'کم‌کم پیدا شود' },
-      { value: 'fadeOut', label: 'کم‌کم محو شود' },
-        { value: 'dissolve', label: 'فرو ریختن و محو شدن' },
-    ] }, slider('seconds', 'چقدر طول بکشد', 0.1, 3, 0.1, undefined, 'ثانیه')],
-  },
   glide: {
     title: 'حرکت نرم به یک نقطه',
     make: (ctx) => ({ type: 'glide', target: firstRef(ctx), x: 0, y: 0, seconds: 0.5 }),
@@ -960,12 +879,6 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
   },
   pause: { title: 'مکث بازی', about: 'همه‌چیز می‌ایستد. فقط قانون‌های «لمس» کار می‌کنند تا بتوانی بازی را ادامه بدهی.', make: () => ({ type: 'pause' }), fields: [] },
   resume: { title: 'ادامه‌ی بازی بعد از مکث', make: () => ({ type: 'resume' }), fields: [] },
-  setSound: {
-    title: 'روشن یا خاموش کردن صدا',
-    about: 'همه‌ی صداها و موسیقی بازی را تا آخر همین بار بازی کردن خاموش یا روشن می‌کند؛ برای دکمه‌ی صدا.',
-    make: () => ({ type: 'setSound', on: false }),
-    fields: [{ key: 'on', label: 'صدا روشن باشد', kind: 'bool' }],
-  },
   setValue: {
     title: 'تغییر مقدار یک شیء',
     about: 'هر شیء می‌تواند مقدارهای خودش را داشته باشد؛ مثل «باز بودن» یک کارت. اگر شیء آن مقدار را نداشته باشد، همین‌جا ساخته می‌شود.',
@@ -1044,23 +957,11 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     make: () => ({ type: 'setGravity', amount: -2400 }),
     fields: [{ key: 'amount', label: 'جاذبه', kind: 'number' }],
   },
-  vibrate: {
-    title: 'لرزش گوشی',
-    about: 'گوشی یک لحظه می‌لرزد؛ برای ضربه یا باخت. روی کامپیوتر اثری ندارد.',
-    make: () => ({ type: 'vibrate', ms: 60 }),
-    fields: [slider('ms', 'چقدر طول بکشد', 10, 500, 10, undefined, 'هزارم ثانیه')],
-  },
   showRewardedAd: {
     title: 'پیشنهاد تبلیغ جایزه‌ای',
     about: 'اگر بازیکن تبلیغ را تا آخر ببیند، اتفاق «بازیکن تبلیغ جایزه‌ای را تا آخر دید» رخ می‌دهد.',
     make: () => ({ type: 'showRewardedAd' }),
     fields: [],
-  },
-  burst: {
-    title: 'جرقه و تکه‌پرانی',
-    about: 'تکه‌های کوچک رنگی از وسط شیء بیرون می‌پرند و محو می‌شوند؛ برای برخورد، انفجار یا گرفتن جایزه.',
-    make: (ctx) => ({ type: 'burst', target: firstRef(ctx), color: '#ffd54a', count: 16 }),
-    fields: [{ key: 'target', label: 'از کدام شیء', kind: 'target' }, { key: 'color', label: 'رنگ تکه‌ها', kind: 'color' }, slider('count', 'چند تکه', 4, 40, 1)],
   },
   say: {
     title: 'حرف زدن (گفت‌وگو)',
@@ -1102,60 +1003,6 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
       { ...slider('spread', 'باز شدن بادبزن', 5, 180, 5, undefined, 'درجه'), showIf: (v) => v.pattern === 'spread' || v.pattern === 'aimed' },
       slider('speed', 'سرعت', 100, 2000, 20, undefined, 'پیکسل در ثانیه'),
       { key: 'aimTag', label: 'هدف از این گروه', kind: 'tag', fallback: '', showIf: (v) => v.pattern === 'aimed' },
-    ],
-  },
-  focus: {
-    title: 'دوربین روی یک شیء',
-    about: 'دوربین نرم به طرف یک شیء می‌رود و چند ثانیه آنجا می‌ماند، بعد دوباره دنبال بازیکن می‌رود. برای نشان دادن دری که باز شد، غولی که آمد، یا یک صحنه‌ی کوتاه فیلم‌مانند همراه «حرف زدن».',
-    make: (ctx) => ({ type: 'focus', target: firstRef(ctx), seconds: 2 }),
-    fields: [{ key: 'target', label: 'روی کدام شیء', kind: 'target' }, slider('seconds', 'چند ثانیه', 0.5, 10, 0.5, undefined, 'ثانیه')],
-  },
-  zoomPunch: {
-    title: 'ضربه‌ی دوربین',
-    about: 'دوربین یک لحظه جلو می‌پرد و برمی‌گردد؛ ضربه و انفجار را سنگین‌تر نشان می‌دهد. با «لرزش صفحه» و «زمان آهسته» عالی است.',
-    make: () => ({ type: 'zoomPunch', amount: 1.12, seconds: 0.35 }),
-    fields: [
-      slider('amount', 'چقدر جلو بپرد', 1.02, 1.5, 0.01, '۱٫۱ یعنی ده درصد نزدیک‌تر.'),
-      slider('seconds', 'چه مدت', 0.1, 1.5, 0.05, undefined, 'ثانیه'),
-    ],
-  },
-  shockwave: {
-    title: 'موج انفجار',
-    about: 'حلقه‌ای از وسط شیء بیرون می‌رود و تصویرِ پشتش را مثل هوای داغ انفجار کج و موج‌دار می‌کند.',
-    make: (ctx) => ({ type: 'shockwave', at: firstRef(ctx), size: 400 }),
-    fields: [{ key: 'at', label: 'از کدام شیء', kind: 'target' }, slider('size', 'تا کجا برود', 100, 1200, 20, undefined, 'پیکسل')],
-  },
-  floatText: {
-    title: 'نوشته‌ی پران',
-    about: 'یک عدد یا کلمه بالای شیء ظاهر می‌شود، کمی بالا می‌رود و محو می‌شود؛ مثل «+۳۰» وقتی سکه برداشته می‌شود، یا «آخ!» وقتی ضربه می‌خورد. مقدارها را با {score} می‌شود نوشت.',
-    make: (ctx) => ({ type: 'floatText', target: firstRef(ctx), text: '+10', color: '#ffe066', size: 40 }),
-    fields: [
-      { key: 'target', label: 'بالای کدام شیء', kind: 'target' },
-      { key: 'text', label: 'چه بنویسد', kind: 'text' },
-      { key: 'color', label: 'رنگ', kind: 'color' },
-      slider('size', 'اندازه', 16, 120, 2),
-    ],
-  },
-  slowMotion: {
-    title: 'زمان آهسته',
-    about: 'بازی برای چند لحظه آهسته می‌شود، مثل فیلم‌ها؛ برای ضربه‌ی آخر، انفجار بزرگ یا پرش دیدنی. صفر یعنی یک لحظه کاملاً می‌ایستد («ایست ضربه») تا ضربه محکم حس شود.',
-    make: () => ({ type: 'slowMotion', amount: 0.3, seconds: 1 }),
-    fields: [
-      slider('amount', 'سرعت زمان', 0, 1, 0.05, 'یک یعنی عادی، ۰٫۳ یعنی سه برابر آهسته‌تر، صفر یعنی ایستادن کامل.'),
-      slider('seconds', 'چه مدت', 0.03, 5, 0.01, 'به ثانیه‌ی واقعی. برای «ایست ضربه» حدود ۰٫۰۵ تا ۰٫۱ خوب است.', 'ثانیه'),
-    ],
-  },
-  shake: {
-    title: 'لرزش صفحه',
-    about: 'کل صفحه یک لحظه می‌لرزد؛ برای ضربه و باخت.',
-    make: () => ({ type: 'shake', strength: 12 }),
-    fields: [
-      slider('strength', 'شدت', 2, 40, 1),
-      { key: 'axis', label: 'به کدام طرف', kind: 'choice', fallback: 'both', options: [
-        { value: 'both', label: 'همه طرف' },
-        { value: 'side', label: 'فقط چپ و راست، مثل ضربه از پهلو' },
-        { value: 'up', label: 'فقط بالا و پایین، مثل فرود سنگین' },
-      ] },
     ],
   },
   showAd: {
@@ -1287,12 +1134,6 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
     make: (ctx) => ({ type: 'blast', at: firstRef(ctx), strength: 1500, radius: 300 }),
     fields: [{ key: 'at', label: 'از کجا', kind: 'target' }, slider('strength', 'قدرت', 100, 5000, 50), slider('radius', 'تا چه فاصله‌ای', 50, 1200, 10)],
   },
-  playMusic: {
-    title: 'عوض کردن موسیقی',
-    about: 'به‌جای موسیقی صحنه، یکی از صداهایی را که اضافه کرده‌ای پشت‌سرهم پخش می‌کند؛ مثل موسیقی تند برای غول آخر. «هیچ» موسیقی را قطع می‌کند.',
-    make: ({ project }) => ({ type: 'playMusic', music: Object.keys(project.assets).find((id) => project.assets[id].type === 'sound') ?? '' }),
-    fields: [{ key: 'music', label: 'کدام موسیقی', kind: 'music' }],
-  },
   zoom: {
     title: 'نزدیک و دور کردن دوربین',
     about: '۱ اندازه‌ی معمولی است. ۲ همه‌چیز را دو برابر بزرگ نشان می‌دهد؛ ۰٫۵ دو برابر بیشتر از دنیا را. چیزهایی که به صفحه چسبیده‌اند عوض نمی‌شوند.',
@@ -1301,25 +1142,11 @@ export const ACTIONS: { [K in Action['type']]: Block<Extract<Action, { type: K }
   },
 };
 
-export const SOUND_LABEL: Record<SoundName, string> = {
-  jump: 'پرش',
-  coin: 'سکه',
-  hit: 'ضربه',
-  win: 'برد',
-  lose: 'باخت',
-  click: 'کلیک',
-  pop: 'ترکیدن حباب',
-  laser: 'لیزر',
-  boom: 'انفجار',
-  powerup: 'قدرت گرفتن',
-  bounce: 'برگشتن توپ',
-  tick: 'تیک',
-  knock: 'تق چوب',
-  clang: 'دنگ فلز',
-  thud: 'گروپ سنگ',
-  shatter: 'شکستن شیشه',
-  squeak: 'جیر لاستیک',
-};
+export const ACTIONS = {
+  ...ACTIONS_HERE,
+  ...Object.fromEntries(ACTION_BLOCKS.map((b) => [b.type, b.editor])),
+} as { [K in Action['type']]: Block<Extract<Action, { type: K }>> };
+
 
 // ── How the blocks are grouped in the pick lists ───────────────────────────
 
@@ -1410,11 +1237,6 @@ export function whyNot(block: { available?: (ctx: Context) => boolean }, ctx: Co
   return block.available === hasPrefabs ? NEEDS_PREFAB : NEEDS_VARIABLE;
 }
 
-const faNumber = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2, useGrouping: false });
-
-export function fa(value: number): string {
-  return faNumber.format(value);
-}
 
 /** Colors offered as one-tap choices. */
 export const PALETTE = [

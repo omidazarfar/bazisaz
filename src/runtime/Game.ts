@@ -44,6 +44,9 @@ import { localTime, poseAt, type Pose } from './animate';
 import { WeatherView } from './weather';
 import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './sound';
 import { applyDirection, fillTemplate } from './text';
+import { clamp } from './math';
+import { SHAKE_SECONDS } from './constants';
+import { actionBlocks } from '../blocks/registry';
 
 // Objects far outside the view are not drawn at all, which keeps a big level light on a weak phone.
 extensions.add(CullerPlugin);
@@ -132,7 +135,8 @@ interface Point {
 }
 
 /** A live object in the running scene. Several entities can share one definition when it is spawned repeatedly. */
-interface Entity extends Box {
+/** A live object in a running scene (exported for the blocks, src/blocks/). */
+export interface Entity extends Box {
   def: GameObject;
   view: Container;
   /** Speed in pixels per second, set by walking, following, chasing, jumping or a push. */
@@ -350,7 +354,7 @@ interface Pointer extends Point {
 }
 
 /** The objects a trigger was about, which "first" and "second" in an action refer to. */
-interface Context {
+export interface Context {
   first?: Entity;
   second?: Entity;
 }
@@ -474,7 +478,6 @@ const MAX_ZOOM = 4;
 const EDIT_MARGIN = 300;
 /** Edit mode: a dragged object's edge or middle jumps to a line this close, in screen pixels. */
 const SNAP = 10;
-const SHAKE_SECONDS = 0.35;
 /** More pieces than this in one burst adds nothing to see and costs frames on a slow phone. */
 const MAX_BURST = 60;
 
@@ -510,7 +513,7 @@ export class Game {
   private ruleLog: DebugInfo['log'] = [];
   private fps = 60;
   /** The costly effects were dropped for a slow phone; and how long the game has been slow so far. */
-  private light = false;
+  light = false;
   private slowFor = 0;
   /** Everything the player sees of the scene, under one roof so a look (a colour treatment) can be laid over all of it. */
   private readonly scenery = new Container();
@@ -545,7 +548,7 @@ export class Game {
   private readonly textures = new Map<string, { src: string; texture: Texture }>();
   private readonly cleanup: (() => void)[] = [];
 
-  private project: GameProject;
+  project: GameProject;
   private scene: Scene;
   private mode: GameMode;
   private selection: string | null = null;
@@ -558,7 +561,7 @@ export class Game {
   private playZoom = 1;
   private zoomGlide: { from: number; to: number; elapsed: number; seconds: number } | null = null;
   /** Music a rule started in place of the scene's: an asset id, "" for silence, or null for the scene's own. */
-  private musicOverride: string | null = null;
+  musicOverride: string | null = null;
   /** For chasers that go around walls: which cells of the world are blocked, by wall group and cell size, found once per step. */
   private readonly blockedCells = new Map<string, { cols: number; rows: number; cell: number; blocked: Uint8Array }>();
   /** Lines a dragged object is currently snapped to, in the space of that object. */
@@ -568,9 +571,9 @@ export class Game {
   private editView: { scene: string; x: number; y: number } | null = null;
 
   private entities: Entity[] = [];
-  private readonly textVariables = new Map<string, string>();
-  private readonly variables = new Map<string, number>();
-  private readonly camera: Point = { x: 0, y: 0 };
+  readonly textVariables = new Map<string, string>();
+  readonly variables = new Map<string, number>();
+  readonly camera: Point = { x: 0, y: 0 };
   private time = 0;
   private started = false;
   private nextScene: string | null = null;
@@ -582,11 +585,11 @@ export class Game {
   private readonly weather = new WeatherView(() => (this.lightTexture ??= softSpot(256, 'rgba(255,255,255,1)', 'rgba(255,255,255,0)', 0.25)));
   /** The scene's old-screen look, and the ripples of explosions running over the picture. */
   private retroFilter: PixelateFilter | CRTFilter | OldFilmFilter | null = null;
-  private waves: { filter: ShockwaveFilter; left: number }[] = [];
+  waves: { filter: ShockwaveFilter; left: number }[] = [];
   /** A quick jump of the view closer and back: how far, and how long it has left of how long. */
-  private punch: { amount: number; left: number; span: number } | null = null;
+  punch: { amount: number; left: number; span: number } | null = null;
   /** Which way the screen shakes now. */
-  private shakeAxis: 'both' | 'side' | 'up' = 'both';
+  shakeAxis: 'both' | 'side' | 'up' = 'both';
   /** A character speaking: the words, who says them, when they began, and what to do once the player has read them. */
   private dialogue: { speaker: string; text: string; color: string; since: number; rest: Action[]; context: Context; view: Container } | null = null;
   /** Achievement banners waiting to be shown, and the one showing. */
@@ -594,9 +597,9 @@ export class Game {
   private toast: { view: Container; left: number } | null = null;
   /** The outline of each light that walls block, as last drawn. */
   private lit: { id: string; points: number[] }[] = [];
-  private tweens: Tween[] = [];
+  tweens: Tween[] = [];
   private paused = false;
-  private soundOn = true;
+  soundOn = true;
   private fade: { phase: 'out' | 'in'; left: number } | null = null;
   /** Bodies that came down onto something during this step, for the "land" trigger. */
   private landings: { entity: Entity; on: Entity | null }[] = [];
@@ -608,11 +611,11 @@ export class Game {
   private rewards = 0;
   /** How far the camera moved during the last frame, for spawners that work by distance. */
   private cameraTravel = 0;
-  private shakeLeft = 0;
-  private shakeStrength = 0;
+  shakeLeft = 0;
+  shakeStrength = 0;
   /** Slow motion: how fast time runs, and for how many more real seconds. */
-  private slowScale = 1;
-  private slowLeft = 0;
+  slowScale = 1;
+  slowLeft = 0;
   /** When each object last made its material's sound, so a rattling pile does not buzz. */
   private lastKnock = new WeakMap<Entity, number>();
   private knocksThisStep = 0;
@@ -799,7 +802,7 @@ export class Game {
   }
 
   /** Words that pop up over an object and float away. */
-  private floatText(e: Entity, text: string, color: string, size: number): void {
+  floatText(e: Entity, text: string, color: string, size: number): void {
     const view = new Text({
       text,
       style: {
@@ -821,7 +824,7 @@ export class Game {
   }
 
   /** Puts the scene's colour treatment and vignette in place. */
-  private applyLook(): void {
+  applyLook(): void {
     const matrix = lookMatrix(this.look);
     const filters: Filter[] = [];
     if (matrix) {
@@ -1120,7 +1123,7 @@ export class Game {
   }
 
   /** The zoom of the world in force: the editor's while editing, the camera's while playing. */
-  private get z(): number {
+  get z(): number {
     return this.mode.kind === 'edit' ? this.zoom : this.playZoom;
   }
 
@@ -1407,7 +1410,7 @@ export class Game {
   }
 
   /** Starts the music that belongs now, or stops whatever was playing if there is none or sound is off. */
-  private playMusic(): void {
+  playMusic(): void {
     const on = this.mode.kind === 'play' && this.project.sound && this.soundOn;
     const id = this.musicNow();
     if (!on || !id) return setMusic(null);
@@ -3078,6 +3081,9 @@ export class Game {
   }
 
   private perform(action: Exclude<Action, { type: 'wait' }>, context: Context): void {
+    // Blocks in their own files (src/blocks/) first; the rest are still below.
+    const block = actionBlocks.get(action.type);
+    if (block) return block.run(this, action as never, context);
     const { width: W, height: H } = this.view;
     switch (action.type) {
       case 'setTextVariable':
@@ -3260,11 +3266,6 @@ export class Game {
           }
         }
         break;
-      case 'playMusic':
-        if (action.music !== '' && this.project.assets[action.music]?.type !== 'sound') break;
-        this.musicOverride = action.music;
-        this.playMusic();
-        break;
       case 'zoom':
         this.zoomGlide = { from: this.playZoom, to: clamp(action.amount, 0.25, 4), elapsed: 0, seconds: Math.max(0, action.seconds) };
         if (this.zoomGlide.seconds === 0) this.stepZoom(0);
@@ -3317,17 +3318,8 @@ export class Game {
       case 'restartScene':
         this.nextScene = this.scene.id;
         break;
-      case 'playSound':
-        this.sound(action.sound, action.volume);
-        break;
       case 'showAd':
         if (this.project.ads.enabled) this.options.onShowAd?.();
-        break;
-      case 'effect':
-        for (const e of this.targets(action.target, context)) {
-          if (action.kind === 'fadeIn' || action.kind === 'grow') e.visible = true;
-          this.tweens.push({ entity: e, kind: action.kind, elapsed: 0, seconds: action.seconds, from: { x: 0, y: 0 }, to: { x: 0, y: 0 } });
-        }
         break;
       case 'glide':
         for (const e of this.targets(action.target, context)) {
@@ -3373,16 +3365,6 @@ export class Game {
         void this.options.onShowRewardedAd?.().then((watched) => {
           if (watched) this.rewards += 1;
         });
-        break;
-      case 'burst':
-        for (const e of this.targets(action.target, context)) this.burst(e, action.color, action.count);
-        break;
-      case 'floatText':
-        for (const e of this.targets(action.target, context)) this.floatText(e, fillTemplate(action.text, this.variables, e.values, this.textVariables), action.color, action.size);
-        break;
-      case 'setSound':
-        this.soundOn = action.on;
-        this.playMusic();
         break;
       case 'setGravity':
         this.gravity = action.amount;
@@ -3555,18 +3537,6 @@ export class Game {
         }
         break;
       }
-      case 'vibrate':
-        try {
-          navigator.vibrate?.(action.ms);
-        } catch {
-          // No vibration on this device.
-        }
-        break;
-      case 'shake':
-        this.shakeLeft = SHAKE_SECONDS;
-        this.shakeStrength = action.strength;
-        this.shakeAxis = action.axis ?? 'both';
-        break;
       case 'shoot': {
         const prefab = this.scene.prefabs.find((p) => p.id === action.prefab);
         if (!prefab) break;
@@ -3593,34 +3563,11 @@ export class Game {
         }
         break;
       }
-      case 'focus': {
-        const [e] = this.targets(action.target, context);
-        if (e) this.focus = { entity: e, left: Math.max(0.1, action.seconds) };
-        break;
-      }
-      case 'zoomPunch':
-        this.punch = { amount: clamp(action.amount, 1, 2), left: Math.max(0.05, action.seconds), span: Math.max(0.05, action.seconds) };
-        break;
-      case 'shockwave':
-        for (const e of this.targets(action.at, context)) {
-          const box = this.boxOf(e);
-          const at = e.def.fixed ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : { x: (box.x + box.width / 2 - this.camera.x) * this.z, y: (box.y + box.height / 2 - this.camera.y) * this.z };
-          const size = Math.max(50, action.size) * (e.def.fixed ? 1 : this.z);
-          // Not on a slow phone, and never more than a few at once.
-          if (this.light || this.waves.length >= 4) break;
-          this.waves.push({ filter: new ShockwaveFilter({ center: at, amplitude: 22, wavelength: 140, speed: size * 1.6, brightness: 1.15, radius: size, time: 0 }), left: 0.8 });
-          this.applyLook();
-        }
-        break;
-      case 'slowMotion':
-        this.slowScale = clamp(action.amount, 0, 1);
-        this.slowLeft = Math.max(0, action.seconds);
-        break;
     }
   }
 
   /** Throws small squares out from the middle of an object. They are decoration only: nothing can touch them. */
-  private burst(from: Entity, color: string, count: number): void {
+  burst(from: Entity, color: string, count: number): void {
     const box = this.boxOf(from);
     for (let i = 0; i < Math.min(count, MAX_BURST); i++) {
       const size = 6 + Math.random() * 10;
@@ -3981,7 +3928,7 @@ export class Game {
   }
 
   /** The camera's visit to something else, and how long it has left there. */
-  private focus: { entity: Entity; left: number } | null = null;
+  focus: { entity: Entity; left: number } | null = null;
 
   /** A dodge roll: a quick dash the way it is going (or facing), safe from harm while it lasts. */
   private roll(e: Entity, b: SteerBehavior, way: Point | null, dt: number): void {
@@ -4372,7 +4319,7 @@ export class Game {
     }
   }
 
-  private targets(target: Target, context: Context): Entity[] {
+  targets(target: Target, context: Context): Entity[] {
     if (target === 'first') return context.first?.alive ? [context.first] : [];
     if (target === 'second') return context.second?.alive ? [context.second] : [];
     return this.matching(target);
@@ -4529,7 +4476,7 @@ export class Game {
   }
 
   /** Plays a built-in effect by name, or a sound the user added by its asset id. */
-  private sound(name: string, volume?: number): void {
+  sound(name: string, volume?: number): void {
     if (!this.project.sound || !this.soundOn) return;
     playEffect(this.project, name, volume);
   }
@@ -5190,7 +5137,7 @@ export class Game {
   }
 
   /** The area an object covers, in its own space. Text is measured; everything else uses its own size. */
-  private boxOf(e: Entity): Box {
+  boxOf(e: Entity): Box {
     if (e.def.visual.kind !== 'text') return { x: e.x, y: e.y, width: e.width, height: e.height };
     const b = e.view.getLocalBounds();
     return { x: e.x + b.x, y: e.y + b.y, width: b.width, height: b.height };
@@ -5254,10 +5201,6 @@ function cropped(texture: Texture, crop: { x: number; y: number; w: number; h: n
 function centred<T extends Container>(view: T, def: GameObject): T {
   view.pivot.set(def.width / 2, def.height / 2);
   return view;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 function contains(box: Box, point: Point): boolean {

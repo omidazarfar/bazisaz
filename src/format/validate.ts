@@ -1,4 +1,5 @@
-import { FORMAT_VERSION, isBuiltinMusic, ruleActions, SOUND_NAMES, type GameObject, type GameProject, type Place, type Ref } from './types';
+import { actionBlocks } from '../blocks/registry';
+import { FORMAT_VERSION, isBuiltinMusic, ruleActions, type GameObject, type GameProject, type Place, type Ref } from './types';
 
 const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export const APP_ID = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
@@ -158,6 +159,8 @@ export function validateProject(project: GameProject): string[] {
 
       for (const a of ruleActions(rule)) {
         if ('target' in a) checkRef(a.target, name);
+        // Blocks in their own files (src/blocks/) check themselves.
+        actionBlocks.get(a.type)?.check?.(a as never, { project, say: (problem) => say(`${where}: ${name} ${problem}`) });
         if (a.type === 'blast') checkRef(a.at, name);
         if (a.type === 'give' || a.type === 'take') needItem(a.item, `${where}: ${name}`);
         if (a.type === 'give' && a.from !== undefined) checkRef(a.from, name);
@@ -170,20 +173,13 @@ export function validateProject(project: GameProject): string[] {
           needVariable(a.name, `${where}: ${name}`);
           if (typeof a.amount === 'object' && 'variable' in a.amount) needVariable(a.amount.variable, `${where}: ${name}`);
         }
-        if ((a.type === 'effect' || a.type === 'glide') && !(a.seconds > 0)) say(`${where}: ${name} has an effect that takes no time.`);
+        if (a.type === 'glide' && !(a.seconds > 0)) say(`${where}: ${name} has an effect that takes no time.`);
         if (a.type === 'wait' && !(a.seconds > 0)) say(`${where}: ${name} waits for no time.`);
-        if (a.type === 'playSound' && a.volume !== undefined && !(Number.isFinite(a.volume) && a.volume >= 0 && a.volume <= 100)) {
-          say(`${where}: ${name} needs a sound volume between 0 and 100.`);
-        }
-        if (a.type === 'playSound' && !(SOUND_NAMES as readonly string[]).includes(a.sound) && project.assets[a.sound]?.type !== 'sound') {
-          say(`${where}: ${name} plays missing sound "${a.sound}".`);
-        }
         if ((a.type === 'goToScene' || a.type === 'loadGame') && !sceneIds.has(a.scene)) {
           say(`${where}: ${name} goes to missing scene "${a.scene}".`);
         }
         // An empty picture or music is "not chosen yet" (or, for music, silence), which plays fine.
         if (a.type === 'setImage' && a.asset !== '' && project.assets[a.asset]?.type !== 'image') say(`${where}: ${name} shows missing image "${a.asset}".`);
-        if (a.type === 'playMusic' && a.music !== '' && project.assets[a.music]?.type !== 'sound' && !isBuiltinMusic(a.music)) say(`${where}: ${name} plays missing music "${a.music}".`);
         if (a.type === 'flash' && !(a.seconds > 0)) say(`${where}: ${name} has a flash that takes no time.`);
       }
     }

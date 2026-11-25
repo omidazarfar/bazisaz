@@ -1,5 +1,6 @@
 import type { Action, Amount, Behavior, Comparison, Condition, GameObject, GameProject, Place, Ref, Scene, Trigger } from '../format/types';
-import { ACTIONS, fa, LOOK_OPTIONS, SOUND_LABEL } from './labels';
+import { actionBlocks } from '../blocks/registry';
+import { fa, LOOK_OPTIONS } from './labels';
 
 /**
  * Rules said as plain Persian sentences, so a list of them can be read like a
@@ -91,6 +92,9 @@ const MATERIAL_LABEL: Record<string, string> = { wood: 'چوب', stone: 'سنگ'
 export function actionSentence(project: GameProject, scene: Scene, a: Action, subjects: Subjects): string {
   const who = (target: Place) =>
     target === 'tap' ? 'جایی که لمس شد' : target === 'first' ? (subjects.first ?? 'همان شیء') : target === 'second' ? (subjects.second ?? 'همان شیء دوم') : describeRef(scene, target);
+  // Blocks in their own files (src/blocks/) say themselves.
+  const block = actionBlocks.get(a.type);
+  if (block) return block.sentence(a as never, { project, scene, who });
   switch (a.type) {
     case 'setValue': {
       const n = amountText(a.amount, who);
@@ -142,27 +146,13 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'setLook': return `حال و هوای تصویر را «${LOOK_OPTIONS.find((o) => o.value === a.look)?.label ?? a.look}» کن`;
     case 'setDarkness': return a.amount <= 0.01 ? 'صحنه را روشن کن' : `صحنه را ${a.amount >= 0.99 ? 'کاملاً' : 'کمی'} تاریک کن`;
     case 'send': return `پیام «${a.name || '؟'}» را بفرست`;
-    case 'playSound': {
-      const own = project.assets[a.sound];
-      return `صدای «${own?.type === 'sound' ? own.name : (SOUND_LABEL[a.sound as keyof typeof SOUND_LABEL] ?? a.sound)}» را پخش کن${a.volume !== undefined && a.volume !== 100 ? ` با بلندی ${fa(a.volume)}٪` : ''}`;
-    }
-    case 'burst': return `از ${who(a.target)} جرقه بپران`;
-    case 'shake': return a.axis === 'side' ? 'صفحه را چپ و راست بلرزان' : a.axis === 'up' ? 'صفحه را بالا و پایین بلرزان' : 'صفحه را بلرزان';
     case 'say': return `${a.speaker || 'کسی'} می‌گوید: «${a.text}»`;
     case 'achieve': return `دستاورد «${a.name}» را بده`;
     case 'recordScore': return `${a.variable} را در جدول امتیاز ثبت کن`;
-    case 'zoomPunch': return 'دوربین را یک لحظه جلو بپران';
-    case 'focus': return `دوربین ${fa(a.seconds)} ثانیه روی ${who(a.target)} برود`;
     case 'shoot': return `از ${who(a.from)} ${{ single: 'یک تیر', spread: `${fa(a.count)} تیر بادبزنی`, ring: `${fa(a.count)} تیر دور تا دور`, aimed: `${fa(a.count)} تیر رو به هدف` }[a.pattern]} شلیک کن`;
-    case 'shockwave': return `از ${who(a.at)} موج انفجار بفرست`;
-    case 'floatText': return `بالای ${who(a.target)} بنویس «${a.text}» و بپرانش`;
-    case 'slowMotion': return a.amount <= 0 ? `بازی را ${fa(a.seconds)} ثانیه نگه دار (ایست ضربه)` : `زمان را ${fa(a.seconds)} ثانیه آهسته کن`;
-    case 'effect': return `${who(a.target)}: ${ACTIONS.effect.fields.flatMap((f) => (f.kind === 'choice' ? f.options : [])).find((o) => o.value === a.kind)?.label ?? ''}`;
     case 'damage': return `از جان ${who(a.target)} ${fa(a.amount)} تا کم کن`;
     case 'pause': return 'بازی را نگه دار';
     case 'resume': return 'بازی را ادامه بده';
-    case 'setSound': return a.on ? 'صدا را روشن کن' : 'صدا را خاموش کن';
-    case 'vibrate': return 'گوشی را بلرزان';
     case 'setGravity': return `جاذبه را ${fa(a.amount)} کن`;
     case 'showAd': return 'تبلیغ تمام‌صفحه نشان بده';
     case 'showRewardedAd': return 'تبلیغ جایزه‌ای پیشنهاد بده';
@@ -174,12 +164,10 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'setOpacity': return `پررنگی ${who(a.target)} را ${fa(a.opacity)} کن`;
     case 'flash': return `${who(a.target)} را یک لحظه بدرخشان`;
     case 'layer': return a.to === 'front' ? `${who(a.target)} را جلوی همه بیاور` : `${who(a.target)} را پشت همه ببر`;
-    case 'playMusic': {
-      const own = project.assets[a.music];
-      return own?.type === 'sound' ? `موسیقی «${own.name}» را پخش کن` : 'موسیقی را قطع کن';
-    }
     case 'zoom': return `دوربین را ${fa(a.amount)} برابر نزدیک کن`;
   }
+  // Every other action is a block in its own file, said above.
+  return '';
 }
 
 /** What one behavior makes an object do, as a short sentence. */
