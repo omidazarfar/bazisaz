@@ -74,9 +74,18 @@ function whiteNoise(audio: AudioContext): AudioBuffer {
   return noise;
 }
 
+/** How loud the effects and the music are, 0 to 1: a game's volume sliders set them (flagship Phase D). */
+let effectsVolume = 1;
+let musicVolume = 1;
+export function setVolumes(effects: number, musicLevel: number): void {
+  effectsVolume = Math.min(1, Math.max(0, effects));
+  musicVolume = Math.min(1, Math.max(0, musicLevel));
+  if (music) music.volume = 0.6 * musicVolume;
+}
+
 /** Rule volumes are percentages. Older projects play at full volume. */
 export function playEffect(project: GameProject, name: string, volume = 100): void {
-  const level = Math.min(100, Math.max(0, volume)) / 100;
+  const level = (Math.min(100, Math.max(0, volume)) / 100) * effectsVolume;
   if (!level) return;
   if ((SOUND_NAMES as readonly string[]).includes(name)) return playSound(name as SoundName, level);
   const asset = project.assets[name];
@@ -193,7 +202,7 @@ export function setMusic(src: string | null): void {
   try {
     music = new Audio(src);
     music.loop = true;
-    music.volume = 0.6;
+    music.volume = 0.6 * musicVolume;
     resumeMusic();
   } catch {
     music = null;

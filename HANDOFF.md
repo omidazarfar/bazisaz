@@ -940,3 +940,15 @@ say so in the log.
   - Added `scripts/look/`, `HANDOFF.md`, `AGENTS.md`
 - Tests: 442 PASS, 0 FAIL.
 - Left open: phone testing (owner), AI helper (hosting).
+
+### Flagship Phase D: STARTED, not finished (2026-11-26 night, usage limit)
+
+- In the repo: Kenney UI Pack 2.0 pieces (CC0) in src/editor/packs/kenney-ui/ (buttons, sliders, stars, icons,
+  three sounds, License.txt) and the Kenney Future font (src/runtime/kenney-future.ttf); setVolumes() in
+  src/runtime/sound.ts (effects and music volume, 0 to 1). Nothing uses them yet; add them to CREDITS.md.
+- Planned next (a script for it failed to apply, nothing written): FONTS gains Kenney Future (+ fonts.ts),
+  TextVisual.font, GameObject.anchor (9 edges/corners, used by placeOnScreen; holder anchor wins),
+  GameObject.enter (pop, fade, from-top/bottom/left/right, delay; tweens with negative elapsed), a slider
+  behavior (knob on a track: a value, or effects/music volume), a layout behavior (row/column/centre), then
+  the flagship menus rebuilt with them. Then Phases E, F, G.
+- CI: bots for 29b40ad (Phases A-C) were started (CI_REF run); adventure-levels x4 before/after Phase 5 too.
