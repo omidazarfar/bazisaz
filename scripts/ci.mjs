@@ -26,10 +26,20 @@ function token() {
 }
 const auth = token();
 const api = async (path, init = {}) => {
-  const r = await fetch(`https://api.github.com/repos/${repo}${path}`, {
-    ...init,
-    headers: { Authorization: `Bearer ${auth}`, Accept: 'application/vnd.github+json', 'User-Agent': 'bazisaz-ci', ...(init.headers ?? {}) },
-  });
+  let r;
+  // GitHub now and then answers a 5xx or drops the line for a moment: a few more tries before giving up.
+  for (let tries = 0; ; tries++) {
+    try {
+      r = await fetch(`https://api.github.com/repos/${repo}${path}`, {
+        ...init,
+        headers: { Authorization: `Bearer ${auth}`, Accept: 'application/vnd.github+json', 'User-Agent': 'bazisaz-ci', ...(init.headers ?? {}) },
+      });
+      if (r.status < 500 || tries >= 4) break;
+    } catch (error) {
+      if (tries >= 4) throw error;
+    }
+    await new Promise((done) => setTimeout(done, 5000 * (tries + 1)));
+  }
   if (!r.ok) throw new Error(`GitHub said ${r.status} to ${path}: ${(await r.text()).slice(0, 300)}`);
   return r.status === 204 ? null : r.json();
 };
