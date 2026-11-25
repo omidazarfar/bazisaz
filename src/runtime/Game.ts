@@ -1786,7 +1786,9 @@ export class Game {
       } else if (view instanceof Sprite) {
         view.width = e.width;
         view.height = e.height;
-        view.scale.set(view.scale.x * e.scale * e.facing, view.scale.y * e.scale);
+        // Setting the width keeps the mirror the picture had, so the way it faces is set afresh, not turned
+        // again: turned again each time, a hero facing left changed sides at every drawing (the blinking).
+        view.scale.set(Math.abs(view.scale.x) * e.scale * e.facing, Math.abs(view.scale.y) * e.scale);
       } else {
         view.scale.set((e.width / e.def.width) * e.scale, (e.height / e.def.height) * e.scale);
       }

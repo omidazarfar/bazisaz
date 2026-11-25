@@ -2582,6 +2582,50 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13r. Lab 29: a hero that faces left stays facing left ──
+// The picture's mirror was turned again at every drawing, so facing left it changed sides each time: steady
+// (and wrong) at an even count of drawings a frame, blinking on a phone whose frames take uneven time.
+{
+  const project = {
+    formatVersion: 2,
+    meta: { name: 'Lab29', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labtwentynine', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: { a1: { type: 'image', src: solidPng(255, 140, 0) } }, variables: [],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      objects: [{
+        id: 'hero', name: 'hero', x: 400, y: 600, width: 90, height: 100, visual: { kind: 'image', asset: 'a1', flip: true }, tags: [], visible: true,
+        behaviors: [{ type: 'steer', speed: 330, control: 'stick', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false }],
+      }],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.3);
+  const sides = await page.evaluate(() => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    const hero = g.entities.find((e) => e.def.id === 'hero');
+    const key = (type) => document.body.dispatchEvent(new KeyboardEvent(type, { code: 'ArrowLeft', bubbles: true }));
+    key('keydown');
+    for (let i = 0; i < 20; i++) g.advance(1 / 60);
+    key('keyup');
+    // Frames of uneven length, as on a phone: one, two or three steps each.
+    const seen = [];
+    for (const dt of [1 / 60, 1 / 30, 1 / 45, 1 / 60, 1 / 20, 1 / 60, 1 / 40, 1 / 30, 1 / 60, 1 / 50]) {
+      g.advance(dt);
+      seen.push(Math.sign(hero.view.scale.x));
+    }
+    g.app.ticker.start();
+    return { facing: hero.facing, seen };
+  });
+  check('a hero that walked left keeps facing left, frame after frame (it blinked)', sides.facing === -1 && sides.seen.every((s) => s === -1), JSON.stringify(sides));
+  check('lab 29: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

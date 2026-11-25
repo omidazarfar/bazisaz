@@ -433,6 +433,11 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-25 — Claude, the blinking's real cause (owner's screen video of the dungeon)
+
+- The owner filmed the phone: the knight stood still, no finger down, and its picture changed sides (sword left, then right) every 0.1–0.15 s. Cause: in `syncView`, `view.width = e.width` keeps the sign the Sprite's scale had (Pixi's `_setWidth`), and the next line multiplied it by `facing` again, so facing left the mirror flipped at every `syncView`. With an even count of syncs per frame (2 on the laptop) it was steady but wrong (facing left drawn facing right); on a phone, uneven frames mean 1, 2 or 3 updates a frame, so it blinked. Fix: `Math.abs(view.scale.x) * e.scale * e.facing`. Every flipped hero in every genre had it. Lab 29 steps uneven frames (1/60…1/20) after walking left: before the fix the sides seen were 1,1,-1,-1,-1,-1,1,1,1,-1; after, all -1.
+- The 2026-11-24 "blinking" fix below (turning only on real sideways movement) was a real but smaller issue, not the one the owner saw. Lesson: when the owner reports a visual glitch, ask for a screen video first; frames can be pulled from an mp4 with headless Chrome (a `<video>` seeked and screenshotted; canvas export is blocked for file:// videos).
+
 ### 2026-11-24 — Claude, bug hunt part 2: the key and the blinking knight (owner: "I meant the key that must be taken"; blinking also on the phone)
 
 - The key was hidden under the buttons: in room B's bottom right it sat under the roll button (design shape) and under the sword button (tall phones, where the buttons move down). It now lies in the open (room B, 0.86/0.47). A coin and two gems that sat under the backpack moved down too. editor.smoke checks room by room that no coin, gem, key, door or treasure is under a screen-fixed thing (words that come and go excepted).
