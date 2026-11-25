@@ -1754,9 +1754,29 @@ const levelsOf = async (genre) => {
 const spots = (s, pick) => s.objects.filter(pick).map((o) => Math.round(o.x) + ':' + Math.round(o.y)).sort().join(',');
 let lv = await levelsOf('tower');
 check('tower: the ladders (and the openings in the floors) move', spots(lv[1], (o) => o.tags.includes('نردبان')) !== spots(lv[0], (o) => o.tags.includes('نردبان')));
+const meets = (a, b, m = 0) => a.x < b.x + b.width + m && b.x < a.x + a.width + m && a.y < b.y + b.height + m && b.y < a.y + a.height + m;
+const onStart = lv.flatMap((s, i) => {
+  const hero = s.objects.find((o) => o.tags.includes('بازیکن'));
+  return s.objects.filter((o) => o.tags.includes('سکه') && meets(o, hero)).map((o) => `${o.name} in level ${i + 1}`);
+});
+check('tower: no coin where the hero starts (it was picked up unseen, the score began at 1)', onStart.length === 0, onStart.join(', '));
 lv = await levelsOf('adventure');
 check('dungeon: pillars and enemies stand somewhere new, and there are more enemies', spots(lv[1], (o) => o.name.startsWith('ستون')) !== spots(lv[0], (o) => o.name.startsWith('ستون'))
   && lv[2].objects.filter((o) => o.tags.includes('خطر')).length > lv[0].objects.filter((o) => o.tags.includes('خطر')).length);
+// Each room is one screen: nothing to pick up in any level lies under the score, hearts, backpack, buttons or stick.
+{
+  const { width: RW, height: RH } = (await editor()).project.meta;
+  const covered = lv.flatMap((s, i) => {
+    const hud = s.objects.filter((o) => o.fixed && o.visible !== false && (o.opacity ?? 1) > 0.05 && o.visual.kind !== 'text' && !(o.width >= RW * 0.9 && o.height >= RH * 0.9));
+    hud.push({ name: 'stick', x: 40, y: RH - 220, width: 160, height: 160 });
+    return s.objects.filter((o) => !o.fixed && ['سکه', 'الماس', 'کلید'].some((t) => o.tags.includes(t))).flatMap((o) => {
+      const local = { x: o.x - Math.floor((o.x + o.width / 2) / RW) * RW, y: o.y - Math.floor((o.y + o.height / 2) / RH) * RH, width: o.width, height: o.height };
+      const over = hud.find((h) => meets(local, h));
+      return over ? [`${o.name} under ${over.name} in level ${i + 1}`] : [];
+    });
+  });
+  check('dungeon: in every level, coins, gems and the key are clear of the score, hearts, backpack, buttons and stick', covered.length === 0, covered.join('; '));
+}
 lv = await levelsOf('physics');
 check('rock smash: new towers of blocks, with at least as many targets', spots(lv[1], (o) => o.tags.includes('جعبه')) !== spots(lv[0], (o) => o.tags.includes('جعبه'))
   && lv[1].objects.filter((o) => o.tags.includes('هدف')).length >= lv[0].objects.filter((o) => o.tags.includes('هدف')).length);

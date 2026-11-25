@@ -433,6 +433,16 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-25 — Claude, bug hunt part 3 (every scene of the ten games looked at on a tall phone)
+
+- Tower Climb: the first floor (the hero's start, a slime, coins) was behind the arrow and jump buttons: the ground was 80 px thick at the bottom of the world. It is now 340 px (`BASE`; the tower is that much taller, so the top keeps its room). The hero also started on a coin, picked up unseen during the opening film (score 1 at the start): that coin is left out, and the level maker's coin rows avoid the hero's start (editor.smoke checks all three levels).
+- Sky Hopper: on a tall phone more sky shows above the world, where each top pipe ended in mid-air (and a bird could fly over it). Each top pipe now has a hidden body (`بدنه‌ی لوله n`, the pipe picture cropped to its body so the cap keeps its size) going 0.7 H up out of the world; it hurts like the pipe.
+- Gem Crush: the goal words ("90 points in 20 moves!") sat on the board's top row; now in the gap between "Goal" and the board (y 282). Brick Blitz: its words are between the bricks and the paddle (0.55 H).
+- Win and game over screens: "Best: {best}" instead of "Top: {top1} · {top2} · {top3}", which read "0 · 0 · 0" until three games had been played.
+- The "Made with Bazisaz" note goes at the first touch too (it sat over the left arrow if Play was tapped within 5 s).
+- Level maker, dungeon: coins, gems and the key are never placed under what is fixed to the screen (score, hearts, backpack, buttons, the stick), since each room is one screen. editor.smoke checks levels 1–3.
+- Brick Blitz levels: simulated with a perfect paddle, all three levels play 20 s without losing a life (level 3 ball ~750 px/s). The bricks-levels bot failures are the bot, not the game.
+
 ### 2026-11-25 — Claude, the blinking's real cause (owner's screen video of the dungeon)
 
 - The owner filmed the phone: the knight stood still, no finger down, and its picture changed sides (sword left, then right) every 0.1–0.15 s. Cause: in `syncView`, `view.width = e.width` keeps the sign the Sprite's scale had (Pixi's `_setWidth`), and the next line multiplied it by `facing` again, so facing left the mirror flipped at every `syncView`. With an even count of syncs per frame (2 on the laptop) it was steady but wrong (facing left drawn facing right); on a phone, uneven frames mean 1, 2 or 3 updates a frame, so it blinked. Fix: `Math.abs(view.scale.x) * e.scale * e.facing`. Every flipped hero in every genre had it. Lab 29 steps uneven frames (1/60…1/20) after walking left: before the fix the sides seen were 1,1,-1,-1,-1,-1,1,1,1,-1; after, all -1.

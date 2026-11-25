@@ -61,6 +61,8 @@ function showWatermark(): void {
   note.textContent = `Made with ${BRAND.en}`;
   document.body.appendChild(note);
   setTimeout(() => note.remove(), 5000);
+  // Gone at the first touch too, so that it never sits over the game's own buttons.
+  window.addEventListener('pointerdown', () => note.remove(), { once: true });
 }
 
 void main();

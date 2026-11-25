@@ -118,7 +118,7 @@ async function screens(project: GameProject, levelId: string, look: { name: stri
     title('عنوان برد', 'YOU WIN!', 110, W / 2, H * 0.12),
     trophy.object,
     label('امتیاز نهایی', 'Score: {score}', 60, W / 2, H * 0.58, { fixed: false }),
-    label('بهترین امتیازها', 'Top: {top1} · {top2} · {top3}', 38, W / 2, H * 0.64, { fixed: false }),
+    label('بهترین امتیازها', 'Best: {best}', 38, W / 2, H * 0.64, { fixed: false }),
     again.object,
     label('نوشته‌ی دوباره', 'Play again', 46, W / 2, H * 0.74 - 32, { fixed: false }),
     home.object,
@@ -139,7 +139,7 @@ async function screens(project: GameProject, levelId: string, look: { name: stri
   over.objects = [
     title('عنوان باخت', 'GAME OVER', 100, W / 2, H * 0.2),
     label('امتیاز', 'Score: {score}', 56, W / 2, H * 0.36, { fixed: false }),
-    label('بهترین', 'Top: {top1} · {top2} · {top3}', 40, W / 2, H * 0.43, { fixed: false }),
+    label('بهترین', 'Best: {best}', 40, W / 2, H * 0.43, { fixed: false }),
     retry.object,
     label('نوشته‌ی دوباره', 'Try again', 44, W / 2, H * 0.75, { fixed: false }),
   ];
@@ -686,7 +686,7 @@ export async function buildShooter(project: GameProject, sceneId: string): Promi
 // ── Puzzle: "Gem Crush" ────────────────────────────────────────────────────
 
 export async function buildPuzzle(project: GameProject, sceneId: string): Promise<GameResult> {
-  const { width: W } = project.meta;
+  const { width: W, height: H } = project.meta;
   const GOAL_POINTS = 90;
   const MOVES = 20;
   const CELL = 120;
@@ -725,7 +725,8 @@ export async function buildPuzzle(project: GameProject, sceneId: string): Promis
       condition: { name: 'score', op: '<', value: GOAL_POINTS },
     },
   );
-  p = await banner(p, sceneId, `${GOAL_POINTS} points in ${MOVES} moves!`);
+  // In the gap between the goal and the board (lower down it covered the board's top row).
+  p = await banner(p, sceneId, `${GOAL_POINTS} points in ${MOVES} moves!`, 282 / H);
   p = await part(p, sceneId, 'pause-menu');
   return {
     project: p,
@@ -954,16 +955,18 @@ export async function buildTower(project: GameProject, sceneId: string): Promise
   const LADDER = 'نردبان';
   const FLOORS = 4;
   const STOREY = 560;
-  const height = 120 + FLOORS * STOREY + H * 0.4;
+  // The ground is thick: the first floor stands above the buttons along the bottom of the screen, not behind them.
+  const BASE = 340;
+  const height = 120 + FLOORS * STOREY + H * 0.4 + (BASE - 80);
   let p = withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0);
   p = updateScene(p, sceneId, (s) => ({ ...s, width: W, height: Math.round(height), gravity: 2400, sky: 'city', weather: 'rain', music: 'music:adventure', vignette: true }));
-  const ground = Math.round(height) - 80;
+  const ground = Math.round(height) - BASE;
   const floorTop = (k: number) => ground - k * STOREY;
   // The gap each floor's ladder comes up through: on the right for odd floors, the left for even.
   const gap = (k: number) => (k % 2 ? { x0: W - 200, x1: W - 60 } : { x0: 60, x1: 200 });
   const objects: GameObject[] = [];
   const stone = { kind: 'rect' as const, color: '#6b5b4e', radius: 8, shade: true };
-  objects.push(makeObject('زمین برج', stone, W, 80, { x: W / 2, y: ground + 40 }, { tags: [GROUND], locked: true }));
+  objects.push(makeObject('زمین برج', stone, W, BASE, { x: W / 2, y: ground + BASE / 2 }, { tags: [GROUND], locked: true }));
   for (let k = 1; k <= FLOORS; k++) {
     const { x0, x1 } = gap(k);
     const y = floorTop(k) + 20;
@@ -984,6 +987,8 @@ export async function buildTower(project: GameProject, sceneId: string): Promise
     // A row of coins on the way to the next ladder.
     for (let c = 0; c < 4; c++) {
       const cx = k % 2 ? W - 260 - c * 110 : 260 + c * 110;
+      // None where the hero starts: it was picked up unseen during the opening film (the score began at 1).
+      if (k === 1 && Math.abs(cx - W / 2) < 70) continue;
       objects.push(makeObject(`سکه ${k}-${c + 1}`, { kind: 'image', asset: coin.asset }, 48, 48, { x: cx, y: floorTop(k - 1) - 60 }, { tags: [COIN], behaviors: [{ type: 'pulse', amount: 0.1, seconds: 0.8 }] }));
     }
   }
@@ -1120,7 +1125,8 @@ export async function buildBricks(project: GameProject, sceneId: string): Promis
       { type: 'wait', seconds: 1.2 }, { type: 'goToScene', scene: screen.win },
     ]),
   );
-  p = await banner(p, sceneId, 'Break every brick!');
+  // Between the bricks and the paddle, not over the bricks.
+  p = await banner(p, sceneId, 'Break every brick!', 0.55);
   const lives = await badge(p, 'heart', 'جان‌ها', '{lives}', { x: W * 0.72, y: 70 }, { w: 170, h: 80 });
   const points = await badge(lives.project, 'coin', 'امتیاز', '{score}', { x: W * 0.28, y: 70 }, { w: 220, h: 80 });
   p = addAll(points.project, sceneId, [...lives.objects, ...points.objects]);
@@ -1214,6 +1220,9 @@ export async function buildHopper(project: GameProject, sceneId: string): Promis
     const lower = middle + GAP / 2;
     objects.push(makeObject(`لوله بالا ${i + 1}`, { kind: 'image', asset: pipe.asset }, 120, upper, { x, y: upper / 2 }, { tags: [DANGER], rotation: 180, locked: true }));
     objects.push(makeObject(`لوله پایین ${i + 1}`, { kind: 'image', asset: pipe.asset }, 120, H - lower, { x, y: (lower + H) / 2 }, { tags: [DANGER], locked: true }));
+    // The pipe goes on up out of sight: on a tall phone more sky shows above the world, where a top pipe
+    // ended in mid-air (and a bird could fly over it). Only its body, so the cap keeps its size.
+    objects.push(makeObject(`بدنه‌ی لوله ${i + 1}`, { kind: 'image', asset: pipe.asset, crop: { x: 0, y: 0.16, w: 1, h: 0.83 } }, 120, Math.round(H * 0.7), { x, y: -Math.round(H * 0.35) }, { tags: [DANGER], rotation: 180, locked: true }));
     objects.push(makeObject(`دروازه ${i + 1}`, { kind: 'rect', color: '#ffffff' }, 20, GAP, { x: x + 80, y: middle }, { tags: [CHECK], opacity: 0 }));
   }
   objects.push(makeObject('پرچم پایان', { kind: 'image', asset: flag.asset }, 90, 130, { x: LENGTH - W / 2, y: H * 0.5 }, { tags: [GOAL] }));

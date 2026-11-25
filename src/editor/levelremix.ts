@@ -360,7 +360,14 @@ function tower(scene: Scene, e: Elements, f: number, rnd: () => number): Scene {
     const sorted = [...row].sort((a, b) => a.x - b.x);
     const gap = 100;
     const span = (sorted.length - 1) * gap + sorted[0].width;
-    const start = 40 + rnd() * Math.max(0, W - 80 - span);
+    // Never over the player's start: a coin there is picked up before the player has done anything.
+    const hero = e.player;
+    const onHero = (s: number) => Boolean(hero) && sorted.some((o, k) => {
+      const x = s + k * gap;
+      return x < hero!.x + hero!.width + 20 && x + o.width > hero!.x - 20 && o.y < hero!.y + hero!.height + 20 && o.y + o.height > hero!.y - 20;
+    });
+    let start = 40 + rnd() * Math.max(0, W - 80 - span);
+    for (let tries = 0; tries < 12 && onHero(start); tries++) start = 40 + rnd() * Math.max(0, W - 80 - span);
     sorted.forEach((o, k) => changed.set(o.id, { ...o, x: Math.round(start + k * gap) }));
   }
   // Enemies: one walks each floor it stood on, at a new spot; with the levels, floors without one get one.
@@ -430,13 +437,24 @@ function dungeon(scene: Scene, e: Elements, f: number, rnd: () => number, room: 
     if ([[0, 1], [1, 0]].some(([i, j]) => !wall(r + i, c + j) && roomOf(map.x + (c + j) * cell + cell / 2, map.y + (r + i) * cell + cell / 2) !== here)) doors.push([r, c]);
   }
   const byDoor = (r: number, c: number) => doors.some(([dr, dc]) => Math.max(Math.abs(dr - r), Math.abs(dc - c)) <= 3);
-  const spotIn = (room: string, d: number, awayFromPlayer: number) => {
+  // Each room fills the screen: what is fixed to the screen (score, hearts, backpack, buttons, the stick in the
+  // lower left) covers the same part of every room. Prizes and the key are never put under it.
+  const hud = scene.objects
+    .filter((o) => o.fixed && o.visible !== false && (o.opacity ?? 1) > 0.05 && o.visual.kind !== 'text' && !(o.width >= room.width * 0.9 && o.height >= room.height * 0.9))
+    .map((o) => ({ x: o.x, y: o.y, w: o.width, h: o.height }));
+  if (p?.behaviors.some((b) => b.type === 'steer' && b.control === 'stick')) hud.push({ x: 40, y: room.height - 220, w: 160, h: 160 });
+  const underHud = (x: number, y: number) => {
+    const [lx, ly] = [x - Math.floor(x / room.width) * room.width, y - Math.floor(y / room.height) * room.height];
+    return hud.some((h) => lx < h.x + h.w + 12 && lx + cell > h.x - 12 && ly < h.y + h.h + 12 && ly + cell > h.y - 12);
+  };
+  const spotIn = (room: string, d: number, awayFromPlayer: number, inSight = false) => {
     for (let tries = 0; tries < 400; tries++) {
       const r = Math.floor(rnd() * rows.length);
       const c = Math.floor(rnd() * rows[0].length);
       const x = map.x + c * cell;
       const y = map.y + r * cell;
       if (roomOf(x + cell / 2, y + cell / 2) !== room || !clear(r, c, d) || used.has(`${r}:${c}`)) continue;
+      if (inSight && underHud(x, y)) continue;
       if (Math.max(Math.abs(r - pr), Math.abs(c - pc)) < awayFromPlayer) continue;
       if (awayFromPlayer > 0 && byDoor(r, c)) continue;
       // Nothing right next to anything else either.
@@ -453,7 +471,7 @@ function dungeon(scene: Scene, e: Elements, f: number, rnd: () => number, room: 
   for (const o of order) {
     const room = roomOf(o.x + o.width / 2, o.y + o.height / 2);
     const isPillar = pillar(o);
-    const spot = spotIn(room, isPillar ? 2 : 1, role(o) === 'enemy' ? 4 : 0);
+    const spot = spotIn(room, isPillar ? 2 : 1, role(o) === 'enemy' ? 4 : 0, role(o) === 'prize');
     if (!spot) continue;
     changed.set(o.id, { ...o, x: Math.round(spot.x + (cell - o.width) / 2), y: Math.round(spot.y + (cell - o.height) / 2) });
   }
