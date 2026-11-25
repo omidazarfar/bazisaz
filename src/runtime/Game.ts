@@ -45,8 +45,10 @@ import { WeatherView } from './weather';
 import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './sound';
 import { applyDirection, fillTemplate } from './text';
 import { clamp } from './math';
-import { SHAKE_SECONDS } from './constants';
-import { actionBlocks } from '../blocks/registry';
+import { contains, cornersOf, terrainTop, test } from './geometry';
+import { SHAKE_SECONDS, TAP_GRACE } from './constants';
+import { actionBlocks, triggerBlocks } from '../blocks/registry';
+import type { TriggerStep } from '../blocks/types';
 
 // Objects far outside the view are not drawn at all, which keeps a big level light on a weak phone.
 extensions.add(CullerPlugin);
@@ -129,7 +131,7 @@ export interface DebugSettings {
   shapes: boolean;
 }
 
-interface Point {
+export interface Point {
   x: number;
   y: number;
 }
@@ -265,17 +267,6 @@ export interface Entity extends Box {
   fx: Filter[];
   /** A character's squash or stretch, from a jump or a landing, springing back to normal over `span` seconds. */
   squash: { x: number; y: number; left: number; span: number } | null;
-}
-
-/** Highest point of a terrain surface under a horizontal footprint (including peaks between its feet). */
-function terrainTop(r: Box, heights: number[], left: number, right: number): number {
-  const last = heights.length - 1;
-  const sample = (x: number) => clamp((x - r.x) / r.width, 0, 1) * last;
-  const at = (i: number) => heights[Math.floor(i)] + (heights[Math.ceil(i)] - heights[Math.floor(i)]) * (i % 1);
-  const a = sample(left), b = sample(right);
-  let high = Math.min(at(a), at(b));
-  for (let i = Math.ceil(a); i < b; i++) high = Math.min(high, heights[i]);
-  return r.y + r.height * high;
 }
 
 /** What a body needs to know about a ramp: how high its surface is at any point across it. */
@@ -461,8 +452,6 @@ const FADE_IN = 0.2;
 const MAX_PARTICLES = 400;
 /** How far a finger has to be dragged for the on-screen stick to give full speed. */
 const STICK_REACH = 80;
-/** A scene ignores taps for its first moments, so the tap that led into it does not also act in it. */
-const TAP_GRACE = 0.35;
 /** An object that wandered this far beyond the view without ever being seen is removed. */
 const LOST_DISTANCE = 2000;
 const HIDDEN_ALPHA_IN_EDITOR = 0.35;
@@ -575,7 +564,7 @@ export class Game {
   readonly variables = new Map<string, number>();
   readonly camera: Point = { x: 0, y: 0 };
   time = 0;
-  private started = false;
+  started = false;
   nextScene: string | null = null;
   private shownValues = '';
   private particles: Particle[] = [];
@@ -602,12 +591,12 @@ export class Game {
   soundOn = true;
   private fade: { phase: 'out' | 'in'; left: number } | null = null;
   /** Bodies that came down onto something during this step, for the "land" trigger. */
-  private landings: { entity: Entity; on: Entity | null }[] = [];
+  landings: { entity: Entity; on: Entity | null }[] = [];
   /** Where the screen was last touched, for things launched toward the touch. */
   lastTap: Point | null = null;
   /** Objects whose health reached zero since the rules last ran, and rewarded ads watched through. */
   died: Entity[] = [];
-  private diedLastFrame: Entity[] = [];
+  diedLastFrame: Entity[] = [];
   rewards = 0;
   /** How far the camera moved during the last frame, for spawners that work by distance. */
   private cameraTravel = 0;
@@ -623,46 +612,46 @@ export class Game {
   waiting: { at: number; actions: Action[]; context: Context }[] = [];
   /** Messages sent by rules: those on their way, and those the rules are reading this step. */
   outbox: { name: string; context: Context }[] = [];
-  private inbox: { name: string; context: Context }[] = [];
+  inbox: { name: string; context: Context }[] = [];
   /** The player's bag: when each thing they carry was picked up (by order), so things keep their places. */
   private readonly bagGot = new Map<string, number>();
   private bagSeq = 0;
   /** The pictures drawn in each bag, by thing; when each last popped; and things still flying into the bag. */
   private readonly bagIcons = new WeakMap<Entity, Map<string, Container>>();
-  private readonly bagPops = new Map<string, number>();
+  readonly bagPops = new Map<string, number>();
   private flights: { view: Sprite; item: string; from: Point; to: Point; fromSize: number; toSize: number; t: number; hides: boolean }[] = [];
   /** A thing being dragged out of the bag by a finger, and things let go of since the last step, with where. */
   private bagDrag: { pointer: number; item: string; view: Sprite; start: Point; slot: Point; size: number } | null = null;
-  private drops: { item: string; at: Point }[] = [];
+  drops: { item: string; at: Point }[] = [];
   /** Health bars over objects, made anew with each scene's world. */
   private healthBars: Graphics | null = null;
   /** Set by going through a door: in the next scene, the objects of group `bring` appear at the first object of group `at`. */
   arrival: { at: string; bring: string } | null = null;
 
   // Input since the last frame, and what is being held right now. All in screen coordinates.
-  private readonly pointers = new Map<number, Pointer>();
+  readonly pointers = new Map<number, Pointer>();
   // Fingers already on the screen when a new scene began: a paddle or a ship that follows the finger
   // keeps following them into the next level. Nothing else sees them (no taps, no jumps, no buttons).
   private readonly heldOver = new Map<number, Point>();
-  private taps: Point[] = [];
-  private swipes: string[] = [];
+  taps: Point[] = [];
+  swipes: string[] = [];
   private keyTap = false;
   /** Keys pressed down since the last step (not held from before). */
   private readonly pressed = new Set<string>();
-  private readonly keys = new Set<string>();
+  readonly keys = new Set<string>();
   /** Groups used as on-screen buttons; a touch on one of them is not a tap on the screen. */
   private controlTags = new Set<string>();
 
   // What each rule remembers between frames.
-  private readonly ruleClock = new Map<string, number>();
-  private readonly ruleDone = new Set<string>();
+  readonly ruleClock = new Map<string, number>();
+  readonly ruleDone = new Set<string>();
   private readonly ruleTruth = new Map<string, boolean>();
   /** For rules that fire once per object: the objects the rule's test held for when it was last looked at. */
   private readonly ruleHeld = new Map<string, Set<Entity>>();
   /** An object's own value changed, so texts that show one must be written again. */
   valuesChanged = false;
-  private readonly touching = new Map<string, Set<string>>();
-  private readonly uids = new WeakMap<Entity, number>();
+  readonly touching = new Map<string, Set<string>>();
+  readonly uids = new WeakMap<Entity, number>();
   private uidCounter = 0;
 
   private editDrag: EditDrag | null = null;
@@ -1899,7 +1888,7 @@ export class Game {
   }
 
   /** A point on the screen, in the coordinates an object lives in: the screen for fixed objects, the world for the rest. */
-  private inSpaceOf(e: Entity, screen: Point): Point {
+  inSpaceOf(e: Entity, screen: Point): Point {
     return this.inSpace(Boolean(e.def.fixed), screen);
   }
 
@@ -2391,7 +2380,7 @@ export class Game {
     }
     for (const rule of this.scene.rules) {
       if (rule.when.type !== 'tap' && rule.when.type !== 'tapObject') continue;
-      for (const context of this.fired(rule, 0, tapped, [])) {
+      for (const context of this.fired(rule, { dt: 0, screenTapped: tapped, left: [] })) {
         const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
         this.logRule(rule.id, ran);
         if (ran) this.runActions(rule.then, context);
@@ -2855,8 +2844,9 @@ export class Game {
     // Messages sent since the rules last ran arrive now; ones sent now arrive next step, so a message can never loop forever within one step.
     this.inbox = this.outbox;
     this.outbox = [];
+    const step: TriggerStep = { dt, screenTapped, left };
     for (const rule of this.scene.rules) {
-      for (const context of this.fired(rule, dt, screenTapped, left)) {
+      for (const context of this.fired(rule, step)) {
         const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
         this.logRule(rule.id, ran);
         if (ran) this.runActions(rule.then, context);
@@ -2888,187 +2878,13 @@ export class Game {
     }
   }
 
-  /** The occasions, this frame, on which a rule's trigger happened. */
-  private fired(rule: Rule, dt: number, screenTapped: boolean, left: Entity[]): Context[] {
-    const w = rule.when;
-    switch (w.type) {
-      case 'start':
-        return this.started ? [] : [{}];
-      case 'tap':
-        return screenTapped ? [{}] : [];
-      case 'holding': {
-        const held = [...this.pointers.values()].some((p) => !this.onControl(p)) || this.keys.has('Space');
-        return held && this.time > TAP_GRACE ? [{}] : [];
-      }
-      case 'swipe':
-        return this.swipes.includes(w.direction) ? [{}] : [];
-      case 'useItemOn': {
-        const hits: Context[] = [];
-        for (const drop of this.drops) {
-          if (drop.item !== w.item) continue;
-          const on = this.droppedOn(drop.at, w.target);
-          if (on) hits.push({ first: on });
-        }
-        return hits;
-      }
-      case 'useItem': {
-        if (this.time <= TAP_GRACE) return [];
-        const used: Context[] = [];
-        for (const tap of this.taps) {
-          const hit = this.bagHit(tap);
-          if (hit?.item !== w.item) continue;
-          used.push({ first: hit.bag });
-          this.bagPops.set(hit.item, this.time);
-        }
-        return used;
-      }
-      case 'tapObject': {
-        if (this.time <= TAP_GRACE) return [];
-        const hits: Context[] = [];
-        for (const tap of this.taps) {
-          const first = this.matching(w.target)
-            .reverse()
-            .find((e) => e.tappable && contains(this.boxOf(e), this.inSpaceOf(e, tap)));
-          if (first) {
-            hits.push({ first });
-            // A tapped button gives a little under the finger, so a tap is felt to have landed.
-            if (!this.tweens.some((t) => t.entity === first && t.kind === 'press')) {
-              this.tweens.push({ entity: first, kind: 'press', elapsed: 0, seconds: 0.16, from: { x: 0, y: 0 }, to: { x: 0, y: 0 } });
-            }
-          }
-        }
-        return hits;
-      }
-      case 'touch': {
-        const before = this.touching.get(rule.id) ?? new Set<string>();
-        const now = new Set<string>();
-        const hits: Context[] = [];
-        const seconds = this.matching(w.b);
-        for (const first of this.matching(w.a)) {
-          for (const second of seconds) {
-            // Bodies resting on each other are pressed together without their boxes quite overlapping.
-            // Bodies with a shape of their own (an outline, a capsule) touch only where those shapes do.
-            if (first === second) continue;
-            const touching = this.physics?.exactly(first, second) ? this.physics.touches(first, second) : overlaps(first, second) || this.physics?.touches(first, second);
-            if (!touching) continue;
-            const key = `${this.uids.get(first)}|${this.uids.get(second)}`;
-            now.add(key);
-            if (before.has(key)) continue;
-            if (w.from) {
-              // Coming down onto its top: last frame the first one's feet were above the upper part of the second,
-              // and this frame it moved down toward it. Measured by how they moved, not by their speeds, which an
-              // earlier rule this frame may already have changed (a bounce off the very enemy being landed on).
-              const above = first.prevY + first.height <= second.prevY + second.height * 0.45 && first.y - first.prevY >= second.y - second.prevY;
-              if ((w.from === 'above') !== above) continue;
-            }
-            hits.push({ first, second });
-          }
-        }
-        this.touching.set(rule.id, now);
-        return hits;
-      }
-      case 'every': {
-        const clock = (this.ruleClock.get(rule.id) ?? 0) + dt;
-        this.ruleClock.set(rule.id, clock >= w.seconds ? clock - w.seconds : clock);
-        return clock >= w.seconds ? [{}] : [];
-      }
-      case 'eachEvery': {
-        // Each object's own clock is its age: the rule fires as the age passes a whole number of periods.
-        if (!(w.seconds > 0)) return [];
-        const ticks = (age: number) => Math.floor(age / w.seconds + 1e-9);
-        return this.matching(w.target).filter((e) => ticks(e.age) > ticks(Math.max(0, e.age - dt))).map((first) => ({ first }));
-      }
-      case 'near': {
-        // Like a touch, but with room between: centre to centre, within the distance (or, leaving, beyond it).
-        const before = this.touching.get(rule.id);
-        const now = new Set<string>();
-        const hits: Context[] = [];
-        const seconds = this.matching(w.b);
-        for (const first of this.matching(w.a)) {
-          for (const second of seconds) {
-            if (first === second || !first.visible || !second.visible || Boolean(first.def.fixed) !== Boolean(second.def.fixed)) continue;
-            const distance = Math.hypot(first.x + first.width / 2 - (second.x + second.width / 2), first.y + first.height / 2 - (second.y + second.height / 2));
-            if (distance > w.distance) continue;
-            const key = `${this.uids.get(first)}|${this.uids.get(second)}`;
-            now.add(key);
-            if (!w.leave && !before?.has(key)) hits.push({ first, second });
-          }
-        }
-        if (w.leave && before) {
-          // Pairs that were close a moment ago and are not now; both must still be there.
-          const alive = new Map([...this.matching(w.a), ...seconds].map((e) => [this.uids.get(e), e]));
-          for (const key of before) {
-            if (now.has(key)) continue;
-            const [a, b] = key.split('|').map((id) => alive.get(Number(id)));
-            if (a && b) hits.push({ first: a, second: b });
-          }
-        }
-        this.touching.set(rule.id, now);
-        return hits;
-      }
-      case 'message':
-        return this.inbox.filter((m) => m.name === w.name).map((m) => ({ ...m.context }));
-      case 'thrown':
-      case 'rest': {
-        if (!this.physics) return [];
-        const targets = new Set(this.matching(w.target));
-        return (w.type === 'thrown' ? this.physics.thrown : this.physics.rested).filter((e) => targets.has(e)).map((first) => ({ first }));
-      }
-      case 'snap': {
-        if (!this.physics) return [];
-        const targets = new Set(this.matching(w.target));
-        return this.physics.snapped.filter((s) => targets.has(s.a)).map((s) => ({ first: s.a, second: s.b }));
-      }
-      case 'hit': {
-        if (!this.physics) return [];
-        const as = new Set(this.matching(w.a));
-        const bs = new Set(this.matching(w.b));
-        const hits: Context[] = [];
-        for (const hit of this.physics.hits) {
-          if (hit.speed < w.speed) continue;
-          if (as.has(hit.a) && bs.has(hit.b)) hits.push({ first: hit.a, second: hit.b });
-          else if (as.has(hit.b) && bs.has(hit.a)) hits.push({ first: hit.b, second: hit.a });
-        }
-        return hits;
-      }
-      case 'after':
-        if (this.time < w.seconds || this.ruleDone.has(rule.id)) return [];
-        this.ruleDone.add(rule.id);
-        return [{}];
-      case 'offscreen': {
-        const targets = new Set(this.matching(w.target));
-        return left.filter((e) => targets.has(e)).map((first) => ({ first }));
-      }
-      case 'textEquals':
-        return this.becameTrue(rule.id, this.textVariables.get(w.name) === w.text, false) ? [{}] : [];
-      case 'variable':
-        return this.becameTrue(rule.id, this.compare(w.name, w.op, w.value), false) ? [{}] : [];
-      case 'dead': {
-        const targets = new Set(this.matching(w.target));
-        return this.diedLastFrame.filter((e) => targets.has(e)).map((first) => ({ first }));
-      }
-      case 'value': {
-        const now = new Set(this.matching(w.target).filter((e) => test(e.values.get(w.name) ?? 0, w.op, w.value)));
-        return this.newlyHeld(rule.id, now).map((first) => ({ first }));
-      }
-      case 'line':
-        return this.newlyHeld(rule.id, this.inLines(this.matching(w.target), w.name, Math.max(2, w.length), w.diagonal)).map((first) => ({ first }));
-      case 'land': {
-        const targets = new Set(this.matching(w.target));
-        return this.landings.filter((l) => targets.has(l.entity)).map((l) => ({ first: l.entity, second: l.on ?? undefined }));
-      }
-      case 'reward':
-        if (this.rewards === 0) return [];
-        this.rewards -= 1;
-        return [{}];
-      case 'noneLeft':
-        // A scene that starts with none (they are spawned later) has not "run out" yet.
-        return this.becameTrue(rule.id, this.matching(w.target).length === 0, true) ? [{}] : [];
-    }
+  /** The occasions, this frame, on which a rule's trigger happened. Every trigger is a block in its own file (src/blocks/triggers/). */
+  private fired(rule: Rule, step: TriggerStep): Context[] {
+    return triggerBlocks.get(rule.when.type)!.fired(this, rule.when as never, rule, step);
   }
 
   /** True on the frame a rule's test turns from false to true. `initial` is what it is taken to have been before the first frame. */
-  private becameTrue(ruleId: string, truth: boolean, initial: boolean): boolean {
+  becameTrue(ruleId: string, truth: boolean, initial: boolean): boolean {
     const was = this.ruleTruth.get(ruleId) ?? initial;
     this.ruleTruth.set(ruleId, truth);
     return truth && !was;
@@ -3573,7 +3389,7 @@ export class Game {
     return Math.floor(low + Math.random() * (high - low + 1));
   }
 
-  private compare(name: string, op: Comparison, value: number): boolean {
+  compare(name: string, op: Comparison, value: number): boolean {
     return test(this.variables.get(name) ?? 0, op, value);
   }
 
@@ -3585,7 +3401,7 @@ export class Game {
     return subject !== undefined && test(subject.values.get(condition.name) ?? 0, condition.op, than);
   }
 
-  private matching(ref: Ref): Entity[] {
+  matching(ref: Ref): Entity[] {
     if (ref.by === 'id') return this.entities.filter((e) => e.alive && e.def.id === ref.id);
     const where = ref.where;
     const spot = ref.spot;
@@ -3651,7 +3467,7 @@ export class Game {
   }
 
   /** The objects a per-object test holds for now but did not hold for when the rule was last looked at. */
-  private newlyHeld(ruleId: string, now: Set<Entity>): Entity[] {
+  newlyHeld(ruleId: string, now: Set<Entity>): Entity[] {
     const before = this.ruleHeld.get(ruleId) ?? new Set<Entity>();
     this.ruleHeld.set(ruleId, now);
     return [...now].filter((e) => !before.has(e));
@@ -3715,7 +3531,7 @@ export class Game {
   }
 
   /** Which thing in a bag a touch landed on, if any. */
-  private bagHit(screen: Point): { bag: Entity; item: string } | null {
+  bagHit(screen: Point): { bag: Entity; item: string } | null {
     for (let i = this.entities.length - 1; i >= 0; i--) {
       const e = this.entities[i];
       if (!e.alive || !e.visible || e.def.visual.kind !== 'bag') continue;
@@ -3752,7 +3568,7 @@ export class Game {
   }
 
   /** The object of a group a thing was let go over, if any: the one drawn on top. */
-  private droppedOn(at: Point, target: Ref): Entity | undefined {
+  droppedOn(at: Point, target: Ref): Entity | undefined {
     return this.matching(target).reverse().find((e) => e.visible && e.def.visual.kind !== 'bag' && contains(this.boxOf(e), this.inSpaceOf(e, at)));
   }
 
@@ -4012,7 +3828,7 @@ export class Game {
    * on-screen control, or any visible object that a "tapped on an object" rule
    * is waiting for. Such a touch does not also make the player jump.
    */
-  private onControl(screen: Point): boolean {
+  onControl(screen: Point): boolean {
     if ([...this.controlTags].some((tag) => this.hitsTag(screen, tag))) return true;
     // A thing in the bag that a rule lets the player use is a button too.
     if (this.scene.rules.some((rule) => rule.when.type === 'useItem' || rule.when.type === 'useItemOn') && this.bagHit(screen)) return true;
@@ -4714,108 +4530,4 @@ function cropped(texture: Texture, crop: { x: number; y: number; w: number; h: n
 function centred<T extends Container>(view: T, def: GameObject): T {
   view.pivot.set(def.width / 2, def.height / 2);
   return view;
-}
-
-function contains(box: Box, point: Point): boolean {
-  return point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height;
-}
-
-function overlaps(a: Entity, b: Entity): boolean {
-  // Objects in different spaces (one fixed to the screen, one in the world) have no meaningful overlap.
-  if (!a.visible || !b.visible || Boolean(a.def.fixed) !== Boolean(b.def.fixed)) return false;
-  const ia = a.def.hitboxInset ?? 0;
-  const ib = b.def.hitboxInset ?? 0;
-  if (a.def.visual.kind === 'terrain' || b.def.visual.kind === 'terrain') {
-    const [ground, other, inset] = a.def.visual.kind === 'terrain' ? [a, b, ib] as const : [b, a, ia] as const;
-    const v = ground.def.visual;
-    if (v.kind !== 'terrain') return false;
-    const left = other.x + inset, right = other.x + other.width - inset;
-    return right > ground.x && left < ground.x + ground.width && other.y + inset < ground.y + ground.height &&
-      other.y + other.height - inset >= terrainTop(ground, v.heights, left, right) - 0.01;
-  }
-  // A turned box is tested as the turned shape it is. A circle looks the same however it is turned.
-  const turned = (e: Entity) => !e.def.round && e.def.visual.kind !== 'text' && Math.abs(Math.sin(e.angle)) > 0.001;
-  if (turned(a) || turned(b)) {
-    if (a.def.round || b.def.round) {
-      const [round, box, inset] = a.def.round ? [a, b, ib] : [b, a, ia];
-      const r = Math.min(round.width, round.height) / 2 - (round === a ? ia : ib);
-      // The circle's centre as seen from the box's own, unturned frame.
-      const cx = box.x + box.width / 2;
-      const cy = box.y + box.height / 2;
-      const dx = round.x + round.width / 2 - cx;
-      const dy = round.y + round.height / 2 - cy;
-      const cos = Math.cos(-box.angle);
-      const sin = Math.sin(-box.angle);
-      const lx = dx * cos - dy * sin;
-      const ly = dx * sin + dy * cos;
-      const hw = box.width / 2 - inset;
-      const hh = box.height / 2 - inset;
-      return Math.hypot(lx - clamp(lx, -hw, hw), ly - clamp(ly, -hh, hh)) <= r;
-    }
-    return polygonsMeet(cornersOf(a, ia), cornersOf(b, ib));
-  }
-  if (a.def.round || b.def.round) {
-    // A round object is the largest circle that fits its box. Against a box, the test is the
-    // distance from the circle's centre to the nearest point of the box.
-    const circle = (e: Entity, inset: number) => ({ x: e.x + e.width / 2, y: e.y + e.height / 2, r: Math.min(e.width, e.height) / 2 - inset });
-    if (a.def.round && b.def.round) {
-      const [ca, cb] = [circle(a, ia), circle(b, ib)];
-      return Math.hypot(ca.x - cb.x, ca.y - cb.y) <= ca.r + cb.r;
-    }
-    const [round, box, inset] = a.def.round ? [circle(a, ia), b, ib] : [circle(b, ib), a, ia];
-    const nearestX = Math.min(Math.max(round.x, box.x + inset), box.x + box.width - inset);
-    const nearestY = Math.min(Math.max(round.y, box.y + inset), box.y + box.height - inset);
-    return Math.hypot(round.x - nearestX, round.y - nearestY) <= round.r;
-  }
-  // Edges that meet count as touching. A body is stopped exactly at the face of a solid, never
-  // inside it, so without this a ball would bounce off a brick without ever "touching" it.
-  return (
-    a.x + ia <= b.x + b.width - ib &&
-    a.x + a.width - ia >= b.x + ib &&
-    a.y + ia <= b.y + b.height - ib &&
-    a.y + a.height - ia >= b.y + ib
-  );
-}
-
-/** The four corners of an object's collision box, turned as the object is. */
-function cornersOf(e: Entity, inset: number): Point[] {
-  const cx = e.x + e.width / 2;
-  const cy = e.y + e.height / 2;
-  const hw = e.width / 2 - inset;
-  const hh = e.height / 2 - inset;
-  const cos = Math.cos(e.angle);
-  const sin = Math.sin(e.angle);
-  return [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([x, y]) => ({ x: cx + x * cos - y * sin, y: cy + x * sin + y * cos }));
-}
-
-/** Whether two convex shapes overlap: they do unless some edge of either has all of the other on its far side. */
-function polygonsMeet(p: Point[], q: Point[]): boolean {
-  for (const shape of [p, q]) {
-    for (let i = 0; i < shape.length; i++) {
-      const from = shape[i];
-      const to = shape[(i + 1) % shape.length];
-      const nx = to.y - from.y;
-      const ny = from.x - to.x;
-      const span = (points: Point[]) => {
-        const along = points.map((t) => t.x * nx + t.y * ny);
-        return [Math.min(...along), Math.max(...along)];
-      };
-      const [p0, p1] = span(p);
-      const [q0, q1] = span(q);
-      if (p1 < q0 || q1 < p0) return false;
-    }
-  }
-  return true;
-}
-
-/** Whether `a` stands to `b` as the comparison says. */
-function test(a: number, op: Comparison, b: number): boolean {
-  switch (op) {
-    case '>=': return a >= b;
-    case '<=': return a <= b;
-    case '==': return a === b;
-    case '!=': return a !== b;
-    case '>': return a > b;
-    case '<': return a < b;
-  }
 }

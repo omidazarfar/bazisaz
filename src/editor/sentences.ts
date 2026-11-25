@@ -1,8 +1,8 @@
 import type { Action, Behavior, Condition, GameObject, GameProject, Place, Scene, Trigger } from '../format/types';
-import { actionBlocks } from '../blocks/registry';
-import { amountText, describeRef, OP_WORD } from '../blocks/say';
+import { actionBlocks, triggerBlocks } from '../blocks/registry';
+import { amountText, describeRef, OP_WORD, type Subjects } from '../blocks/say';
 
-export { describeRef };
+export { describeRef, type Subjects };
 import { fa } from './labels';
 
 /**
@@ -10,66 +10,17 @@ import { fa } from './labels';
  * description of the game instead of a list of settings.
  */
 
-export interface Subjects {
-  first?: string;
-  second?: string;
-}
 
 
 
 /** What "first" and "second" mean in a rule's actions, said in terms of its trigger. */
 export function subjectsOf(scene: Scene, when: Trigger): Subjects {
-  if (when.type === 'touch') return { first: `همان اولی (${describeRef(scene, when.a)})`, second: `همان دومی (${describeRef(scene, when.b)})` };
-  if (when.type === 'tapObject') return { first: 'همان که رویش زده شد' };
-  if (when.type === 'offscreen') return { first: 'همان که بیرون رفت' };
-  if (when.type === 'dead') return { first: 'همان که جانش تمام شد' };
-  if (when.type === 'value') return { first: 'همان که مقدارش عوض شد' };
-  if (when.type === 'line') return { first: 'هر کدام از آن‌ها که در خط‌اند' };
-  if (when.type === 'land') return { first: 'همان که فرود آمد', second: 'همان که رویش فرود آمد' };
-  if (when.type === 'near') return { first: `همان اولی (${describeRef(scene, when.a)})`, second: `همان دومی (${describeRef(scene, when.b)})` };
-  if (when.type === 'eachEvery') return { first: 'همان که ساعتش رسید' };
-  if (when.type === 'thrown') return { first: 'همان که پرتاب شد' };
-  if (when.type === 'rest') return { first: 'همان که ایستاد' };
-  if (when.type === 'snap') return { first: 'همان که اتصالش پاره شد', second: 'همان که به آن وصل بود' };
-  if (when.type === 'message') return { first: 'همان «اولی» در قانونی که پیام را فرستاد', second: 'همان «دومی» در قانونی که پیام را فرستاد' };
-  if (when.type === 'useItem') return { first: 'کوله‌پشتی' };
-  if (when.type === 'useItemOn') return { first: `همان که وسیله رویش کشیده شد (${describeRef(scene, when.target)})` };
-  if (when.type === 'hit') return { first: `همان اولی (${describeRef(scene, when.a)})`, second: `همان که به آن خورد (${describeRef(scene, when.b)})` };
-  return {};
+  // Every trigger is a block in its own file (src/blocks/triggers/), which says itself.
+  return triggerBlocks.get(when.type)?.subjects?.(when as never, { scene }) ?? {};
 }
 
 export function triggerSentence(scene: Scene, w: Trigger): string {
-  const way = { right: 'راست', left: 'چپ', up: 'بالا', down: 'پایین' } as const;
-  switch (w.type) {
-    case 'start': return 'وقتی صحنه شروع می‌شود';
-    case 'tap': return 'وقتی صفحه لمس می‌شود';
-    case 'holding': return 'تا وقتی صفحه لمس است';
-    case 'swipe': return `وقتی صفحه به ${way[w.direction]} کشیده می‌شود`;
-    case 'tapObject': return `وقتی روی ${describeRef(scene, w.target)} زده می‌شود`;
-    case 'touch': return `وقتی ${describeRef(scene, w.a)} ${w.from === 'above' ? 'از بالا روی' : 'به'} ${describeRef(scene, w.b)} ${w.from === 'above' ? 'می‌افتد' : w.from === 'side' ? 'از پهلو می‌خورد' : 'می‌خورد'}`;
-    case 'every': return `هر ${fa(w.seconds)} ثانیه`;
-    case 'after': return `${fa(w.seconds)} ثانیه بعد از شروع صحنه`;
-    case 'offscreen': return `وقتی ${describeRef(scene, w.target)} از صفحه بیرون می‌رود`;
-    case 'textEquals': return `وقتی متن ${w.name} برابر «${w.text}» می‌شود`;
-    case 'variable': return `وقتی ${w.name} ${OP_WORD[w.op]} ${fa(w.value)} می‌شود`;
-    case 'value': return `وقتی ${w.name} در ${describeRef(scene, w.target)} ${OP_WORD[w.op]} ${fa(w.value)} می‌شود`;
-    case 'line': return `وقتی ${fa(w.length)} تا از ${describeRef(scene, w.target)}${w.name ? ` با ${w.name} یکسان` : ''} در یک خط ردیف می‌شوند`;
-    case 'noneLeft': return `وقتی دیگر ${describeRef(scene, w.target)} نمانده`;
-    case 'dead': return `وقتی جان ${describeRef(scene, w.target)} تمام می‌شود`;
-    case 'reward': return 'وقتی بازیکن تبلیغ جایزه‌ای را تا آخر دید';
-    case 'land': return `وقتی ${describeRef(scene, w.target)} روی چیزی فرود می‌آید`;
-    case 'near': return w.leave
-      ? `وقتی ${describeRef(scene, w.a)} از ${describeRef(scene, w.b)} بیش از ${fa(w.distance)} پیکسل دور می‌شود`
-      : `وقتی ${describeRef(scene, w.a)} به ${describeRef(scene, w.b)} نزدیک‌تر از ${fa(w.distance)} پیکسل می‌شود`;
-    case 'eachEvery': return `هر ${fa(w.seconds)} ثانیه، برای هر ${describeRef(scene, w.target)} جدا`;
-    case 'message': return `وقتی پیام «${w.name || '؟'}» می‌رسد`;
-    case 'thrown': return `وقتی ${describeRef(scene, w.target)} پرتاب می‌شود`;
-    case 'rest': return `وقتی ${describeRef(scene, w.target)} از حرکت می‌ایستد`;
-    case 'snap': return `وقتی اتصال ${describeRef(scene, w.target)} پاره می‌شود`;
-    case 'hit': return `وقتی ${describeRef(scene, w.a)} محکم به ${describeRef(scene, w.b)} می‌خورد (دست‌کم ${fa(w.speed)} پیکسل در ثانیه)`;
-    case 'useItem': return `وقتی بازیکن ${w.item || '؟'} را در کوله‌پشتی لمس می‌کند`;
-    case 'useItemOn': return `وقتی بازیکن ${w.item || '؟'} را از کوله‌پشتی روی ${describeRef(scene, w.target)} می‌کشد`;
-  }
+  return triggerBlocks.get(w.type)?.sentence(w as never, { scene }) ?? '';
 }
 
 

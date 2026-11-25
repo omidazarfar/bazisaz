@@ -1,6 +1,7 @@
-import type { Action, GameProject, Place, Ref, Scene } from '../format/types';
-import type { Context as RuleContext, Game } from '../runtime/Game';
+import type { Action, GameProject, Place, Ref, Rule, Scene, Trigger } from '../format/types';
+import type { Context as RuleContext, Entity, Game } from '../runtime/Game';
 import type { Block } from './fields';
+import type { Subjects } from './say';
 
 /**
  * One block of the engine, described in one file: what it is called and edited with in the editor, how it is
@@ -52,3 +53,35 @@ export interface ActionBlock<T extends Action['type'] = Action['type']> {
 
 /** Declares an action block, keeping its fields typed to its own action. */
 export const actionBlock = <T extends Action['type']>(block: ActionBlock<T>): ActionBlock<T> => block;
+
+/** What a trigger's sentence may need: the scene it is in. */
+export interface TriggerSentenceKit {
+  scene: Scene;
+}
+
+/** What happened this step that some triggers look at. */
+export interface TriggerStep {
+  /** The length of the step, in seconds (0 while the game is paused). */
+  dt: number;
+  /** Whether the screen itself (not a button on it) was tapped. */
+  screenTapped: boolean;
+  /** The objects that went off the screen this step. */
+  left: Entity[];
+}
+
+export interface TriggerBlock<T extends Trigger['type'] = Trigger['type']> {
+  type: T;
+  /** Its Persian title, help, starting value and fields in the editor. */
+  editor: Block<Extract<Trigger, { type: T }>>;
+  /** The Persian sentence that starts a rule ("when …"). */
+  sentence: (trigger: Extract<Trigger, { type: T }>, kit: TriggerSentenceKit) => string;
+  /** What "first" and "second" mean in the rule's actions, in words; none when the trigger is about no object. */
+  subjects?: (trigger: Extract<Trigger, { type: T }>, kit: TriggerSentenceKit) => Subjects;
+  /** Problems beyond the common ones (a `target` that is missing is checked for every block). */
+  check?: (trigger: Extract<Trigger, { type: T }>, kit: CheckKit) => void;
+  /** The occasions, this step, on which it happened: one context (its first and second objects) for each. */
+  fired: (game: Game, trigger: Extract<Trigger, { type: T }>, rule: Rule, step: TriggerStep) => RuleContext[];
+}
+
+/** Declares a trigger block, keeping its fields typed to its own trigger. */
+export const triggerBlock = <T extends Trigger['type']>(block: TriggerBlock<T>): TriggerBlock<T> => block;

@@ -1,4 +1,4 @@
-import type { Action } from '../format/types';
+import type { Action, Trigger } from '../format/types';
 import { burst } from './actions/burst';
 import { effect } from './actions/effect';
 import { floatText } from './actions/floatText';
@@ -66,7 +66,32 @@ import { blast } from './actions/blast';
 import { give, take } from './actions/giveTake';
 import { say } from './actions/say';
 import { wait } from './actions/wait';
-import type { ActionBlock } from './types';
+import { start } from './triggers/start';
+import { tap } from './triggers/tap';
+import { tapObject } from './triggers/tapObject';
+import { swipe } from './triggers/swipe';
+import { holding } from './triggers/holding';
+import { touch } from './triggers/touch';
+import { near } from './triggers/near';
+import { land } from './triggers/land';
+import { offscreen } from './triggers/offscreen';
+import { noneLeft } from './triggers/noneLeft';
+import { dead } from './triggers/dead';
+import { every } from './triggers/every';
+import { after } from './triggers/after';
+import { eachEvery } from './triggers/eachEvery';
+import { variable } from './triggers/variable';
+import { value } from './triggers/value';
+import { textEquals } from './triggers/textEquals';
+import { message } from './triggers/message';
+import { line } from './triggers/line';
+import { hit } from './triggers/hit';
+import { snap } from './triggers/snap';
+import { rest, thrown } from './triggers/thrownRest';
+import { useItem } from './triggers/useItem';
+import { useItemOn } from './triggers/useItemOn';
+import { reward } from './triggers/reward';
+import type { ActionBlock, TriggerBlock } from './types';
 
 /**
  * Every block that lives in its own file (src/blocks/). The runtime, the editor's panels, the sentences and the
@@ -114,3 +139,32 @@ export const actionBlocks: ReadonlyMap<Action['type'], ActionBlock> = new Map(AC
 /** Every action of the format is a block: this fails to compile, naming the action, if one has no block. */
 type ActionWithoutBlock = Exclude<Action['type'], BlockActionType>;
 export const everyActionIsABlock: [ActionWithoutBlock] extends [never] ? true : ActionWithoutBlock = true;
+
+/** Every trigger, in its own file in src/blocks/triggers/. A new trigger: one file there, and one line below. */
+const triggers = [
+  // The screen.
+  tap, tapObject, swipe, holding,
+  // Objects.
+  touch, near, land, offscreen, noneLeft, dead,
+  // Real physics.
+  hit, thrown, rest, snap,
+  // Time.
+  start, every, eachEvery, after,
+  // Puzzles and logic.
+  message, value, line,
+  // Values and ads.
+  variable, textEquals, reward,
+  // Bag.
+  useItem, useItemOn,
+] as const;
+export const TRIGGER_BLOCKS = triggers as unknown as readonly TriggerBlock[];
+
+/** The triggers that are blocks in their own files. */
+export type BlockTriggerType = (typeof triggers)[number]['type'];
+
+/** The trigger blocks by type, for the runtime and the editor. */
+export const triggerBlocks: ReadonlyMap<Trigger['type'], TriggerBlock> = new Map(TRIGGER_BLOCKS.map((b) => [b.type, b]));
+
+/** Every trigger of the format is a block: this fails to compile, naming the trigger, if one has no block. */
+type TriggerWithoutBlock = Exclude<Trigger['type'], BlockTriggerType>;
+export const everyTriggerIsABlock: [TriggerWithoutBlock] extends [never] ? true : TriggerWithoutBlock = true;

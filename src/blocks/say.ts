@@ -25,3 +25,9 @@ export function amountText(amount: Amount, who: (target: Place) => string = () =
   if ('count' in amount) return `تعداد اشیای گروه «${amount.count}»`;
   return 'random' in amount ? `عددی تصادفی از ${fa(amount.random[0])} تا ${fa(amount.random[1])}` : `مقدار ${amount.variable}`;
 }
+
+/** What "first" and "second" mean in a rule's actions, said in terms of its trigger. */
+export interface Subjects {
+  first?: string;
+  second?: string;
+}

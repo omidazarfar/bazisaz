@@ -1,4 +1,5 @@
-import { actionBlocks } from '../blocks/registry';
+import { actionBlocks, triggerBlocks } from '../blocks/registry';
+import type { CheckKit } from '../blocks/types';
 import { FORMAT_VERSION, isBuiltinMusic, ruleActions, type GameObject, type GameProject, type Place, type Ref } from './types';
 
 const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -141,14 +142,20 @@ export function validateProject(project: GameProject): string[] {
     for (const rule of scene.rules) {
       const name = `rule "${rule.id}"`;
       const w = rule.when;
+      // What every block checks with; a problem is said after where the rule is.
+      const kit: CheckKit = {
+        project,
+        say: (problem) => say(`${where}: ${name} ${problem}`),
+        checkRef: (ref) => checkRef(ref, name),
+        needVariable: (variable) => needVariable(variable, `${where}: ${name}`),
+        needItem: (item) => needItem(item, `${where}: ${name}`),
+        checkText: (text, value) => checkText(text, value, where),
+        hasPrefab: (id) => prefabIds.has(id),
+        hasScene: (id) => sceneIds.has(id),
+      };
       if ('target' in w) checkRef(w.target, name);
-      if (w.type === 'touch' || w.type === 'near' || w.type === 'hit') [w.a, w.b].forEach((r) => checkRef(r, name));
-      if (w.type === 'textEquals') checkText(w.name, w.text, where);
-      if (w.type === 'variable') needVariable(w.name, `${where}: ${name}`);
-      if (w.type === 'useItem' || w.type === 'useItemOn') needItem(w.item, `${where}: ${name}`);
-      if ((w.type === 'every' || w.type === 'after' || w.type === 'eachEvery') && !(w.seconds > 0)) {
-        say(`${where}: ${name} needs a time above zero.`);
-      }
+      // Every trigger is a block in its own file (src/blocks/triggers/), which checks itself.
+      triggerBlocks.get(w.type)?.check?.(w as never, kit);
       for (const condition of [rule.condition, ...(rule.also ?? [])]) {
         if (!condition) continue;
         // A condition about an object's own value names no game variable.
@@ -160,16 +167,7 @@ export function validateProject(project: GameProject): string[] {
       for (const a of ruleActions(rule)) {
         if ('target' in a) checkRef(a.target, name);
         // Blocks in their own files (src/blocks/) check themselves.
-        actionBlocks.get(a.type)?.check?.(a as never, {
-          project,
-          say: (problem) => say(`${where}: ${name} ${problem}`),
-          checkRef: (ref) => checkRef(ref, name),
-          needVariable: (variable) => needVariable(variable, `${where}: ${name}`),
-          needItem: (item) => needItem(item, `${where}: ${name}`),
-          checkText: (text, value) => checkText(text, value, where),
-          hasPrefab: (id) => prefabIds.has(id),
-          hasScene: (id) => sceneIds.has(id),
-        });
+        actionBlocks.get(a.type)?.check?.(a as never, kit);
         // An empty picture or music is "not chosen yet" (or, for music, silence), which plays fine.
       }
     }

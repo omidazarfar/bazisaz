@@ -136,3 +136,12 @@ export const hasVariables = ({ project }: Context) => project.variables.length >
 export const hasItems = ({ project }: Context) => project.variables.some((v) => v.item);
 
 export const firstItem = ({ project }: Context) => project.variables.find((v) => v.item)?.name ?? '';
+
+export const COMPARE: Field = { key: 'op', label: 'مقایسه', kind: 'choice', options: [
+  { value: '>=', label: 'بیشتر یا مساوی' },
+  { value: '<=', label: 'کمتر یا مساوی' },
+  { value: '==', label: 'مساوی' },
+  { value: '!=', label: 'نامساوی' },
+  { value: '>', label: 'بیشتر' },
+  { value: '<', label: 'کمتر' },
+] };
