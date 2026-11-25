@@ -99,9 +99,11 @@ async function status() {
 const [command = 'status', bots = 'all'] = process.argv.slice(2);
 if (command === 'run') {
   // CI_REF: an earlier commit to play the bots on instead of main; CI_REPEAT: each bot that many times.
-  const inputs = { bots, ref: process.env.CI_REF ?? '', repeat: process.env.CI_REPEAT ?? '1' };
+  // GitHub's checkout takes a commit by its full id only, so a short one (e56e9ac) is made full here.
+  const ref = process.env.CI_REF ? execFileSync(git, ['rev-parse', '--verify', `${process.env.CI_REF}^{commit}`], { encoding: 'utf8' }).trim() : '';
+  const inputs = { bots, ref, repeat: process.env.CI_REPEAT ?? '1' };
   await api('/actions/workflows/test.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main', inputs }) });
-  console.log(`Started a run with bots: ${bots}${inputs.repeat !== '1' ? ` x${inputs.repeat}` : ''}${inputs.ref ? ` at ${inputs.ref}` : ''}. Follow it with: node scripts/ci.mjs watch (CI_RUN=<number> for one of several)`);
+  console.log(`Started a run with bots: ${bots}${inputs.repeat !== '1' ? ` x${inputs.repeat}` : ''}${inputs.ref ? ` at ${inputs.ref.slice(0, 7)}` : ''}. Follow it with: node scripts/ci.mjs watch (CI_RUN=<number> for one of several)`);
 } else if (command === 'log') {
   const run = await pickRun();
   const job = (await api(`/actions/runs/${run.id}/jobs?per_page=100`)).jobs.find((j) => j.name.includes(bots));
