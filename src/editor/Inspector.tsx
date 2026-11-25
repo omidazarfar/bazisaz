@@ -345,6 +345,18 @@ export function Inspector({ editor }: { editor: Editor }) {
         {visual.kind === 'image' && Boolean(visual.frames?.length || visual.moveFrames?.length || visual.airFrames?.length || visual.hurtFrames?.length) && (
           <Slider label="سرعت انیمیشن" unit="عکس در ثانیه" min={1} max={30} step={1} value={visual.fps ?? 8} onChange={(fps) => setVisual('fps', { fps })} />
         )}
+        {visual.kind === 'image' && Boolean(visual.moveFrames?.length || visual.airFrames?.length || visual.hurtFrames?.length) && (
+          <Slider
+            label="نرمی عوض شدن انیمیشن"
+            hint="از ایستادن به دویدن و پریدن، عکس تازه آرام روی قبلی پیدا می‌شود به‌جای یک‌باره. ۰ یعنی یک‌باره."
+            unit="ثانیه"
+            min={0}
+            max={0.3}
+            step={0.02}
+            value={visual.blend ?? 0}
+            onChange={(blend) => setVisual('blend', { blend })}
+          />
+        )}
         {visual.kind === 'image' && Boolean(visual.frames?.length) && (
           <Check label="انیمیشن فقط یک بار پخش شود" hint="روی آخرین عکس می‌ماند؛ برای انفجار. با رفتار «عمر کوتاه» بعدش ناپدید می‌شود." value={visual.once ?? false} onChange={(once) => setVisual('once', { once })} />
         )}

@@ -284,6 +284,29 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   }
   objects.push(makeObject('قارچ', { kind: 'image', asset: mushroom.asset }, 70, 70, { x: x(0.58) + 40, y: top - 35 }, { locked: true }));
   objects.push(makeObject('تابلوی شروع', { kind: 'image', asset: sign.asset }, 80, 80, { x: 4 * CELL, y: top - 40 }, { locked: true }));
+  // A lantern swinging under a floating island, on two lengths of rope: three bones, each turning with the one
+  // above it and swinging a little more on its own (attach "with its turn", flagship Phase C).
+  const island = await kenney(p, 'tiles', 'terrain_grass_cloud', true);
+  const rope = await kenney(island.project, 'tiles', 'rope', true);
+  const lantern = await packAnimation(rope.project, 'tiles', ['torch_on_a', 'torch_on_b'], 6);
+  p = lantern.project;
+  const [RIG0, RIG1, RIG2] = ['فانوس: جزیره', 'فانوس: ریسمان ۱', 'فانوس: ریسمان ۲'];
+  const swing = (degrees: number, seconds: number) => ({
+    type: 'animate' as const, repeat: 'bounce' as const, ease: 'smooth' as const, pivot: { x: 0.5, y: 0 },
+    keys: [{ t: 0, x: 0, y: 0, angle: -degrees, scale: 1, opacity: 1 }, { t: seconds, x: 0, y: 0, angle: degrees, scale: 1, opacity: 1 }],
+  });
+  const islandX = x(0.15) + 40;
+  const islandY = top - 6.4 * CELL;
+  objects.push(makeObject('جزیره‌ی معلق', { kind: 'image', asset: island.asset }, 200, 90, { x: islandX, y: islandY }, { tags: [RIG0], locked: true }));
+  objects.push(makeObject('ریسمان ۱', { kind: 'image', asset: rope.asset }, 24, 70, { x: islandX, y: islandY + 45 + 35 }, {
+    tags: [RIG1], locked: true, behaviors: [{ type: 'attach', targetTag: RIG0, offsetX: 88, offsetY: 90 }, swing(22, 1.6)],
+  }));
+  objects.push(makeObject('ریسمان ۲', { kind: 'image', asset: rope.asset }, 24, 70, { x: islandX, y: islandY + 45 + 105 }, {
+    tags: [RIG2], locked: true, behaviors: [{ type: 'attach', targetTag: RIG1, offsetX: 0, offsetY: 70, followAngle: true }, swing(10, 0.8)],
+  }));
+  objects.push(makeObject('فانوس', lantern.visual, 48, 64, { x: islandX, y: islandY + 45 + 172 }, {
+    locked: true, glow: '#ffcf6b', behaviors: [{ type: 'attach', targetTag: RIG2, offsetX: -12, offsetY: 70, followAngle: true }],
+  }));
   objects.push(makeObject('مرحله', level.tiles, cols * CELL, rows * CELL, { x: (cols * CELL) / 2, y: (rows * CELL) / 2 }, { locked: true }));
 
   // Where falling into a gap is caught: hidden strips along the bottom of each gap.
@@ -339,7 +362,8 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   // The hero: runs, jumps twice, the camera follows.
   const hero = await packCharacter(p, 'characters', 'character_beige');
   p = hero.project;
-  const player = makeObject('قهرمان', hero.visual, 90, 100, { x: 2 * CELL, y: top - 50 }, {
+  // Its animations fade one into the next (resting, walking, jumping) rather than cutting (flagship Phase C).
+  const player = makeObject('قهرمان', { ...hero.visual, blend: 0.08 }, 90, 100, { x: 2 * CELL, y: top - 50 }, {
     tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
     behaviors: [
       { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },

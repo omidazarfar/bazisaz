@@ -331,6 +331,24 @@ how to see it, what to try or film, the next phase).
   nine-slice panel. Passed locally. Look: `node scripts/look/flagship.mjs` (a tall phone, the level, running,
   jumping) → scripts/look/out/flagship-*.png.
 
+### Flagship Phase C progress (character animation)
+
+- Report: docs/animation-report.md (Spine: every user exporting a game would need a Spine Editor licence;
+  DragonBones: abandoned; our own bones: small and ours). The owner was asleep: the agent chose **our own
+  bones**; a Spine import for users who own Spine stays possible later if the owner asks.
+- `AttachBehavior.followAngle` («با چرخیدن آن بچرخد (استخوان)»): the part's place on its parent turns with the
+  parent about the parent's middle, and its angle is the parent's (its own animate pose goes on top), so bones
+  nest. update() orders attached objects by depth (2 + chain length via their target groups), so a child always
+  moves after its parent, however deep, whatever the list order.
+- `ImageVisual.blend` (seconds; Inspector «نرمی عوض شدن انیمیشن»): when the animation changes (rest/move/air/
+  hurt), the old picture (`e.fading`, a sprite just under the view, following it in syncView) fades out over the
+  new one. The flagship's hero has 0.08 s.
+- Sky Quest: a floating island with a lantern on two ropes (three bones: rope 1 swings ±22° about its top,
+  rope 2 turns with it and adds ±10°, the lantern hangs at the end; decoration, nothing touches it).
+- Tests (art.smoke): arm and hand follow a turning body with no lag (listed child first), within 0.5 px; the
+  old picture fades out over the blend time and goes. Passed locally.
+- Phase 5 on CI (run 68): the stress step was 5.86 ms on average (budget 8).
+
 ### Later (small things noticed, not blocking the phase)
 
 - GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale

@@ -376,6 +376,8 @@ export interface ImageVisual {
   crop?: { x: number; y: number; w: number; h: number };
   /** Repeats the picture to fill the object instead of stretching it: sideways (fitted to the height) or downward (fitted to the width). */
   repeat?: 'x' | 'y';
+  /** Seconds over which one animation fades into the next (resting → running → jumping) instead of a hard cut. */
+  blend?: number;
   /**
    * Nine-slice, for panels and buttons: this many pixels of the picture on each side keep their size (the corners
    * never blur or stretch); the edges stretch one way and the middle both ways.
@@ -915,6 +917,11 @@ export interface AttachBehavior {
   targetTag: string;
   offsetX: number;
   offsetY: number;
+  /**
+   * A bone (flagship Phase C): it also turns with the object it is attached to, keeping its place on it as that
+   * turns, so parts nest (shoulder → upper arm → forearm), each one's own turn (its animation) on top.
+   */
+  followAngle?: boolean;
 }
 
 /** Fades in and out. */

@@ -11,6 +11,7 @@ import type {
   GameObject,
   GameProject,
   AnimateBehavior,
+  AttachBehavior,
   HomingBehavior,
   JointBehavior,
   JumperBehavior,
@@ -209,6 +210,10 @@ export interface Entity extends Box {
   against: Entity | null;
   /** Marks it as already given in a contact question (src/runtime/contacts.ts). */
   contactStamp: number;
+  /** The animation showing at the end of the last step, to notice a change (blend). */
+  animShown?: Entity['anim'];
+  /** The picture it had before its animation changed, fading out over the new one (ImageVisual.blend). */
+  fading?: { sprite: Sprite; left: number; span: number } | null;
   /** Seconds since it last stood on something. */
   airTime: number;
   /** A jump was asked for this long ago and has not happened yet; it still happens if the ground arrives in time. */
@@ -1900,6 +1905,29 @@ export class Game {
       // Blinks while it cannot be hurt again.
       view.alpha = this.time < (e.hurtUntil ?? 0) && Math.floor(this.time * 14) % 2 ? opacity * 0.25 : opacity;
     }
+    // The old animation's picture, fading out just under the new one, follows it exactly.
+    const ghost = e.fading?.sprite;
+    if (ghost) {
+      ghost.position.copyFrom(view.position);
+      ghost.scale.copyFrom(view.scale);
+      ghost.pivot.set(ghost.texture.width / 2, ghost.texture.height / 2);
+      ghost.rotation = view.rotation;
+      ghost.visible = view.visible;
+      ghost.alpha = view.alpha * (e.fading!.left / e.fading!.span);
+    }
+  }
+
+  /** Keeps the picture an object shows now, to fade out under the new animation that replaces it (ImageVisual.blend). */
+  private fadeFrom(e: Entity, seconds: number): void {
+    const view = e.view;
+    if (!(view instanceof Sprite)) return;
+    const ghost = e.fading?.sprite ?? new Sprite();
+    ghost.texture = view.texture;
+    if (!e.fading) {
+      const layer = this.layerOf(e);
+      layer.addChildAt(ghost, Math.max(0, layer.getChildIndex(view)));
+    }
+    e.fading = { sprite: ghost, left: seconds, span: seconds };
   }
 
   /** Small health bars over the objects that show one, drawn in the world above everything in it. */
@@ -2017,7 +2045,26 @@ export class Game {
 
     // Things that move by themselves go first, then bodies (which may be standing on them),
     // then things attached to others, so nothing trails a step behind what it rides on.
-    const turn = (e: Entity) => (e.def.behaviors.some((b) => b.type === 'attach') ? 2 : e.def.behaviors.some((b) => b.type === 'body') ? 1 : 0);
+    // Attached parts after what they are attached to, however deep (shoulder, upper arm, forearm: flagship Phase C).
+    const depths = new Map<string, number>();
+    const attachOf = (e: Entity) => e.def.behaviors.find((b): b is AttachBehavior => b.type === 'attach');
+    const depthOf = (tag: string, hops = 0): number => {
+      if (hops > 8) return 0;
+      let depth = depths.get(tag);
+      if (depth === undefined) {
+        depth = 0;
+        for (const o of this.tagged(tag)) {
+          const a = attachOf(o);
+          if (a) depth = Math.max(depth, 1 + depthOf(a.targetTag, hops + 1));
+        }
+        depths.set(tag, depth);
+      }
+      return depth;
+    };
+    const turn = (e: Entity) => {
+      const a = attachOf(e);
+      return a ? 2 + depthOf(a.targetTag) : e.def.behaviors.some((b) => b.type === 'body') ? 1 : 0;
+    };
     const order = this.entities.map((e) => ({ e, turn: turn(e) })).sort((a, b) => a.turn - b.turn);
     for (const { e } of order) {
       if (!e.alive) continue;
@@ -2100,6 +2147,11 @@ export class Game {
         e.animApplied = pose;
       }
 
+      // An old animation's picture fades out over its blend time.
+      if (e.fading && (e.fading.left -= dt) <= 0) {
+        e.fading.sprite.destroy();
+        e.fading = null;
+      }
       // Looks: which animation image is showing, and which way the picture faces.
       const visual = e.def.visual;
       if (e.frames) {
@@ -2111,6 +2163,10 @@ export class Game {
         e.anim = e.airFrames && (body?.gravity || this.physics?.moves(e)) && !e.grounded ? 'air' : e.moveFrames && moving ? 'move' : 'idle';
         if (e.hurtFrames && this.time < (e.hurtPoseUntil ?? 0)) e.anim = 'hurt';
         const set = e.anim === 'hurt' ? e.hurtFrames! : e.anim === 'air' ? e.airFrames! : e.anim === 'move' ? e.moveFrames! : e.frames;
+        // A new animation fades in over the old one, rather than a hard cut (flagship Phase C).
+        const blend = visual.kind === 'image' ? visual.blend ?? 0 : 0;
+        if (blend > 0 && e.animShown !== undefined && e.animShown !== e.anim) this.fadeFrom(e, blend);
+        e.animShown = e.anim;
         const shown = Math.floor(e.age * ((visual.kind === 'image' && visual.fps) || 8));
         // A picture chosen by one of the object's values does not animate: the value says which one shows.
         const chosen = visual.kind === 'image' && visual.frameBy ? clamp(Math.round(e.values.get(visual.frameBy) ?? 0), 0, set.length - 1) : null;
@@ -2202,7 +2258,10 @@ export class Game {
         e.tappable = e.visible;
         if (e.slide && (e.slide.left -= dt) <= 0) e.slide = null;
         this.syncView(e);
-      } else e.view.destroy({ children: true });
+      } else {
+        e.fading?.sprite.destroy();
+        e.view.destroy({ children: true });
+      }
     }
     this.entities = this.entities.filter((e) => e.alive);
     this.listChanged();

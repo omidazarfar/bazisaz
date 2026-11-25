@@ -5,6 +5,23 @@ import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { check, finish, launch, openPage, root, shots, until } from './lib.mjs';
 
+/** A 4×4 picture of one colour, as a data URL made here (no canvas in node): a tiny BMP is enough for the player. */
+const solid = (r, g, b) => {
+  const px = [b, g, r, 255];
+  const header = Buffer.alloc(54);
+  header.write('BM');
+  header.writeUInt32LE(54 + 64, 2);
+  header.writeUInt32LE(54, 10);
+  header.writeUInt32LE(40, 14);
+  header.writeInt32LE(4, 18);
+  header.writeInt32LE(4, 22);
+  header.writeUInt16LE(1, 26);
+  header.writeUInt16LE(32, 28);
+  const data = Buffer.alloc(64);
+  for (let i = 0; i < 16; i++) Buffer.from(px).copy(data, i * 4);
+  return `data:image/bmp;base64,${Buffer.concat([header, data]).toString('base64')}`;
+};
+
 const browser = await launch();
 const editorUrl = pathToFileURL(resolve(root, 'dist-editor/editor.html')).href;
 const playerUrl = pathToFileURL(resolve(root, 'dist/index.html')).href;
@@ -95,22 +112,6 @@ await page.close();
 
 // ── Autotile and nine-slice in the player ──────────────────────────────────
 {
-  const solid = (r, g, b) => {
-    // A 4×4 picture of one colour, as a data URL made here (no canvas in node): a tiny BMP is enough for the player.
-    const px = [b, g, r, 255];
-    const header = Buffer.alloc(54);
-    header.write('BM');
-    header.writeUInt32LE(54 + 64, 2);
-    header.writeUInt32LE(54, 10);
-    header.writeUInt32LE(40, 14);
-    header.writeInt32LE(4, 18);
-    header.writeInt32LE(4, 22);
-    header.writeUInt16LE(1, 26);
-    header.writeUInt16LE(32, 28);
-    const data = Buffer.alloc(64);
-    for (let i = 0; i < 16; i++) Buffer.from(px).copy(data, i * 4);
-    return `data:image/bmp;base64,${Buffer.concat([header, data]).toString('base64')}`;
-  };
   const assets = {};
   for (let i = 0; i < 16; i++) assets[`t${i}`] = { type: 'image', src: solid(i * 16, 255 - i * 16, 128) };
   assets.panel = { type: 'image', src: solid(40, 90, 200) };
@@ -152,6 +153,74 @@ await page.close();
   check('nine-slice: the panel stretches to its size as nine pieces', r.panel.nine && Math.round(r.panel.width) === 500 && Math.round(r.panel.height) === 300, JSON.stringify(r.panel));
   await page.screenshot({ path: resolve(shots, 'art-autotile-nineslice.png') });
   check('autotile and nine-slice: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ── Character animation (flagship Phase C): nested bones, and animations that fade into each other ──
+{
+  const rect = (id, x, y, w, h, ext = {}) => ({ id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#ffffff' }, tags: [], visible: true, behaviors: [], ...ext });
+  const turning = (degrees) => ({ type: 'animate', repeat: 'loop', ease: 'linear', keys: [{ t: 0, x: 0, y: 0, angle: 0, scale: 1, opacity: 1 }, { t: 1, x: 0, y: 0, angle: degrees, scale: 1, opacity: 1 }] });
+  const project = {
+    formatVersion: 3, lists: [],
+    meta: { name: 'Bones', orientation: 'portrait', width: 720, height: 1280, background: '#202833', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.bones', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: { a: { type: 'image', src: solid(255, 0, 0) }, b: { type: 'image', src: solid(0, 0, 255) } },
+    variables: [], startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      // Listed child first: it must still move after its parent, however deep.
+      objects: [
+        rect('hand', 0, 0, 20, 40, { tags: ['hand'], behaviors: [{ type: 'attach', targetTag: 'arm', offsetX: 0, offsetY: 100, followAngle: true }] }),
+        rect('arm', 0, 0, 20, 100, { tags: ['arm'], behaviors: [{ type: 'attach', targetTag: 'body', offsetX: 90, offsetY: 100, followAngle: true }] }),
+        rect('body', 260, 400, 200, 200, { tags: ['body'], behaviors: [turning(90)] }),
+        // A runner whose resting and walking pictures fade into each other over 0.2 s.
+        { ...rect('runner', 300, 900, 80, 80), visual: { kind: 'image', asset: 'a', moveFrames: ['b'], blend: 0.2 }, behaviors: [{ type: 'walker', speed: 200, control: 'buttons', leftTag: '', rightTag: '' }] },
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, playerUrl, { project });
+  await until(page, () => window.__game, null, 30000);
+  const r = await page.evaluate(() => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    const find = (id) => g.entities.find((e) => e.def.id === id);
+    const [body, arm, hand, runner] = ['body', 'arm', 'hand', 'runner'].map(find);
+    const fadingAt = [];
+    // Standing still, then walking: the resting picture fades out under the walking one.
+    for (let i = 0; i < 10; i++) g.advance(1 / 60);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', bubbles: true }));
+    for (let i = 0; i < 6; i++) {
+      g.advance(1 / 60);
+      fadingAt.push(runner.fading ? Math.round((runner.fading.sprite.alpha) * 100) / 100 : null);
+    }
+    // Half a second: the body has turned 45°.
+    for (let i = 0; i < 24; i++) g.advance(1 / 60);
+    const centre = (e) => ({ x: e.x + e.width / 2, y: e.y + e.height / 2 });
+    // Where each should be, from its parent's middle and turn.
+    const expect = (parent, child, ox, oy) => {
+      const c = centre(parent);
+      const lx = ox + child.width / 2 - parent.width / 2;
+      const ly = oy + child.height / 2 - parent.height / 2;
+      return { x: c.x + lx * Math.cos(parent.angle) - ly * Math.sin(parent.angle), y: c.y + lx * Math.sin(parent.angle) + ly * Math.cos(parent.angle) };
+    };
+    const off = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const result = {
+      bodyAngle: (body.angle * 180) / Math.PI,
+      armAngle: (arm.angle * 180) / Math.PI,
+      handAngle: (hand.angle * 180) / Math.PI,
+      armOff: off(centre(arm), expect(body, arm, 90, 100)),
+      handOff: off(centre(hand), expect(arm, hand, 0, 100)),
+      fadingAt,
+      fadingLater: runner.fading ? 'still there' : null,
+    };
+    g.app.ticker.start();
+    return result;
+  });
+  check('nested bones: the arm turns with the body, and the hand with the arm', Math.abs(r.armAngle - r.bodyAngle) < 0.01 && Math.abs(r.handAngle - r.bodyAngle) < 0.01 && r.bodyAngle > 40, JSON.stringify(r));
+  check('nested bones: each keeps its place on its parent as it turns, with no step of lag (within 0.5 px)', r.armOff < 0.5 && r.handOff < 0.5, JSON.stringify(r));
+  check('animations fade into each other: the old picture fades out over the blend time, then goes', r.fadingAt.some((a) => a !== null && a > 0 && a < 1) && r.fadingLater === null, JSON.stringify(r.fadingAt));
+  check('bones and blending: no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
 }
 
