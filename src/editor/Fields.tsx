@@ -8,6 +8,7 @@ import { BUILTIN_MUSIC_OPTIONS, SOUND_LABEL, type Context, type Field } from './
 import { SpriteGrid } from './Library';
 import { Dialog } from './Pick';
 import { allTags, messageNames, valueNames } from './state';
+import { namesOf } from '../blocks/fields';
 
 /**
  * A picture chosen in a field that the game does not have yet. The panel that
@@ -319,6 +320,24 @@ function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
             return <TextField {...common} value={v as string} onChange={set} />;
           case 'message':
             return <TextField {...common} value={v as string} list={messageNames(scene)} onChange={(text) => set(text.trim())} />;
+          // Functions and questions (Phase 4): any name, offering the ones the scene already has.
+          case 'function':
+            return <TextField {...common} value={v as string} list={namesOf(scene, 'called')} onChange={(text) => set(text.trim())} />;
+          case 'check':
+            return <TextField {...common} value={v as string} list={namesOf(scene, 'asked')} onChange={(text) => set(text.trim())} />;
+          case 'list': {
+            const lists = (project.lists ?? []).map((l) => ({ value: l.name, label: `${l.name} (${l.kind === 'text' ? 'متنی' : 'عددی'})` }));
+            return <Select {...common} value={v as string} options={lists.length ? lists : [{ value: v as string, label: 'هنوز فهرستی نیست' }]} onChange={set} />;
+          }
+          case 'anyValue':
+            return (
+              <Select
+                {...common}
+                value={v as string}
+                options={[...variableOptions, ...(project.textVariables ?? []).map((x) => ({ value: x.name, label: `${x.name} (متنی)` }))]}
+                onChange={set}
+              />
+            );
           case 'music':
             return (
               <Select

@@ -370,6 +370,8 @@ export interface GameState {
   /** Seconds since the current scene started. */
   time: number;
   variables: Record<string, number | string>;
+  /** The game's lists, item by item (Phase 4). */
+  lists: Record<string, (number | string)[]>;
   selection: string | null;
   /** Everything selected in edit mode; `selection` is the last of these. */
   selected: string[];
@@ -561,6 +563,10 @@ export class Game {
 
   entities: Entity[] = [];
   readonly textVariables = new Map<string, string>();
+  /** The game's lists of numbers or text (Phase 4); they start again with the game, never kept on the device. */
+  readonly lists = new Map<string, (number | string)[]>();
+  /** How deep functions and questions are calling each other now; a call past 32 deep is not made. */
+  private callDepth = 0;
   readonly variables = new Map<string, number>();
   readonly camera: Point = { x: 0, y: 0 };
   time = 0;
@@ -1145,6 +1151,7 @@ export class Game {
       scene: this.scene.id,
       time: this.time,
       variables: Object.fromEntries([...this.variables, ...this.textVariables]),
+      lists: Object.fromEntries([...this.lists].map(([name, items]) => [name, [...items]])),
       selection: this.selection,
       selected: [...this.selected],
       zoom: this.zoom,
@@ -1253,6 +1260,7 @@ export class Game {
       this.variables.clear();
       this.textVariables.clear();
     }
+    for (const l of this.project.lists ?? []) this.lists.set(l.name, [...l.initial]);
     for (const v of this.project.textVariables ?? []) {
       if (v.saved && !includeSaved) continue;
       let text = v.initial;
@@ -2666,7 +2674,7 @@ export class Game {
   }
 
   /** Notes for the try-out tools that a rule's trigger happened; the same rule again straight after is counted, not listed twice. */
-  private logRule(rule: string, ran: boolean): void {
+  logRule(rule: string, ran: boolean): void {
     if (this.mode.kind !== 'play') return;
     const last = this.ruleLog.at(-1);
     if (last && last.rule === rule && last.ran === ran && last.scene === this.scene.id) {
@@ -3201,12 +3209,85 @@ export class Game {
     return Math.floor(low + Math.random() * (high - low + 1));
   }
 
+  // ── Functions, questions and lists (Phase 4) ─────────────────────────────
+
+  /** The rules of this scene that are functions (trigger "called") or questions ("asked") of this name. */
+  private named(type: 'called' | 'asked', name: string): Rule[] {
+    return this.scene.rules.filter((r) => (r.when.type === 'called' || r.when.type === 'asked') && r.when.type === type && r.when.name === name);
+  }
+
+  /** A function's or question's inputs are game values, filled from what the caller gives, worked out in its context. */
+  private fillInputs(rule: Rule, given: (Amount | undefined)[], context: Context): void {
+    const when = rule.when as { in1?: string; in2?: string; in3?: string };
+    const names = [when.in1, when.in2, when.in3];
+    // Every amount first, then every value: an input may be given another input's old value.
+    const values = given.map((a) => (a === undefined ? undefined : this.amount(a, context)));
+    names.forEach((name, i) => {
+      if (name && values[i] !== undefined) this.setValueOf(name, values[i]!);
+    });
+  }
+
+  /** Runs every function of this name in the scene, now, about the same objects as the rule that calls it. */
+  callFunction(name: string, given: (Amount | undefined)[], context: Context): void {
+    if (this.callDepth >= 32) return;
+    this.callDepth += 1;
+    try {
+      for (const rule of this.named('called', name)) {
+        this.fillInputs(rule, given, context);
+        const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
+        this.logRule(rule.id, ran);
+        if (ran) this.runActions(rule.then, context);
+        else if (rule.otherwise?.length) this.runActions(rule.otherwise, context);
+      }
+    } finally {
+      this.callDepth -= 1;
+    }
+  }
+
+  /** A question's answer: yes when the first rule asked so has all its conditions holding (no such rule: no). */
+  private ask(condition: Condition, context: Context): boolean {
+    const rule = this.named('asked', condition.check ?? '')[0];
+    if (!rule || this.callDepth >= 32) return false;
+    this.callDepth += 1;
+    try {
+      this.fillInputs(rule, [condition.a1, condition.a2, condition.a3], context);
+      const yes = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
+      this.logRule(rule.id, yes);
+      return yes;
+    } finally {
+      this.callDepth -= 1;
+    }
+  }
+
+  /** A list's items (the list itself, to change); an empty one for a name the game has no list of. */
+  list(name: string): (number | string)[] {
+    let items = this.lists.get(name);
+    if (!items) {
+      items = [];
+      this.lists.set(name, items);
+    }
+    return items;
+  }
+
+  /** Whether a list holds text rather than numbers. */
+  listIsText(name: string): boolean {
+    return this.project.lists?.find((l) => l.name === name)?.kind === 'text';
+  }
+
+  /** Puts an item into a value: a number into a game value, text into a text value. */
+  putItem(into: string, item: number | string | undefined, text: boolean): void {
+    if (text) this.setTextVariable(into, item === undefined ? '' : String(item));
+    else this.setValueOf(into, typeof item === 'number' ? item : Number(item) || 0);
+    this.valuesChanged = true;
+  }
+
   compare(name: string, op: Comparison, value: number): boolean {
     return test(this.variables.get(name) ?? 0, op, value);
   }
 
   /** Whether a rule's condition holds, for the objects this firing of the rule is about. */
   private holds(condition: Condition, context: Context): boolean {
+    if (condition.check !== undefined) return this.ask(condition, context) === (condition.answer ?? true);
     const than = this.amount(condition.value, context);
     if (condition.of === undefined) return this.compare(condition.name, condition.op, than);
     const subject = this.targets(condition.of, context)[0];

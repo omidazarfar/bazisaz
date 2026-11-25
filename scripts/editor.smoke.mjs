@@ -1784,6 +1784,35 @@ lv = await levelsOf('puzzle');
 const board = (s) => s.objects.filter((o) => o.tags.includes('مهره')).sort((a, b) => a.y - b.y || a.x - b.x).map((o) => o.values?.kind).join('');
 check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
 
+// ── Functions and lists, made in the editor (Phase 4) ─────────────────────
+{
+  await freshGame();
+  await click('بازی', '.tabs');
+  await page.select('select[aria-label="نوع مقدار تازه"]', 'list');
+  await page.type('input[aria-label="نام مقدار تازه"]', 'deck');
+  await page.keyboard.press('Enter');
+  await sleep(200);
+  await page.click('[data-list="deck"] input');
+  await page.keyboard.type('3, 5, 8');
+  await sleep(200);
+  const lists = (await editor()).project.lists;
+  check('a number list is made in the game tab, its first items typed with commas', lists.length === 1 && lists[0].kind === 'number' && JSON.stringify(lists[0].initial) === '[3,5,8]', JSON.stringify(lists));
+  await page.select('select[aria-label="نوع مقدار تازه"]', 'number');
+  await page.type('input[aria-label="نام مقدار تازه"]', 'points');
+  await page.keyboard.press('Enter');
+  await click('قانون‌ها', '.tabs');
+  await newRule('called');
+  const caller = await newRule('tap');
+  await addAction(caller, 'call');
+  await addAction(caller, 'listAdd');
+  // Closed, a rule reads as sentences.
+  await click('بستن', `article.rule[data-rule="${caller}"]`);
+  const said = await page.$eval(`.rule-closed[data-rule="${caller}"]`, (el) => el.textContent);
+  check('a rule calls the function and adds to the list, in sentences', said.includes('تابع «تابع 1» را اجرا کن') && said.includes('فهرست deck اضافه کن'), said);
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('a game with a function and a list has nothing that stops it running', problems.length === 0, problems.join(' | '));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

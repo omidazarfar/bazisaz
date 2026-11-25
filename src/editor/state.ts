@@ -353,6 +353,11 @@ export function syncTemplates(before: GameProject, after: GameProject): GameProj
   };
 }
 
+/** Whether any rule uses a list (Phase 4), so it is not removed from under them. */
+export function isListUsed(project: GameProject, name: string): boolean {
+  return project.scenes.some((s) => s.rules.some((r) => ruleActions(r).some((a) => 'list' in a && a.list === name)));
+}
+
 export function isVariableUsed(project: GameProject, name: string): boolean {
   return project.scenes.some(
     (s) =>
@@ -361,13 +366,16 @@ export function isVariableUsed(project: GameProject, name: string): boolean {
         (r) =>
           ((r.when.type === 'variable' || r.when.type === 'textEquals') && r.when.name === name) ||
           ((r.when.type === 'useItem' || r.when.type === 'useItemOn') && r.when.item === name) ||
+          // A function's or question's inputs (Phase 4).
+          ((r.when.type === 'called' || r.when.type === 'asked') && [r.when.in1, r.when.in2, r.when.in3].includes(name)) ||
           [r.condition, ...(r.also ?? [])].some((c) => c && c.of === undefined && c.name === name) ||
           ruleActions(r).some(
             (a) =>
               (a.type === 'setTextVariable' && a.name === name) ||
               (a.type === 'setText' && a.text.includes(`{${name}}`)) ||
               (a.type === 'setVariable' && (a.name === name || (typeof a.amount === 'object' && 'variable' in a.amount && a.amount.variable === name))) ||
-              ((a.type === 'give' || a.type === 'take') && a.item === name),
+              ((a.type === 'give' || a.type === 'take') && a.item === name) ||
+              ((a.type === 'listGet' || a.type === 'listCount' || a.type === 'forEach') && a.into === name),
           ),
       ),
   );

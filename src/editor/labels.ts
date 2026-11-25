@@ -1,5 +1,5 @@
 import type { Action, Behavior, Trigger } from '../format/types';
-import { COMPARE, fa, hasPrefabs, hasTexts, LOOK_OPTIONS, SOUND_LABEL, type Block, type Context, type Field, type Option } from '../blocks/fields';
+import { ARGUMENT_FIELDS, COMPARE, fa, hasPrefabs, hasTexts, LOOK_OPTIONS, SOUND_LABEL, type Block, type Context, type Field, type Option } from '../blocks/fields';
 import { ACTION_BLOCKS, BEHAVIOR_BLOCKS, TRIGGER_BLOCKS } from '../blocks/registry';
 
 export { fa, LOOK_OPTIONS, SOUND_LABEL, type Context, type Field };
@@ -90,6 +90,13 @@ export const OBJECT_CONDITION_FIELDS: Field[] = [
   { key: 'value', label: 'با', kind: 'amount' },
 ];
 
+/** A condition that asks a yes/no question the user made (Phase 4). */
+export const CHECK_CONDITION_FIELDS: Field[] = [
+  { key: 'check', label: 'کدام پرسش', kind: 'check' },
+  { key: 'answer', label: 'جوابش «بله» باشد', hint: 'خاموش یعنی فقط وقتی جواب «نه» است.', kind: 'bool', fallback: true },
+  ...ARGUMENT_FIELDS,
+];
+
 // Every action is a block in its own file (src/blocks/actions/), which describes itself.
 export const ACTIONS = Object.fromEntries(ACTION_BLOCKS.map((b) => [b.type, b.editor])) as { [K in Action['type']]: Block<Extract<Action, { type: K }>> };
 
@@ -129,6 +136,7 @@ export const TRIGGER_GROUPS = withRest<Trigger['type']>([
   { title: 'جورچین و منطق', types: ['message', 'value', 'line'] },
   { title: 'مقدارها و تبلیغ', types: ['variable', 'textEquals', 'reward'] },
   { title: 'کوله‌پشتی', types: ['useItem', 'useItemOn'] },
+  { title: 'تابع و پرسش خودت', types: ['called', 'asked'] },
 ], TRIGGER_BLOCKS);
 
 export const ACTION_GROUPS = withRest<Action['type']>([
@@ -143,6 +151,7 @@ export const ACTION_GROUPS = withRest<Action['type']>([
   { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },
   { title: 'تبلیغ', types: ['showAd', 'showRewardedAd'] },
+  { title: 'تابع و فهرست خودت', types: ['call', 'listAdd', 'listRemove', 'listGet', 'listCount', 'forEach'] },
 ], ACTION_BLOCKS);
 
 const NEEDS_PREFAB = 'اول در فهرست «چیزهایی که حین بازی ساخته می‌شوند» یک شیء بساز.';

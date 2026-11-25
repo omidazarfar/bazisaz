@@ -120,6 +120,10 @@ import { moves } from './behaviors/moves';
 import { steer } from './behaviors/steer';
 import { followFinger } from './behaviors/followFinger';
 import { draggable } from './behaviors/draggable';
+import { call } from './actions/call';
+import { forEach, listAdd, listCount, listGet, listRemove } from './actions/lists';
+import { asked } from './triggers/asked';
+import { called } from './triggers/called';
 import type { ActionBlock, BehaviorBlock, TriggerBlock } from './types';
 
 /**
@@ -156,6 +160,8 @@ const blocks = [
   blast,
   // Bag; words; waiting.
   give, take, say, wait,
+  // Functions and lists (Phase 4).
+  call, listAdd, listRemove, listGet, listCount, forEach,
 ] as const;
 export const ACTION_BLOCKS = blocks as unknown as readonly ActionBlock[];
 
@@ -185,6 +191,8 @@ const triggers = [
   variable, textEquals, reward,
   // Bag.
   useItem, useItemOn,
+  // Functions and questions (Phase 4).
+  called, asked,
 ] as const;
 export const TRIGGER_BLOCKS = triggers as unknown as readonly TriggerBlock[];
 

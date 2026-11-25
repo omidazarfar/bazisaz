@@ -3,10 +3,11 @@ import type { Action, Condition, GameProject, Rule, Trigger } from '../format/ty
 import type { Editor } from './editor';
 import { Fields, isNewPicture, type NewPicture } from './Fields';
 import { useSprite } from './sprites';
-import { ACTION_GROUPS, ACTIONS, COMMON_ACTIONS, COMMON_TRIGGERS, CONDITION_FIELDS, OBJECT_CONDITION_FIELDS, TRIGGER_GROUPS, TRIGGERS, whyNot, type Context } from './labels';
+import { ACTION_GROUPS, ACTIONS, COMMON_ACTIONS, COMMON_TRIGGERS, CHECK_CONDITION_FIELDS, CONDITION_FIELDS, OBJECT_CONDITION_FIELDS, TRIGGER_GROUPS, TRIGGERS, whyNot, type Context } from './labels';
 import { PickButton, type PickGroup } from './Pick';
 import { actionSentence, conditionSentence, subjectsOf, triggerSentence } from './sentences';
 import { newId, updateScene, valueNames } from './state';
+import { namesOf } from '../blocks/fields';
 
 /** The action being dragged in a rule, by its list and place. */
 let dragging: { which: string; index: number } | null = null;
@@ -206,11 +207,11 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
               {conditions.map((c, i) => (
                 <div key={i} className="action" data-condition={i}>
                   <div className="action-head">
-                    <strong>{c.of === undefined ? 'یک مقدار بازی' : 'مقدار یک شیء'}</strong>
+                    <strong>{c.check !== undefined ? 'پرسش خودت' : c.of === undefined ? 'یک مقدار بازی' : 'مقدار یک شیء'}</strong>
                     <button type="button" className="link" onClick={() => setConditions(conditions.filter((_, j) => j !== i), `condition.remove.${i}`)}>حذف</button>
                   </div>
                   <Fields
-                    fields={c.of === undefined ? CONDITION_FIELDS : OBJECT_CONDITION_FIELDS}
+                    fields={c.check !== undefined ? CHECK_CONDITION_FIELDS : c.of === undefined ? CONDITION_FIELDS : OBJECT_CONDITION_FIELDS}
                     value={c as unknown as Record<string, unknown>}
                     ctx={ctx}
                     subjects={subjects}
@@ -234,6 +235,11 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
                 >
                   + شرط روی مقدار یک شیء
                 </button>
+                {namesOf(scene, 'asked').length > 0 && (
+                  <button type="button" className="chip" data-add-check onClick={() => setConditions([...conditions, { name: '', op: '==', value: 1, check: namesOf(scene, 'asked')[0], answer: true }], `condition.add.${conditions.length}`)}>
+                    + شرط با یک پرسش
+                  </button>
+                )}
               </div>
             </div>
             )}

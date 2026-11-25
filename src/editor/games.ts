@@ -240,7 +240,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   const CELL = 80;
   const cols = Math.ceil((W * 5) / CELL);
   const rows = Math.max(8, Math.floor(H / CELL));
-  let p = withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0);
+  let p = withNumber(withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0), 'points', 0);
   p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(s.width, cols * CELL), height: Math.max(s.height, rows * CELL), sky: 'day', music: 'music:adventure', gravity: 2400 }));
   const coin = await art(p, 'coin');
   p = coin.project;
@@ -329,17 +329,30 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
 
   const screen = await screens(p, sceneId, { name: 'SKY QUEST', hero: 'hero', sky: 'sunset', music: 'music:happy' });
   p = screen.project;
+  // Every prize does the same few things with a different number of points: one function, "reward", with
+  // the points as its input (Phase 4), called by the coin, the gem, the squashed enemy and the trophy.
+  const REWARD = 'جایزه';
+  const reward = (points: number): Action => ({ type: 'call', name: REWARD, a1: points });
+  const prize = (tag: string, points: number, sound: 'coin' | 'powerup', color: string) => rule({ type: 'touch', a: byTag(PLAYER), b: byTag(tag) }, [
+    { type: 'burst', target: 'second', color, count: points > 1 ? 22 : 10 },
+    reward(points),
+    { type: 'destroy', target: 'second' },
+    { type: 'playSound', sound },
+  ]);
   p = withRules(p, sceneId,
-    prizeRule(COIN, 1, 'coin', '#ffd23f'),
-    prizeRule(GEM, 10, 'powerup', '#7fe8ff'),
+    rule({ type: 'called', name: REWARD, in1: 'points' }, [
+      { type: 'floatText', target: 'second', text: '+{points}', color: '#ffe066', size: 42 },
+      { type: 'setVariable', name: 'score', op: 'add', amount: { variable: 'points' } },
+    ]),
+    prize(COIN, 1, 'coin', '#ffd23f'),
+    prize(GEM, 10, 'powerup', '#7fe8ff'),
     // Jumping on an enemy squashes it and bounces the hero up; running into it hurts.
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'above' }, [
       { type: 'burst', target: 'second', color: '#8be04e', count: 18 },
       { type: 'effect', target: 'second', kind: 'shrink', seconds: 0.2 },
       { type: 'jump', target: 'first' },
-      { type: 'floatText', target: 'second', text: '+5', color: '#c5f27a', size: 40 },
+      reward(5),
       { type: 'achieve', name: 'Stomper' },
-      { type: 'setVariable', name: 'score', op: 'add', amount: 5 },
       { type: 'playSound', sound: 'pop' },
       { type: 'shake', strength: 6, axis: 'up' },
     ]),
@@ -355,7 +368,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(GOAL) }, [
       { type: 'burst', target: 'second', color: '#ffd23f', count: 40 },
       { type: 'playSound', sound: 'win' },
-      { type: 'setVariable', name: 'score', op: 'add', amount: 25 },
+      reward(25),
       { type: 'wait', seconds: 1.2 },
       { type: 'goToScene', scene: screen.win },
     ]),

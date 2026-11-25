@@ -72,7 +72,8 @@ async function withEditor(job) {
 /** The smallest game that runs: one empty scene with gravity, a score, and its sizes. Objects and rules are the agent's. */
 function blank(name) {
   return {
-    formatVersion: 2,
+    formatVersion: 3,
+    lists: [],
     meta: { name, orientation: 'portrait', width: 720, height: 1280, background: '#8fd3f4', fontFamily: 'Fredoka', transition: 'fade' },
     app: { appId: `com.example.${name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'game'}`, versionCode: 1, versionName: '1.0', icon: null },
     ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },

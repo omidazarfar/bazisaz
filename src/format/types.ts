@@ -14,7 +14,8 @@
  * The origin is the top-left corner and y grows downward.
  */
 
-export const FORMAT_VERSION = 2;
+/** 3: `lists` (Phase 4). See src/format/migrate.ts for how older projects are brought up to date. */
+export const FORMAT_VERSION = 3;
 
 export interface GameProject {
   formatVersion: typeof FORMAT_VERSION;
@@ -28,6 +29,8 @@ export interface GameProject {
   variables: Variable[];
   /** Named text shared by scenes; shown with {name}, like a score. */
   textVariables?: { name: string; initial: string; saved: boolean }[];
+  /** Lists of numbers or of text, such as the cards still in the deck or the names of the levels won (format 3). */
+  lists: ListVariable[];
   scenes: Scene[];
   /** Id of the scene the game opens with. */
   startScene: string;
@@ -96,6 +99,14 @@ export interface SoundAsset {
 export const FONTS = ['Fredoka', 'Bangers', 'Press Start 2P'] as const;
 
 /** A number the game keeps track of. Texts show it by writing {name}. */
+/** A list the game keeps: numbers or text, in order. Its items are numbered from 1. */
+export interface ListVariable {
+  name: string;
+  kind: 'number' | 'text';
+  /** The items it starts with. */
+  initial: (number | string)[];
+}
+
 export interface Variable {
   name: string;
   initial: number;
@@ -1033,6 +1044,16 @@ export interface Condition {
   value: Amount;
   /** Whose value `name` is. Absent: `name` is one of the game's variables. */
   of?: Target;
+  /**
+   * Asks a yes/no question the user made: a rule "when asked «check»" in the scene, whose own conditions are the
+   * answer (Phase 4). `name`, `op` and `value` are then not used. Its inputs are a1–a3.
+   */
+  check?: string;
+  /** The answer that lets the rule run: yes (the default) or no. */
+  answer?: boolean;
+  a1?: Amount;
+  a2?: Amount;
+  a3?: Amount;
 }
 
 /**

@@ -123,7 +123,8 @@ export function App({ saved }: { saved: GameProject | null }) {
     if (!paintable && view.tool === 'paint') setView((v) => ({ ...v, tool: 'select' }));
   }, [paintable, view.tool]);
   const open = (next: GameProject) => {
-    dispatch({ type: 'open', project: next });
+    // A game of an older format (a test, a file an agent wrote) is made current first (src/format/migrate.ts).
+    dispatch({ type: 'open', project: migrate(next) });
     setPlaying(null);
     setProblem(null);
     setNotice(null);

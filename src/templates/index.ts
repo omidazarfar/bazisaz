@@ -1,4 +1,4 @@
-import type { Behavior, GameObject, GameProject, Rule, Scene, Visual } from '../format/types';
+import { FORMAT_VERSION, type Behavior, type GameObject, type GameProject, type Rule, type Scene, type Visual } from '../format/types';
 
 /**
  * Example games, and the empty game every new project starts as.
@@ -33,7 +33,8 @@ const mover = (vx: number, vy: number, atEdge: 'nothing' | 'remove' | 'wrap'): B
 
 function project(name: string, appId: string, background: string, rest: Pick<GameProject, 'variables' | 'scenes' | 'startScene'>): GameProject {
   return {
-    formatVersion: 2,
+    formatVersion: FORMAT_VERSION,
+    lists: [],
     meta: { name, orientation: 'portrait', width: 720, height: 1280, background, fontFamily: 'Fredoka' },
     app: { appId, versionCode: 1, versionName: '1.0', icon: null },
     ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },

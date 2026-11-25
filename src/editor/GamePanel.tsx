@@ -8,7 +8,7 @@ import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextFi
 import type { GameProject } from '../format/types';
 import type { Editor } from './editor';
 import { pickFile, pickFiles, readDataUrl, readImage } from './images';
-import { isVariableUsed, keepVersion, listVersions, newId, removeScene, updateScene, type Version } from './state';
+import { isListUsed, isVariableUsed, keepVersion, listVersions, newId, removeScene, updateScene, type Version } from './state';
 import { SfxMaker } from './SfxMaker';
 import { MusicMaker } from './MusicMaker';
 import { SceneMap } from './SceneMap';
@@ -22,6 +22,29 @@ const nameFromSprite = (id: string) => id.replace(/^btn-/, '').split('-').map((w
 
 type GameAssets = GameProject['assets'];
 
+/**
+ * A list's first items, typed with commas between them. What is typed is kept as it is while typing (a comma
+ * that has nothing after it yet would otherwise vanish); each change is saved as the items it gives.
+ */
+function ListItems({ initial, kind, onChange }: { initial: (number | string)[]; kind: 'number' | 'text'; onChange: (items: (number | string)[]) => void }) {
+  const [draft, setDraft] = useState(() => initial.map(String).join('، '));
+  const read = (text: string) => {
+    const parts = text.split(/[,،]/).map((s) => s.trim()).filter((s) => s !== '');
+    return kind === 'number' ? parts.map(Number).filter((n) => Number.isFinite(n)) : parts;
+  };
+  return (
+    <TextField
+      label="چیزهای اول بازی (با ویرگول جدا کن)"
+      dir={kind === 'text' ? 'auto' : 'ltr'}
+      value={draft}
+      onChange={(text) => {
+        setDraft(text);
+        onChange(read(text));
+      }}
+    />
+  );
+}
+
 /** Settings of the whole game: identity, the current scene, variables, the Android app, and ads. */
 export function GamePanel({ editor }: { editor: Editor }) {
   const { project, scene, change } = editor;
@@ -29,7 +52,8 @@ export function GamePanel({ editor }: { editor: Editor }) {
   const [newVariable, setNewVariable] = useState('');
   const [variableKind, setVariableKind] = useState('number');
   const texts = project.textVariables ?? [];
-  const allVariables = [...project.variables, ...texts];
+  const lists = project.lists ?? [];
+  const allVariables = [...project.variables, ...texts, ...lists];
   const variableError =
     newVariable === '' ? null
     : !/^[A-Za-z_][A-Za-z0-9_]*$/.test(newVariable) ? 'نام باید با حروف انگلیسی باشد، بدون فاصله؛ مثل lives'
@@ -59,7 +83,9 @@ export function GamePanel({ editor }: { editor: Editor }) {
     if (variableError || newVariable === '') return;
     const next = variableKind === 'text'
       ? { ...project, textVariables: [...texts, { name: newVariable, initial: '', saved: false }] }
-      : { ...project, variables: [...project.variables, { name: newVariable, initial: 0, saved: false }] };
+      : variableKind === 'list' || variableKind === 'textList'
+        ? { ...project, lists: [...lists, { name: newVariable, kind: variableKind === 'list' ? ('number' as const) : ('text' as const), initial: [] }] }
+        : { ...project, variables: [...project.variables, { name: newVariable, initial: 0, saved: false }] };
     change(next, `variable.add.${newVariable}`);
     setNewVariable('');
   };
@@ -435,9 +461,27 @@ export function GamePanel({ editor }: { editor: Editor }) {
             <Check label="روی گوشی بماند" value={v.saved} onChange={saved => edit({ saved }, 'saved')} />
           </div>;
         })}
+        {lists.map((l) => {
+          const used = isListUsed(project, l.name);
+          const setItems = (initial: (number | string)[]) =>
+            change({ ...project, lists: lists.map((x) => (x.name === l.name ? { ...x, initial } : x)) }, `list.${l.name}.initial`);
+          return (
+            <div className="variable" key={l.name} data-list={l.name}>
+              <div className="variable-head">
+                <bdi dir="ltr" className="variable-name">{l.name}</bdi>
+                <span className="control-hint">فهرست {l.kind === 'text' ? 'متنی' : 'عددی'}</span>
+                <button type="button" className="link link-danger" disabled={used} title={used ? 'یک قانون از این فهرست استفاده می‌کند.' : undefined}
+                  onClick={() => change({ ...project, lists: lists.filter((x) => x.name !== l.name) }, `list.remove.${l.name}`)}>
+                  {used ? 'در حال استفاده' : 'حذف'}
+                </button>
+              </div>
+              <ListItems initial={l.initial} kind={l.kind} onChange={setItems} />
+            </div>
+          );
+        })}
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); addVariable(); }}>
           <select aria-label="نوع مقدار تازه" value={variableKind} onChange={e => setVariableKind(e.target.value)}>
-            <option value="number">عدد</option><option value="text">متن</option>
+            <option value="number">عدد</option><option value="text">متن</option><option value="list">فهرست عددها</option><option value="textList">فهرست متن‌ها</option>
           </select>
           <input type="text" dir="ltr" aria-label="نام مقدار تازه" placeholder={variableKind === 'text' ? 'quest' : 'lives'} value={newVariable} onChange={(e) => setNewVariable(e.target.value.trim())} />
           <button type="submit" className="chip" disabled={Boolean(variableError) || newVariable === ''}>مقدار تازه</button>

@@ -21,6 +21,10 @@ export interface SentenceKit {
 /** What a check may need: the project, a way to report a problem (said after where it is), and the common checks. */
 export interface CheckKit {
   project: GameProject;
+  /** The scene the rule is in. */
+  scene: Scene;
+  /** The name must be one of the game's lists. */
+  needList: (name: string) => void;
   say: (problem: string) => void;
   /** A ref to one object must name an object that exists. */
   checkRef: (ref: Ref | Place) => void;

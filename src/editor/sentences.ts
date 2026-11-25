@@ -54,6 +54,10 @@ export function describeObject(scene: Scene, object: GameObject): string[] {
 export function conditionSentence(scene: Scene, c: Condition, subjects: Subjects): string {
   const who = (target: Place) =>
     target === 'tap' ? 'جای لمس' : target === 'first' ? (subjects.first ?? 'همان شیء') : target === 'second' ? (subjects.second ?? 'همان شیء دوم') : describeRef(scene, target);
+  if (c.check !== undefined) {
+    const given = [c.a1, c.a2, c.a3].filter((x) => x !== undefined).map((x) => amountText(x!, who));
+    return `جواب پرسش «${c.check || '؟'}»${given.length ? ` (با ${given.join('، ')})` : ''} «${c.answer === false ? 'نه' : 'بله'}» باشد`;
+  }
   const left = c.of === undefined ? c.name : `${c.name}ِ ${who(c.of)}`;
   return `${left} ${OP_WORD[c.op]} ${amountText(c.value, who)} باشد`;
 }

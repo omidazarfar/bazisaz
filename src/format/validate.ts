@@ -47,6 +47,21 @@ export function validateProject(project: GameProject): string[] {
     if (variables.has(v.name) || texts.has(v.name)) say(`Variable "${v.name}" is defined more than once.`);
     texts.add(v.name);
   }
+  // Lists (format 3): a name like a variable's, numbers or text, and items of that kind.
+  const listNames = new Set<string>();
+  if (!Array.isArray(project.lists)) {
+    say('lists must be a list.');
+    return problems;
+  }
+  for (const l of project.lists) {
+    if (!l || typeof l.name !== 'string' || !VARIABLE_NAME.test(l.name) || (l.kind !== 'number' && l.kind !== 'text') || !Array.isArray(l.initial)) {
+      say('A list needs a valid name, a kind (number or text) and its starting items.');
+      continue;
+    }
+    if (listNames.has(l.name) || variables.has(l.name) || texts.has(l.name)) say(`"${l.name}" is defined more than once.`);
+    if (l.initial.some((item) => typeof item !== (l.kind === 'number' ? 'number' : 'string'))) say(`List "${l.name}" starts with an item that is not ${l.kind === 'number' ? 'a number' : 'text'}.`);
+    listNames.add(l.name);
+  }
   const checkText = (name: string, text: string, where: string) => {
     if (!texts.has(name)) say(`${where} uses missing text variable "${name}".`);
     if (typeof text !== 'string') say(`${where} needs a text value.`);
@@ -139,6 +154,10 @@ export function validateProject(project: GameProject): string[] {
       // What every block checks with; a problem is said after where the rule is.
       const kit: CheckKit = {
         project,
+        scene,
+        needList: (list) => {
+          if (!listNames.has(list)) say(`${where}: ${name} uses list "${list}", which the game does not have.`);
+        },
         say: (problem) => say(`${where}: ${name} ${problem}`),
         checkRef: (ref) => checkRef(ref, name),
         needVariable: (variable) => needVariable(variable, `${where}: ${name}`),
@@ -152,10 +171,15 @@ export function validateProject(project: GameProject): string[] {
       triggerBlocks.get(w.type)?.check?.(w as never, kit);
       for (const condition of [rule.condition, ...(rule.also ?? [])]) {
         if (!condition) continue;
+        const amounts = [condition.value, condition.a1, condition.a2, condition.a3];
+        if (condition.check !== undefined) {
+          // A question the user made: some rule of the scene must answer it.
+          if (!scene.rules.some((r) => r.when.type === 'asked' && r.when.name === condition.check)) {
+            say(`${where}: ${name} asks "${condition.check}", which no rule of the scene answers.`);
+          }
+        } else if (condition.of === undefined) needVariable(condition.name, `${where}: ${name}`);
         // A condition about an object's own value names no game variable.
-        if (condition.of === undefined) needVariable(condition.name, `${where}: ${name}`);
-        const than = condition.value;
-        if (typeof than === 'object' && 'variable' in than) needVariable(than.variable, `${where}: ${name}`);
+        for (const than of amounts) if (typeof than === 'object' && than !== null && 'variable' in than) needVariable(than.variable, `${where}: ${name}`);
       }
 
       for (const a of ruleActions(rule)) {

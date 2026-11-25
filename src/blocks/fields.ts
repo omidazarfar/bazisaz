@@ -54,6 +54,13 @@ export type Field = {
   | { kind: 'text' }
   /** The name of a message one rule sends to others. */
   | { kind: 'message' }
+  /** The name of a function (a rule "when function … is run") or a question ("when asked …"), Phase 4. */
+  | { kind: 'function' }
+  | { kind: 'check' }
+  /** One of the game's lists. */
+  | { kind: 'list' }
+  /** One of the game's values, of numbers or of text. */
+  | { kind: 'anyValue' }
 );
 
 /** What a new block can look at to start with values that already work. */
@@ -156,3 +163,29 @@ export const groundTag = ({ scene }: Context): string => {
 };
 export const moving = (v: Record<string, unknown>) => v.kind !== 'still';
 export const custom = (v: Record<string, unknown>) => !v.material || v.material === 'custom';
+
+/** The names of the functions (rules "when function … is run") or questions ("when asked …") of a scene. */
+export const namesOf = (scene: Scene, type: 'called' | 'asked'): string[] => [
+  ...new Set(scene.rules.flatMap((r) => ((r.when.type === 'called' || r.when.type === 'asked') && r.when.type === type && r.when.name ? [r.when.name] : []))),
+];
+
+/** The input fields of a function or question: up to three game values it is given. */
+export const INPUT_FIELDS: Field[] = [1, 2, 3].map((i) => ({
+  key: `in${i}`,
+  label: `ورودی ${['اول', 'دوم', 'سوم'][i - 1]}`,
+  hint: i === 1 ? 'یک مقدار بازی که موقع اجرا با عددی که قانونِ اجراکننده می‌دهد پر می‌شود؛ مثلاً «ارتفاع». خالی یعنی ورودی ندارد.' : undefined,
+  kind: 'variable',
+  optional: true,
+  fallback: '',
+  advanced: i > 1,
+}));
+
+/** What a caller gives a function or question: one amount for each of its inputs. */
+export const ARGUMENT_FIELDS: Field[] = [1, 2, 3].map((i) => ({
+  key: `a${i}`,
+  label: `برای ورودی ${['اول', 'دوم', 'سوم'][i - 1]}`,
+  hint: i === 1 ? 'عددی که در ورودی اول تابع گذاشته می‌شود. اگر تابع ورودی ندارد، مهم نیست.' : undefined,
+  kind: 'amount',
+  fallback: 0,
+  advanced: i > 1,
+}));

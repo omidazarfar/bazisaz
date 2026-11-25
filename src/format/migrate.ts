@@ -17,7 +17,12 @@ import { FORMAT_VERSION, type GameProject } from './types';
 type Step = (project: Record<string, unknown>) => void;
 
 /** STEPS[n] turns version n into n + 1. Version 2 is the first: every project ever saved has at least that. */
-const STEPS: Record<number, Step> = {};
+const STEPS: Record<number, Step> = {
+  // 2 → 3 (Phase 4): every project has its lists, none to start with.
+  2: (p) => {
+    p.lists ??= [];
+  },
+};
 
 /** The oldest version that can be opened. */
 export const OLDEST_FORMAT = 2;

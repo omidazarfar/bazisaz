@@ -2629,6 +2629,62 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13s. Lab 30: functions, questions and lists (Phase 4) ──
+{
+  const rule = (id, when, then, extra = {}) => ({ id, when, condition: null, then, ...extra });
+  const add = (name, amount) => ({ type: 'setVariable', name, op: 'add', amount });
+  const start = { type: 'start' };
+  const project = {
+    formatVersion: 3,
+    meta: { name: 'Lab30', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirty', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {},
+    variables: ['score', 'h', 'total', 'count', 'yes', 'no', 'loops'].map((name) => ({ name, initial: 0, saved: false })),
+    textVariables: [{ name: 'who', initial: '', saved: false }],
+    lists: [{ name: 'nums', kind: 'number', initial: [3, 4, 5] }, { name: 'names', kind: 'text', initial: ['ann', 'bob'] }],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [],
+      objects: [{ id: 'box', name: 'box', x: 300, y: 600, width: 100, height: 100, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [] }],
+      rules: [
+        // A function with an input: what the caller gives is put into h first.
+        rule('reward', { type: 'called', name: 'reward', in1: 'h' }, [add('score', { variable: 'h' })]),
+        rule('sum', { type: 'called', name: 'sum', in1: '' }, [add('total', { variable: 'h' })]),
+        // A function that calls itself stops 32 calls deep.
+        rule('loop', { type: 'called', name: 'loop' }, [add('loops', 1), { type: 'call', name: 'loop' }]),
+        // A question: yes when the score is at least 5.
+        rule('rich', { type: 'asked', name: 'rich' }, [], { condition: { name: 'score', op: '>=', value: 5 } }),
+        rule('go', start, [
+          { type: 'call', name: 'reward', a1: 5 },
+          { type: 'call', name: 'reward', a1: 2 },
+          { type: 'forEach', list: 'nums', into: 'h', name: 'sum' },
+          { type: 'listAdd', list: 'nums', value: 10, text: '' },
+          { type: 'listCount', list: 'nums', into: 'count' },
+          { type: 'listRemove', list: 'nums', which: 'first' },
+          { type: 'listGet', list: 'names', at: 2, into: 'who' },
+          { type: 'listAdd', list: 'names', value: 0, text: 'cat {score}', at: 'start' },
+          { type: 'call', name: 'loop' },
+        ]),
+        rule('askYes', { type: 'after', seconds: 0.2 }, [add('yes', 1)], { condition: { name: '', op: '==', value: 1, check: 'rich', answer: true } }),
+        rule('askNo', { type: 'after', seconds: 0.2 }, [add('no', 1)], { condition: { name: '', op: '==', value: 1, check: 'rich', answer: false } }),
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.5);
+  const s = await gameState(page);
+  check('a function runs with its input (5 + 2 = 7)', s.variables.score === 7, `score ${s.variables.score}`);
+  check('for each item of a list, a function runs (3 + 4 + 5 = 12)', s.variables.total === 12, `total ${s.variables.total}`);
+  check('a list grows, is counted and loses its first item', s.variables.count === 4 && JSON.stringify(s.lists.nums) === '[4,5,10]', `${s.variables.count} ${JSON.stringify(s.lists.nums)}`);
+  check('a text list gives its second item and takes text with values', s.variables.who === 'bob' && s.lists.names[0] === 'cat 7', `${s.variables.who} ${JSON.stringify(s.lists.names)}`);
+  check('a question answers yes, and not no', s.variables.yes === 1 && s.variables.no === 0, `yes ${s.variables.yes}, no ${s.variables.no}`);
+  check('a function that calls itself stops at 32 calls', s.variables.loops === 32, `loops ${s.variables.loops}`);
+  check('lab 30: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

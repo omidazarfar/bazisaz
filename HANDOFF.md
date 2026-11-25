@@ -231,7 +231,32 @@ how to see it, what to try or film, the next phase).
   check; a newer format is refused with a message saying so. Passed locally.
 - GUIDE-fa §۲: «فایل‌های قدیمی». Gotchas: "A format change".
 
+### Phase 4 progress (user-made functions and lists)
+
+- Shape chosen (owner asleep): a **function is a rule** whose trigger is `called` («وقتی تابع اجرا می‌شود»,
+  name + inputs in1–in3, which are ordinary game values filled just before it runs); the action `call` (name,
+  a1–a3 amounts) runs every such rule of the scene at once, with the caller's first/second; its conditions and
+  "otherwise" work as in any rule; 32 calls deep at most. A **question** is a rule with trigger `asked`: its
+  conditions are the yes/no answer; a condition `{ check, answer, a1–a3 }` asks it («+ شرط با یک پرسش»). So the
+  rule editor, sentences and checks needed no new screens. Functions are per scene, like messages.
+- **Lists**: `project.lists` (name, kind number|text, initial items), **format 3** (the first migration step:
+  2 → 3 adds `lists: []`; v3 fixture `v3-sky-quest-functions.json`). Actions listAdd (end/start; text lists
+  take {values}), listRemove (first/last/at/all), listGet (item n → a number or text value), listCount, forEach
+  (each item into a value, then a function). Runtime: `Game.lists`, `callFunction`, `ask`, `list`, `putItem`;
+  `getState().lists`. Game tab «مقدارها»: «فهرست عددها» / «فهرست متن‌ها» with first items typed with commas.
+- New blocks use module augmentation (MoreTriggers / MoreActions) in their own files: blocks/triggers/called.ts,
+  asked.ts, blocks/actions/call.ts, lists.ts; field kinds function, check, list, anyValue (Fields.tsx).
+- Sky Quest (platformer) rebuilt with a function: «جایزه» (input `points`: float "+{points}", add to score),
+  called by coin (1), gem (10), squashed enemy (5) and trophy (25), replacing four copies.
+- Tests: smoke Lab 30 (function with input, forEach, list add/count/remove/get, text list with values, a
+  question yes/no, self-call stops at 32); editor.smoke (a list made in the game tab, a call and listAdd read as
+  sentences, the game checks clean). Passed locally (lab 30 and the new editor block alone).
+- GUIDE-fa §۵: block counts (28 triggers, 74 actions) and «تابع‌های خودت / پرسش‌ها / فهرست‌ها».
+
 ### Later (small things noticed, not blocking the phase)
+
+- GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale
+  before Phase 4.
 
 - `isVariableUsed` (state.ts, the warning before deleting a value) knows only some blocks (not e.g. a bar, a
   `variable` amount in actions other than setVariable). Each block could say which values it names.
