@@ -95,6 +95,54 @@ step that passes. One phase per session, in this order.
    lights) logging update time per step and per system; it must step in under 8 ms on CI. Fix the biggest
    costs (object pools, no per-step allocations in hot paths, cached matching()). The stress test runs on CI.
 
+**Owner, 2026-11-25 night:** "do all of the phases together until morning … do not ask for permission … do what
+you think is ok". So phases 2–5 and then the flagship roadmap below run back to back. Where a phase says "ask the
+owner" or "wait for the owner's choice", the agent takes its own recommendation, writes the choice and why in the
+phase's progress notes, and builds it so that it can be changed; the owner may reverse any of them.
+
+## THEN: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
+
+Why: the games and their graphics are not yet at the level of a good Google Play game. (1) All 95 library
+pictures, the skies and the music are drawn by code (art.ts, sky.ts, music.ts): that has a ceiling; GDevelop and
+Construct games look good mostly because of artists' assets. (2) The bots check that a game can be finished, not
+that it is fun: ten average games instead of one great one. So: make ONE flagship game as good as a real Play
+Store game, with professional art, and let what it needs drive the engine work.
+
+Rules:
+- An engine feature here is done only when the flagship uses it, it has tests, it has been checked by eye in
+  screenshots, and it has a Persian entry in GUIDE-fa.md.
+- Do NOT change the other nine genre games, and do not redraw or add library pictures in art.ts. No blocks the
+  flagship does not need. Polishing the flagship IS the work, only the flagship; anything else → one line in Later.
+- Art: only CC0 assets (e.g. Kenney, kenney.nl) or assets the owner says they bought. Every pack, author and
+  licence in CREDITS.md. If a download is impossible, tell the owner in Finglish exactly which pack and folder.
+- How the game FEELS is judged by the owner (the agent sees screenshots only): give numbered things to try and
+  ask for a short screen video.
+- build, test and bots pass after every step; commit after every step that passes.
+
+Phases (in this order):
+- **A. Choose the game and the bar.** Recommend Sky Quest (platformer); the owner confirms or chooses (numbered
+  options). Ask for 2–3 Play Store games it should feel like. A one-page "quality bar" in HANDOFF.md: 5 levels,
+  start menu, level select, pause, win and lose screens, sound and music, and what "as good as the reference
+  games" means in concrete points (controls, camera, animation, UI, effects). Every later phase is measured by it.
+- **B. Professional art in the engine.** Import sprite sheets and atlases (TexturePacker / Aseprite JSON);
+  Aseprite tags become the object's animations (rest, run, jump, hurt). Nine-slice images for panels and buttons.
+  Rebuild the flagship's characters, tiles, backgrounds and UI from one consistent CC0 pack.
+- **C. Character animation.** Nested bones (an attached part follows its parent's angle). Smooth changes between
+  animations instead of a hard cut. First a short report on Spine (runtime needs a Spine Editor licence per user),
+  DragonBones and our own bones; recommend one; wait for the owner before building on an outside format.
+- **D. A real UI kit.** Nine-slice panels, buttons, sliders, toggles; anchors and simple layout (row, column,
+  centre) for every screen shape; good fonts; menus that slide or pop in. Rebuild all the flagship's menus with it.
+- **E. Level tools.** Full autotile (16- or 47-tile sets, joins between two materials). Import levels from Tiled
+  (.tmj) or LDtk. Build the flagship's 5 levels with them, each teaching one new idea and getting harder.
+- **F. Camera and game feel.** Dead zone, look-ahead, smoothing, room limits. The feel numbers in one place the
+  owner can change in the editor (jump height, air time, run speed, acceleration, look-ahead); three presets
+  (floaty, tight, heavy) to try, tuned from the owner's video feedback.
+- **G. Playtests.** Easy sharing with a tester (the phone server exists). Record locally, per level, where the
+  player died, got stuck or quit, shown as marks on the level in the editor. A short Persian checklist for
+  watching 3–5 people play. Fix the top problems, then repeat once.
+At the end of each session: tick what is done here, keep Later, report to the owner in Finglish (what changed,
+how to see it, what to try or film, the next phase).
+
 ### Phase 1 progress
 
 - The shape: `src/blocks/types.ts` (`ActionBlock`: `type`, `editor`, `sentence(action, { project, scene, who })`,
