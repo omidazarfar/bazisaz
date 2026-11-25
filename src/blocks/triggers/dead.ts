@@ -6,6 +6,7 @@ export const dead = triggerBlock({
   type: 'dead',
   editor: {
     title: 'جان یک شیء تمام می‌شود',
+    short: 'وقتی جان شیئی که «جان» دارد به صفر برسد.',
     make: (ctx) => ({ type: 'dead', target: firstRef(ctx) }),
     fields: [{ key: 'target', label: 'کدام شیء یا گروه', kind: 'ref' }],
   },

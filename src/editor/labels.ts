@@ -5,16 +5,11 @@ import { ACTION_BLOCKS, BEHAVIOR_BLOCKS, TRIGGER_BLOCKS } from '../blocks/regist
 export { fa, LOOK_OPTIONS, SOUND_LABEL, type Context, type Field };
 
 /**
- * Everything the editor says about the format, in the user's words. Each
- * behavior, trigger and action is described once here: its Persian name, a
- * starting value, and the list of fields that edit it. The panels are drawn
- * from these descriptions, so adding a block to the engine means adding one
- * entry here and nothing in the panels.
+ * What the editor says about the format, in the user's words. Each behavior, trigger and action describes itself
+ * in its own file (src/blocks/: its Persian name, a starting value, the fields that edit it); BEHAVIORS, TRIGGERS
+ * and ACTIONS below gather those descriptions, and this file adds how they are grouped in the pick lists and the
+ * options the game panels share. The panels are drawn from these, so a new block needs nothing in the panels.
  */
-
-
-
-
 
 /** The painted backdrops, in words. */
 export const RETRO_OPTIONS: Option[] = [
@@ -106,20 +101,27 @@ export interface BlockGroup<T extends string> {
   types: T[];
 }
 
+/** A block no group names yet (a new one) still shows: in a last group, «بقیه». */
+function withRest<T extends string>(groups: BlockGroup<T>[], all: readonly { type: T }[]): BlockGroup<T>[] {
+  const grouped = new Set(groups.flatMap((g) => g.types));
+  const rest = all.map((b) => b.type).filter((type) => !grouped.has(type));
+  return rest.length ? [...groups, { title: 'بقیه', types: rest }] : groups;
+}
+
 /** The few blocks most games are made of, shown first so a newcomer is not faced with all of them at once. */
 export const COMMON_BEHAVIORS: Behavior['type'][] = ['jumper', 'walker', 'steer', 'followFinger', 'mover', 'patrol', 'chase', 'body', 'physics', 'camera', 'spawner'];
 export const COMMON_TRIGGERS: Trigger['type'][] = ['tap', 'touch', 'tapObject', 'start', 'every', 'variable', 'swipe', 'near'];
 export const COMMON_ACTIONS: Action['type'][] = ['setVariable', 'destroy', 'spawn', 'playSound', 'goToScene', 'restartScene', 'show', 'hide', 'effect', 'burst', 'flash', 'wait'];
 
-export const BEHAVIOR_GROUPS: BlockGroup<Behavior['type']>[] = [
+export const BEHAVIOR_GROUPS = withRest<Behavior['type']>([
   { title: 'کنترل با انگشت', types: ['jumper', 'walker', 'moves', 'steer', 'followFinger', 'draggable'] },
   { title: 'حرکت خودکار', types: ['mover', 'homing', 'patrol', 'route', 'chase', 'launch', 'wave', 'attach'] },
   { title: 'فیزیک و دوربین', types: ['body', 'physics', 'joint', 'field', 'camera'] },
   { title: 'ساختن و از بین رفتن', types: ['spawner', 'lifetime'] },
   { title: 'جلوه‌ی ظاهری', types: ['animate', 'particles', 'light', 'rotate', 'pulse', 'blink', 'trail', 'scrollImage'] },
-];
+], BEHAVIOR_BLOCKS);
 
-export const TRIGGER_GROUPS: BlockGroup<Trigger['type']>[] = [
+export const TRIGGER_GROUPS = withRest<Trigger['type']>([
   { title: 'لمس صفحه', types: ['tap', 'tapObject', 'swipe', 'holding'] },
   { title: 'اشیا', types: ['touch', 'near', 'land', 'offscreen', 'noneLeft', 'dead'] },
   { title: 'فیزیک واقعی', types: ['hit', 'thrown', 'rest', 'snap'] },
@@ -127,9 +129,9 @@ export const TRIGGER_GROUPS: BlockGroup<Trigger['type']>[] = [
   { title: 'جورچین و منطق', types: ['message', 'value', 'line'] },
   { title: 'مقدارها و تبلیغ', types: ['variable', 'textEquals', 'reward'] },
   { title: 'کوله‌پشتی', types: ['useItem', 'useItemOn'] },
-];
+], TRIGGER_BLOCKS);
 
-export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
+export const ACTION_GROUPS = withRest<Action['type']>([
   { title: 'امتیاز و مقدارها', types: ['setVariable', 'setTextVariable', 'resetVariables', 'recordScore', 'achieve'] },
   { title: 'گفت‌وگو', types: ['say'] },
   { title: 'کوله‌پشتی', types: ['give', 'take'] },
@@ -141,42 +143,7 @@ export const ACTION_GROUPS: BlockGroup<Action['type']>[] = [
   { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },
   { title: 'تبلیغ', types: ['showAd', 'showRewardedAd'] },
-];
-
-/** One line on what a trigger or action is for, for those that have no longer note of their own. */
-export const SHORT_ABOUT: Partial<Record<Trigger['type'] | Action['type'], string>> = {
-  start: 'یک بار، همان لحظه‌ای که صحنه باز می‌شود.',
-  tap: 'هر بار که بازیکن هر جای صفحه را لمس کند.',
-  tapObject: 'هر بار که بازیکن روی یک شیء مشخص بزند؛ مثل دکمه.',
-  touch: 'لحظه‌ای که دو شیء به هم می‌رسند؛ مثل بازیکن و سکه.',
-  every: 'پشت‌سرهم، با فاصله‌ی ثابت.',
-  after: 'یک بار، چند ثانیه بعد از باز شدن صحنه.',
-  offscreen: 'وقتی شیئی که دیده شده بود از صفحه بیرون برود؛ مثل افتادن بازیکن.',
-  variable: 'وقتی مقداری مثل امتیاز به عددی برسد.',
-  swipe: 'وقتی بازیکن انگشتش را روی صفحه به یک طرف بکشد.',
-  holding: 'پشت‌سرهم، تا وقتی انگشت روی صفحه است.',
-  noneLeft: 'وقتی آخرین شیء یک گروه هم از بین برود؛ مثل تمام شدن آجرها.',
-  dead: 'وقتی جان شیئی که «جان» دارد به صفر برسد.',
-  value: 'وقتی یکی از مقدارهای خود یک شیء به عددی برسد؛ مثلاً وقتی کارتی باز شود.',
-  line: 'وقتی چند شیء هم‌نوع در یک ردیف، ستون یا خط اریب کنار هم قرار بگیرند؛ مثل بازی دوز.',
-  land: 'هر بار که شیئی با «جسم فیزیکی» از هوا روی زمین، سکو یا لبه‌ی پایین دنیا بنشیند؛ مثل پرش دوباره از روی سکو.',
-  reward: 'بعد از «پیشنهاد تبلیغ جایزه‌ای»، اگر بازیکن تبلیغ را کامل ببیند.',
-  near: 'لحظه‌ای که دو شیء از فاصله‌ای نزدیک‌تر می‌شوند، بدون اینکه به هم بخورند؛ مثل دشمنی که بازیکن را می‌بیند.',
-  eachEvery: 'هر شیء ساعت خودش را دارد، از وقتی پیدا شد؛ مثل هر توپ‌انداز که جدا شلیک می‌کند.',
-  hit: 'لحظه‌ای که شیئی با «فیزیک واقعی» با سرعت به چیزی بخورد؛ مثل سنگی که به برج می‌خورد. نشستن آرام حساب نمی‌شود.',
-  turn: 'شیء را می‌چرخاند؛ برخوردش هم با شکل چرخیده حساب می‌شود.',
-  setVariable: 'امتیاز، جان یا هر مقدار دیگری را زیاد، کم یا عوض می‌کند.',
-  destroy: 'شیء را از بازی برمی‌دارد.',
-  spawn: 'یکی از «چیزهایی که حین بازی ساخته می‌شوند» را روی یک شیء می‌سازد؛ مثل شلیک تیر.',
-  show: 'شیئی را که پنهان بود نشان می‌دهد.',
-  hide: 'شیء را پنهان می‌کند؛ شیء پنهان به چیزی نمی‌خورد.',
-  moveTo: 'شیء را یک‌دفعه به جای مشخصی می‌برد.',
-  glide: 'شیء را آرام و روان به جای مشخصی می‌برد.',
-  goToScene: 'صحنه‌ی دیگری را باز می‌کند؛ مثل مرحله‌ی بعد یا صفحه‌ی باخت.',
-  restartScene: 'همین صحنه را از اول شروع می‌کند.',
-  playSound: 'یکی از صداهای آماده یا صدای خودت را پخش می‌کند.',
-  resume: 'بازیِ نگه‌داشته‌شده را ادامه می‌دهد.',
-};
+], ACTION_BLOCKS);
 
 const NEEDS_PREFAB = 'اول در فهرست «چیزهایی که حین بازی ساخته می‌شوند» یک شیء بساز.';
 const NEEDS_VARIABLE = 'اول در برگه‌ی «بازی» یک مقدار بساز.';

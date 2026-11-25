@@ -6,6 +6,7 @@ export const offscreen = triggerBlock({
   type: 'offscreen',
   editor: {
     title: 'یک شیء از صفحه بیرون می‌رود',
+    short: 'وقتی شیئی که دیده شده بود از صفحه بیرون برود؛ مثل افتادن بازیکن.',
     make: (ctx) => ({ type: 'offscreen', target: firstRef(ctx) }),
     fields: [{ key: 'target', label: 'کدام شیء', kind: 'ref' }],
   },

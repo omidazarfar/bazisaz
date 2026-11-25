@@ -5,6 +5,7 @@ export const moveTo = actionBlock({
   type: 'moveTo',
   editor: {
     title: 'بردن شیء به یک نقطه',
+    short: 'شیء را یک‌دفعه به جای مشخصی می‌برد.',
     make: (ctx) => ({ type: 'moveTo', target: firstRef(ctx), x: 0, y: 0 }),
     fields: [TARGET, { key: 'x', label: 'فاصله از چپ', kind: 'number' }, { key: 'y', label: 'فاصله از بالا', kind: 'number' }],
   },

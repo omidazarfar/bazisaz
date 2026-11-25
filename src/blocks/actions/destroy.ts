@@ -5,6 +5,7 @@ export const destroy = actionBlock({
   type: 'destroy',
   editor: {
     title: 'حذف شیء', make: (ctx) => ({ type: 'destroy', target: firstRef(ctx) }), fields: [TARGET],
+    short: 'شیء را از بازی برمی‌دارد.',
   },
   sentence: (a, { who }) => `${who(a.target)} را حذف کن`,
   run: (game, action, context) => {

@@ -5,6 +5,7 @@ export const turn = actionBlock({
   type: 'turn',
   editor: {
     title: 'چرخاندن شیء',
+    short: 'شیء را می‌چرخاند؛ برخوردش هم با شکل چرخیده حساب می‌شود.',
     make: (ctx) => ({ type: 'turn', target: firstRef(ctx), op: 'add', degrees: 90 }),
     fields: [
       TARGET,

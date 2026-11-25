@@ -65,6 +65,8 @@ export interface Context {
 export interface Block<T> {
   title: string;
   about?: string;
+  /** One line on what it is for, shown in the pick list when it has no longer note of its own (`about`). */
+  short?: string;
   fields: Field[];
   make: (ctx: Context) => T;
   /** Offered only when this holds, e.g. a spawner needs something to spawn. */

@@ -6,6 +6,7 @@ export const eachEvery = triggerBlock({
   type: 'eachEvery',
   editor: {
     title: 'هر چند ثانیه، برای هر شیء جدا',
+    short: 'هر شیء ساعت خودش را دارد، از وقتی پیدا شد؛ مثل هر توپ‌انداز که جدا شلیک می‌کند.',
     make: (ctx) => ({ type: 'eachEvery', target: firstRef(ctx), seconds: 2 }),
     fields: [
       { key: 'target', label: 'برای هر کدام از', kind: 'ref' },

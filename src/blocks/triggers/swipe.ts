@@ -4,6 +4,7 @@ export const swipe = triggerBlock({
   type: 'swipe',
   editor: {
     title: 'صفحه با انگشت کشیده می‌شود',
+    short: 'وقتی بازیکن انگشتش را روی صفحه به یک طرف بکشد.',
     make: () => ({ type: 'swipe', direction: 'right' }),
     fields: [{ key: 'direction', label: 'به کدام طرف', kind: 'choice', options: [
       { value: 'right', label: 'راست' },

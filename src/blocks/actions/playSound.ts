@@ -6,6 +6,7 @@ export const playSound = actionBlock({
   type: 'playSound',
   editor: {
     title: 'پخش صدا',
+    short: 'یکی از صداهای آماده یا صدای خودت را پخش می‌کند.',
     make: () => ({ type: 'playSound', sound: 'coin' }),
     fields: [{ key: 'sound', label: 'کدام صدا', kind: 'sound' }, { key: 'volume', kind: 'slider', label: 'بلندی صدا', min: 0, max: 100, step: 1, unit: '٪', fallback: 100 }],
   },

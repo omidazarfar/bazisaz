@@ -7,6 +7,7 @@ export const hit = triggerBlock({
   type: 'hit',
   editor: {
     title: 'یک شیء محکم به چیزی می‌خورد',
+    short: 'لحظه‌ای که شیئی با «فیزیک واقعی» با سرعت به چیزی بخورد؛ مثل سنگی که به برج می‌خورد. نشستن آرام حساب نمی‌شود.',
     make: (ctx) => ({ type: 'hit', a: firstRef(ctx), b: firstRef(ctx), speed: 600 }),
     fields: [
       { key: 'a', label: 'اولی', hint: 'دست‌کم یکی از دو تا باید «فیزیک واقعی» داشته باشد.', kind: 'ref' },

@@ -8,6 +8,7 @@ export const touch = triggerBlock({
   type: 'touch',
   editor: {
     title: 'دو شیء به هم می‌خورند',
+    short: 'لحظه‌ای که دو شیء به هم می‌رسند؛ مثل بازیکن و سکه.',
     make: (ctx) => ({ type: 'touch', a: firstRef(ctx), b: firstRef(ctx) }),
     fields: [
       { key: 'a', label: 'اولی', kind: 'ref' },

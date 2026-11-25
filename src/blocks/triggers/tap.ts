@@ -4,6 +4,7 @@ export const tap = triggerBlock({
   type: 'tap',
   editor: {
     title: 'صفحه لمس می‌شود',
+    short: 'هر بار که بازیکن هر جای صفحه را لمس کند.',
     make: () => ({ type: 'tap' }),
     fields: [],
   },

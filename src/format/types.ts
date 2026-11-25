@@ -389,6 +389,20 @@ export interface StateGate {
   onlyIn?: number[];
 }
 
+/**
+ * Blocks whose data is described in their own file in src/blocks/ rather than in the lists here. A new block's file
+ * adds itself, keyed by its type:
+ *
+ *   declare module '../../format/types' {
+ *     interface MoreActions { wobble: { type: 'wobble'; target: Target; seconds: number } }
+ *   }
+ *
+ * The blocks already here keep their description here.
+ */
+export interface MoreBehaviors {}
+export interface MoreTriggers {}
+export interface MoreActions {}
+
 export type Behavior = StateGate & (
   | BodyBehavior
   | JumperBehavior
@@ -419,6 +433,7 @@ export type Behavior = StateGate & (
   | ParticlesBehavior
   | LightBehavior
   | FieldBehavior
+  | MoreBehaviors[keyof MoreBehaviors]
 );
 
 /**
@@ -1008,7 +1023,8 @@ export type Trigger =
    * an object of `target`, like a key onto a door. That object is "first".
    * Let go anywhere else, the thing flies back into the bag.
    */
-  | { type: 'useItemOn'; item: string; target: Ref };
+  | { type: 'useItemOn'; item: string; target: Ref }
+  | MoreTriggers[keyof MoreTriggers];
 
 export interface Condition {
   name: string;
@@ -1210,7 +1226,8 @@ export type Action =
   /** Keeps the player's progress on the device: the scene they are in and every value. */
   | { type: 'saveGame' }
   /** Goes back to the saved progress, if there is any; otherwise goes to `scene`, as for a new game. */
-  | { type: 'loadGame'; scene: string };
+  | { type: 'loadGame'; scene: string }
+  | MoreActions[keyof MoreActions];
 
 export const SOUND_NAMES = ['jump', 'coin', 'hit', 'win', 'lose', 'click', 'pop', 'laser', 'boom', 'powerup', 'bounce', 'tick', 'knock', 'clang', 'thud', 'shatter', 'squeak'] as const;
 

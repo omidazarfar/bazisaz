@@ -4,6 +4,7 @@ export const goToScene = actionBlock({
   type: 'goToScene',
   editor: {
     title: 'رفتن به صحنه‌ی دیگر',
+    short: 'صحنه‌ی دیگری را باز می‌کند؛ مثل مرحله‌ی بعد یا صفحه‌ی باخت.',
     make: ({ project }) => ({ type: 'goToScene', scene: project.scenes[0].id }),
     fields: [
       { key: 'scene', label: 'کدام صحنه', kind: 'scene' },

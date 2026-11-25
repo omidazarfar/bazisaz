@@ -4,6 +4,7 @@ export const start = triggerBlock({
   type: 'start',
   editor: {
     title: 'صحنه شروع می‌شود',
+    short: 'یک بار، همان لحظه‌ای که صحنه باز می‌شود.',
     make: () => ({ type: 'start' }),
     fields: [],
   },

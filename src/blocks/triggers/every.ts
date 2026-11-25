@@ -5,6 +5,7 @@ export const every = triggerBlock({
   type: 'every',
   editor: {
     title: 'هر چند ثانیه یک بار',
+    short: 'پشت‌سرهم، با فاصله‌ی ثابت.',
     make: () => ({ type: 'every', seconds: 1 }),
     fields: [{ key: 'seconds', label: 'هر چند ثانیه', kind: 'number' }],
   },

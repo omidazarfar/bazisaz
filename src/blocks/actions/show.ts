@@ -5,6 +5,7 @@ export const show = actionBlock({
   type: 'show',
   editor: {
     title: 'نشان دادن شیء', make: (ctx) => ({ type: 'show', target: firstRef(ctx) }), fields: [TARGET],
+    short: 'شیئی را که پنهان بود نشان می‌دهد.',
   },
   sentence: (a, { who }) => `${who(a.target)} را نشان بده`,
   run: (game, action, context) => {

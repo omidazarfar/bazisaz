@@ -5,6 +5,7 @@ export const holding = triggerBlock({
   type: 'holding',
   editor: {
     title: 'تا وقتی صفحه لمس است',
+    short: 'پشت‌سرهم، تا وقتی انگشت روی صفحه است.',
     make: () => ({ type: 'holding' }),
     fields: [],
   },

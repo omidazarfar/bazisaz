@@ -6,6 +6,7 @@ export const line = triggerBlock({
   type: 'line',
   editor: {
     title: 'چند شیء در یک خط ردیف می‌شوند',
+    short: 'وقتی چند شیء هم‌نوع در یک ردیف، ستون یا خط اریب کنار هم قرار بگیرند؛ مثل بازی دوز.',
     make: (ctx) => ({ type: 'line', target: firstRef(ctx), name: '', length: 3, diagonal: true }),
     fields: [
       { key: 'target', label: 'اشیای کدام گروه', kind: 'ref' },

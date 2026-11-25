@@ -7,6 +7,7 @@ export const near = triggerBlock({
   type: 'near',
   editor: {
     title: 'یک شیء به شیء دیگر نزدیک می‌شود',
+    short: 'لحظه‌ای که دو شیء از فاصله‌ای نزدیک‌تر می‌شوند، بدون اینکه به هم بخورند؛ مثل دشمنی که بازیکن را می‌بیند.',
     make: (ctx) => ({ type: 'near', a: firstRef(ctx), b: firstRef(ctx), distance: 250, leave: false }),
     fields: [
       { key: 'a', label: 'اولی', kind: 'ref' },

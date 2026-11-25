@@ -5,6 +5,7 @@ export const spawn = actionBlock({
   type: 'spawn',
   editor: {
     title: 'ساختن یک شیء',
+    short: 'یکی از «چیزهایی که حین بازی ساخته می‌شوند» را روی یک شیء می‌سازد؛ مثل شلیک تیر.',
     available: hasPrefabs,
     make: (ctx) => ({ type: 'spawn', prefab: ctx.scene.prefabs[0].id, at: firstRef(ctx) }),
     fields: [

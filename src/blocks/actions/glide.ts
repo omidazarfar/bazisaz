@@ -5,6 +5,7 @@ export const glide = actionBlock({
   type: 'glide',
   editor: {
     title: 'حرکت نرم به یک نقطه',
+    short: 'شیء را آرام و روان به جای مشخصی می‌برد.',
     make: (ctx) => ({ type: 'glide', target: firstRef(ctx), x: 0, y: 0, seconds: 0.5 }),
     fields: [
       TARGET,

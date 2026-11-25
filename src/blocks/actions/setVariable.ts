@@ -6,6 +6,7 @@ export const setVariable = actionBlock({
   type: 'setVariable',
   editor: {
     title: 'تغییر یک مقدار',
+    short: 'امتیاز، جان یا هر مقدار دیگری را زیاد، کم یا عوض می‌کند.',
     available: hasVariables,
     make: ({ project }) => ({ type: 'setVariable', name: project.variables[0].name, op: 'add', amount: 1 }),
     fields: [

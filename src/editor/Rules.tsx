@@ -3,7 +3,7 @@ import type { Action, Condition, GameProject, Rule, Trigger } from '../format/ty
 import type { Editor } from './editor';
 import { Fields, isNewPicture, type NewPicture } from './Fields';
 import { useSprite } from './sprites';
-import { ACTION_GROUPS, ACTIONS, COMMON_ACTIONS, COMMON_TRIGGERS, CONDITION_FIELDS, OBJECT_CONDITION_FIELDS, SHORT_ABOUT, TRIGGER_GROUPS, TRIGGERS, whyNot, type Context } from './labels';
+import { ACTION_GROUPS, ACTIONS, COMMON_ACTIONS, COMMON_TRIGGERS, CONDITION_FIELDS, OBJECT_CONDITION_FIELDS, TRIGGER_GROUPS, TRIGGERS, whyNot, type Context } from './labels';
 import { PickButton, type PickGroup } from './Pick';
 import { actionSentence, conditionSentence, subjectsOf, triggerSentence } from './sentences';
 import { newId, updateScene, valueNames } from './state';
@@ -15,13 +15,13 @@ let dragging: { which: string; index: number } | null = null;
 export function triggerChoices(ctx: Context): PickGroup[] {
   return TRIGGER_GROUPS.map((g) => ({
     title: g.title,
-    items: g.types.map((type) => ({ value: type, title: TRIGGERS[type].title, about: TRIGGERS[type].about ?? SHORT_ABOUT[type], why: whyNot(TRIGGERS[type], ctx) })),
+    items: g.types.map((type) => ({ value: type, title: TRIGGERS[type].title, about: TRIGGERS[type].about ?? TRIGGERS[type].short, why: whyNot(TRIGGERS[type], ctx) })),
   }));
 }
 export function actionChoices(ctx: Context): PickGroup[] {
   return ACTION_GROUPS.map((g) => ({
     title: g.title,
-    items: g.types.map((type) => ({ value: type, title: ACTIONS[type].title, about: ACTIONS[type].about ?? SHORT_ABOUT[type], why: whyNot(ACTIONS[type], ctx) })),
+    items: g.types.map((type) => ({ value: type, title: ACTIONS[type].title, about: ACTIONS[type].about ?? ACTIONS[type].short, why: whyNot(ACTIONS[type], ctx) })),
   }));
 }
 

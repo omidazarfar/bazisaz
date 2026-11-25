@@ -4,6 +4,7 @@ export const reward = triggerBlock({
   type: 'reward',
   editor: {
     title: 'بازیکن تبلیغ جایزه‌ای را تا آخر دید',
+    short: 'بعد از «پیشنهاد تبلیغ جایزه‌ای»، اگر بازیکن تبلیغ را کامل ببیند.',
     make: () => ({ type: 'reward' }),
     fields: [],
   },

@@ -6,6 +6,7 @@ export const variable = triggerBlock({
   type: 'variable',
   editor: {
     title: 'یک مقدار به حدی می‌رسد',
+    short: 'وقتی مقداری مثل امتیاز به عددی برسد.',
     available: hasVariables,
     make: ({ project }) => ({ type: 'variable', name: project.variables[0].name, op: '>=', value: 10 }),
     fields: [{ key: 'name', label: 'کدام مقدار', kind: 'variable' }, COMPARE, { key: 'value', label: 'با عدد', kind: 'number' }],

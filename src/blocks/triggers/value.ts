@@ -7,6 +7,7 @@ export const value = triggerBlock({
   type: 'value',
   editor: {
     title: 'مقدار یک شیء به حدی می‌رسد',
+    short: 'وقتی یکی از مقدارهای خود یک شیء به عددی برسد؛ مثلاً وقتی کارتی باز شود.',
     make: (ctx) => ({ type: 'value', target: firstRef(ctx), name: 'open', op: '==', value: 1 }),
     fields: [
       { key: 'target', label: 'کدام شیء یا گروه', kind: 'ref' },

@@ -6,6 +6,7 @@ export const noneLeft = triggerBlock({
   type: 'noneLeft',
   editor: {
     title: 'دیگر هیچ شیئی از یک گروه نمانده',
+    short: 'وقتی آخرین شیء یک گروه هم از بین برود؛ مثل تمام شدن آجرها.',
     make: (ctx) => ({ type: 'noneLeft', target: firstRef(ctx) }),
     fields: [{ key: 'target', label: 'کدام شیء یا گروه', kind: 'ref' }],
   },

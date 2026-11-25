@@ -5,6 +5,7 @@ export const after = triggerBlock({
   type: 'after',
   editor: {
     title: 'چند ثانیه از شروع صحنه می‌گذرد',
+    short: 'یک بار، چند ثانیه بعد از باز شدن صحنه.',
     make: () => ({ type: 'after', seconds: 3 }),
     fields: [{ key: 'seconds', label: 'بعد از چند ثانیه', kind: 'number' }],
   },

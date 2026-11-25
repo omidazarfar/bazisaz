@@ -234,21 +234,25 @@ games can be built from these blocks alone.
 | Path | What it is |
 |---|---|
 | `src/format/` | The data format and its validation |
-| `src/runtime/Game.ts` | The runtime: simulation, rules, input, and a frozen edit mode |
+| `src/blocks/` | Every behavior, trigger and action, one file each: its Persian editor description, sentence, checks and what it does in a game; all listed in `registry.ts` |
+| `src/runtime/Game.ts` | The runtime core: the loop, scenes, objects, rules, input, drawing, and a frozen edit mode; it asks the blocks for the rest |
 | `src/runtime/physics.ts` | Real physics: bodies, joints, sling and grab, crashes and blasts, on planck.js |
 | `src/runtime/particles.ts`, `music.ts` | What each kind of particle stream does; the built-in music |
 | `src/runtime/sky.ts`, `tiles.ts` | Painted backdrops; the materials of tile map cells |
 | `src/runtime/ads.ts`, `sound.ts` | AdMob (inside the Android app only) and built-in sound effects |
 | `src/templates/` | Starter games |
 | `src/player/` | The page that plays one game; this is what goes into the APK |
-| `src/editor/` | The editor. `labels.ts` describes every block and its fields in Persian; the panels are drawn from it |
+| `src/editor/` | The editor. `labels.ts` gathers the blocks' descriptions and groups them for the pick lists; the panels are drawn from it |
 | `server/index.mjs` | Local server: serves the editor, builds and signs exports |
 | `android/` | Capacitor Android project. App id, version, orientation, AdMob id and signing come from Gradle properties |
 | `scripts/` | Tests |
 
-To add a behavior, trigger or action: add its type in `src/format/types.ts`,
-handle it in `Game.ts`, describe it in `src/editor/labels.ts` (and put it in
-one of the groups there), and give it a sentence in `src/editor/sentences.ts`.
+To add a behavior, trigger or action: one new file in `src/blocks/behaviors/`,
+`triggers/` or `actions/` (copy a similar one: its data, declared in the file with
+`declare module '../../format/types'` as `types.ts` shows above `MoreActions`; its editor
+description; its sentence; its checks; what it does), and one line in
+`src/blocks/registry.ts` (the build names a block that is missing there). It shows in
+the pick list group «بقیه» until it is given a place in a group in `labels.ts`.
 
 The editor, file by file:
 

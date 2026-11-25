@@ -9,6 +9,7 @@ export const tapObject = triggerBlock({
   type: 'tapObject',
   editor: {
     title: 'روی یک شیء زده می‌شود',
+    short: 'هر بار که بازیکن روی یک شیء مشخص بزند؛ مثل دکمه.',
     make: (ctx) => ({ type: 'tapObject', target: firstRef(ctx) }),
     fields: [{ key: 'target', label: 'کدام شیء', kind: 'ref' }],
   },
