@@ -77,7 +77,7 @@ step that passes. One phase per session, in this order.
    does at run time; all listed in src/blocks/registry.ts. Game.ts keeps the core (loop, scenes, entities,
    input, drawing, edit mode) and asks the registry instead of the big switches. Code moves AS IT IS (no
    renaming or "improving"; doubts go under Later). Done when adding an action is one new file and one line
-   in the registry. — CODE DONE 2026-11-25; one bot question open, see "Phase 1 progress".
+   in the registry. — DONE 2026-11-25, see "Phase 1 progress".
 2. **One contact model.** First a short report, no code: every place where `body` and `physics` decide
    contact differently, with an example scene each; show the owner in Finglish, recommend one direction,
    wait for the choice. Then build it, with a broadphase (spatial hash grid) for touch, near and overlaps,
@@ -145,13 +145,10 @@ step that passes. One phase per session, in this order.
 - **A new block is one file and one line** (step 6): see "A new block" under Gotchas. Tried with a dummy action,
   trigger and behavior (removed). SHORT_ABOUT is gone (each line is the block's `editor.short`). A block in no
   pick-list group shows in a last group «بقیه» (none today). README updated.
-- The code of Phase 1 is done. ONE OPEN QUESTION before calling it done: the tower-levels bot lost three runs in
-  a row after step 5 (runs 51, 53, 54: Game over at score 56–61 on level 2, slimes; no page errors), and won on
-  step 4 (run 47). The Later note says it lost "about one run in two" before Phase 1, so this may be chance
-  (1 in 8), but it is not shown. Game.ts's diff since step 4 is only the move (checked). To settle it: run
-  tower-levels at e56e9ac (step 4) and at main several times each, on CI (ci.mjs runs main only: needs a ref
-  input in the workflow, or a temporary branch) or locally when memory allows (a local run was stopped for low
-  memory). Then Phase 2, which starts with a report and the owner's choice, no code.
+- **Phase 1 is DONE.** The tower-levels bot lost three runs in a row after step 5 (runs 51, 53, 54), so it was
+  played six times on each side of the change (runs 58 and 59, `CI_REF`/`CI_REPEAT`): step 4 (e56e9ac) won 3 of
+  6, step 5 (80acd4d) won 3 of 6. The same: the bot's luck (see Later), not the move.
+- Next: Phase 2, which starts with a report and the owner's choice, no code.
 
 ### Later (small things noticed, not blocking the phase)
 
@@ -161,7 +158,7 @@ step that passes. One phase per session, in this order.
 - The player bundle now carries the moved blocks' Persian editor texts (+21 KB so far, 1.6%). When all are
   moved, let a block file export its runtime part separately so the player's registry leaves the editor part out.
 - tower-levels bot: game over at score 56 on level 2 about one run in two (bot timing on the extra slimes);
-  same before Phase 1.
+  same before Phase 1 (measured 2026-11-25: 3 of 6 wins before step 5 and 3 of 6 after).
 - physics bot (Rock Smash): fails on CI (Game over, score 60–90) both before and after Phase 1 (checked on a
   temporary branch at a235f62); wins locally (score 123). The slow CI runner, not the game. platform-levels
   and bricks-levels bots also fail on CI, as before.
@@ -475,7 +472,10 @@ say so in the log.
 - CI run 51 (main after step 6, all bots): all four test suites pass; 12 of 16 bots win. Lost: bricks-levels
   (720), platform-levels (140), puzzle (86, moves 21 of 20) and tower-levels (108), no page errors; the first
   three as before (Later). Rerun 53: puzzle won, tower-levels lost (56); rerun 54: tower-levels lost again.
-  Open, see "Phase 1 progress". Run 49 (step 5 with bots) was cancelled by the push of step 6 (see Gotchas).
+  Run 49 (step 5 with bots) was cancelled by the push of step 6 (see Gotchas).
+- Owner chose to settle tower-levels on CI: the workflow takes `ref` (an earlier commit; skips the test suites,
+  own concurrency group) and `repeat` (each bot n times side by side): `CI_REF=<commit> CI_REPEAT=<n> node
+  scripts/ci.mjs run <bots>`. tower-levels x6: step 4 won 3, step 5 won 3. Phase 1 done.
 
 ### 2026-11-25 — Claude, Phase 1 step 4: the triggers (owner: "read HANDOFF and continue Phase 1 (triggers)")
 
