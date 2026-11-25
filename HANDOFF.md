@@ -77,7 +77,7 @@ step that passes. One phase per session, in this order.
    does at run time; all listed in src/blocks/registry.ts. Game.ts keeps the core (loop, scenes, entities,
    input, drawing, edit mode) and asks the registry instead of the big switches. Code moves AS IT IS (no
    renaming or "improving"; doubts go under Later). Done when adding an action is one new file and one line
-   in the registry. — IN PROGRESS, see "Phase 1 progress".
+   in the registry. — DONE 2026-11-25 (CI below), see "Phase 1 progress".
 2. **One contact model.** First a short report, no code: every place where `body` and `physics` decide
    contact differently, with an example scene each; show the owner in Finglish, recommend one direction,
    wait for the choice. Then build it, with a broadphase (spatial hash grid) for touch, near and overlaps,
@@ -128,13 +128,30 @@ step that passes. One phase per session, in this order.
   `node scripts/blocks-move-triggers.mjs "<Family>" a b c` (refuses shared cases; validate checks by hand). Every
   moved fired case, editor entry, sentence and subjects line was compared with the code before (scratch script,
   whitespace-normalised, `this.`→`game.`): no difference. Game.ts: 4821 → 4533 lines.
-- Next: the behaviors (the switch in `update`), with the same steps and the same line-by-line comparison.
-- Before Phase 1 counts as done: the Action and Trigger unions in src/format/types.ts still have to be edited
-  for a new block; make the unions include the registry's types (so a new action is truly one file and one line), and
-  rewrite "A new block" under Gotchas. SHORT_ABOUT (labels.ts, one line of help per block) also belongs in the
-  blocks' own files.
+- **All 29 behaviors are blocks** (step 5): `src/blocks/behaviors/` (`BehaviorBlock`: `type`, `editor`,
+  `sentence(b, { scene })`, optional `check(b, { project, object, say, needVariable, hasPrefab })`, optional
+  `step(game, e, b, frame)`). The switch in `Game.update` is one line asking the registry; what its cases shared
+  as locals is `frame: BehaviorStep` (dt, W, H, screenTapped, spawned; body, steered, attached read back after).
+  No step for behaviors whose work the core does elsewhere: camera, physics, joint, field, light, wave, launch,
+  draggable (their case was an empty "handled outside this loop"), moves and animate (no case). Those parts of
+  Game.ts and physics.ts stay core. validate keeps the checks about a combination (jumps without a body, body and
+  physics, scrolling with no picture); the rest moved to the blocks: an object's behavior problems are now listed
+  in the order of its behaviors (before: particles/physics/animate, then mover/spawner). Moved as they were:
+  JUMP_BUFFER, JUMP_CUT, STICK_REACH (constants.ts), SPEED, groundTag, moving, custom (fields.ts), group,
+  MATERIAL_LABEL (say.ts). Mover: scripts/blocks-move-behaviors.mjs. Compared with the code before: no
+  difference. Game.ts: 4533 → 4292 lines (5365 before Phase 1).
+- Found while comparing: the movers had turned "this" into "game" in four comments too (touch, route, saveGame,
+  vibrate); put back, and the three movers now leave comment lines alone.
+- **A new block is one file and one line** (step 6): see "A new block" under Gotchas. Tried with a dummy action,
+  trigger and behavior (removed). SHORT_ABOUT is gone (each line is the block's `editor.short`). A block in no
+  pick-list group shows in a last group «بقیه» (none today). README updated.
+- Phase 1 is DONE once CI is green on step 6 (see the session log). Next: Phase 2, which starts with a report and
+  the owner's choice, no code.
 
 ### Later (small things noticed, not blocking the phase)
+
+- `isVariableUsed` (state.ts, the warning before deleting a value) knows only some blocks (not e.g. a bar, a
+  `variable` amount in actions other than setVariable). Each block could say which values it names.
 
 - The player bundle now carries the moved blocks' Persian editor texts (+21 KB so far, 1.6%). When all are
   moved, let a block file export its runtime part separately so the player's registry leaves the editor part out.
@@ -207,10 +224,11 @@ corrupts Persian, so write files with an editor tool, or with
 |---|---|
 | `src/format/types.ts` | The game data format (version 2). Every behavior, trigger, action and visual, with comments. Start here |
 | `src/format/validate.ts` | Checks a project before it runs (missing variables, items, images…) |
-| `src/runtime/Game.ts` | The engine: scenes, rules, behaviors, drawing, input, edit mode for the editor (~4000 lines) |
+| `src/blocks/` | Every behavior, trigger and action in its own file (editor description, sentence, checks, what it does), listed in `registry.ts`. See "A new block" under Gotchas |
+| `src/runtime/Game.ts` | The engine core: loop, scenes, objects, rules, drawing, input, edit mode for the editor (~4300 lines); asks the blocks for the rest |
 | `src/runtime/physics.ts` | Real physics on planck.js (Box2D): slings, joints, fields, conveyors… |
 | `src/runtime/sky.ts`, `tiles.ts`, `particles.ts`, `music.ts`, `bag.ts` | Painted backdrops, tile materials, particles, built-in music, the player's bag |
-| `src/editor/` | The editor (React). `App.tsx` layout; `Inspector.tsx` object panel; `Rules.tsx` rules; `GamePanel.tsx` game settings; `Library.tsx` the "add" window; `labels.ts` **every block's Persian name and fields** (add a block here and the panels draw it); `Fields.tsx` field widgets; `sentences.ts` rules as Persian sentences; `state.ts` project helpers |
+| `src/editor/` | The editor (React). `App.tsx` layout; `Inspector.tsx` object panel; `Rules.tsx` rules; `GamePanel.tsx` game settings; `Library.tsx` the "add" window; `labels.ts` gathers the blocks' descriptions and the pick-list groups; `Fields.tsx` field widgets; `sentences.ts` rules as Persian sentences; `state.ts` project helpers |
 | `src/editor/art.ts` | **All 95 library pictures**, drawn as SVG in a glossy mobile-game style with a small gradient and glow kit. `sprites.ts` turns one into a PNG asset (key `art-<id>`) |
 | `src/editor/recipes.ts` | The 31 ready-made **parts**, such as sling-and-tower, car, bridge, key-and-door, pause menu, levels |
 | `src/editor/presets.ts` | The ready-made **roles**, such as jump-player, ground, prize, danger |
@@ -425,15 +443,14 @@ say so in the log.
 - Fixed (screen-stuck) objects use screen coordinates, not world coordinates.
 - A new library picture: add it to `ART_SPRITES` in `art.ts`, with a unique
   `id`. Existing projects keep the PNGs already stored in their assets.
-- A new action (Phase 1 way): its type in the Action union of `types.ts`, one file in `src/blocks/actions/`
-  (copy one: editor description, sentence, check, run), one line in `src/blocks/registry.ts`, the GUIDE block
-  list, a lab test. Nothing in Game.ts, sentences.ts or validate.ts; in labels.ts only its place in a pick-list
-  group (`ACTION_GROUPS`); `isVariableUsed` in `state.ts` if it names a variable.
-- A new trigger (Phase 1 way): the same, with its type in the Trigger union, one file in `src/blocks/triggers/`
-  (editor description, sentence, subjects if it is about objects, check, fired), one line in the registry's
-  `triggers`, a place in `TRIGGER_GROUPS`. A new behavior is still the old way until behaviors are moved:
-  add it to `types.ts`, `Game.ts` (`update`), `validate.ts`, `BEHAVIORS` and a group in `labels.ts`,
-  `behaviorSentence` in `sentences.ts`, the GUIDE block list and counts (§۵), a lab test.
+- A new block (behavior, trigger or action): one file in `src/blocks/behaviors/`, `triggers/` or `actions/`
+  (copy a similar one): its data, added from the file to `MoreBehaviors`/`MoreTriggers`/`MoreActions` with
+  `declare module '../../format/types' { interface MoreActions { name: { type: 'name'; … } } }` (no import
+  needed: names inside resolve in types.ts); `editor` (title, `short` or `about`, make, fields); `sentence`;
+  `check`; and `run` (action), `fired` + `subjects` (trigger) or `step` (behavior, using `frame`). Then one line
+  in `src/blocks/registry.ts` (tsc names a block without one). It shows in the pick-list group «بقیه» until
+  placed in a group in labels.ts. Also: the GUIDE block list and counts (§۵), a lab test, and
+  `isVariableUsed` in state.ts if it names a variable. Nothing in Game.ts, sentences.ts or validate.ts.
 - After any visual change, photograph it (scripts/look) and look before
   reporting.
 

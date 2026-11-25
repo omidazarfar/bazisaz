@@ -5,6 +5,7 @@
 //   node scripts/ci.mjs minutes       how many of the free GitHub minutes this month the runs used
 //   node scripts/ci.mjs log <part>    the end of what one part of the latest run printed, e.g. log server
 //   node scripts/ci.mjs photos [part] the bot photos and test pictures it kept, into ci-output/
+// CI_RUN=<number> in front of status, log or photos looks at that run rather than the latest.
 // The time left is guessed from how long each part took the last time it passed.
 // Needs a GitHub login: GITHUB_TOKEN, or `gh auth login`, or the login git already uses for pushing.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -58,8 +59,15 @@ async function usual(skipId) {
   return times;
 }
 
+/** The latest run, or the one numbered CI_RUN (an earlier one: CI_RUN=49 node scripts/ci.mjs status). */
+async function pickRun() {
+  const want = Number(process.env.CI_RUN);
+  const runs = (await api(`/actions/workflows/test.yml/runs?per_page=${want ? 30 : 1}`)).workflow_runs;
+  return want ? runs.find((r) => r.run_number === want) : runs[0];
+}
+
 async function status() {
-  const run = (await api('/actions/workflows/test.yml/runs?per_page=1')).workflow_runs[0];
+  const run = await pickRun();
   if (!run) { console.log('No run yet.'); return true; }
   const jobs = (await api(`/actions/runs/${run.id}/jobs?per_page=100`)).jobs;
   const before = await usual(run.id);
@@ -92,7 +100,7 @@ if (command === 'run') {
   await api('/actions/workflows/test.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { bots } }) });
   console.log(`Started a run with bots: ${bots}. Follow it with: node scripts/ci.mjs watch`);
 } else if (command === 'log') {
-  const run = (await api('/actions/workflows/test.yml/runs?per_page=1')).workflow_runs[0];
+  const run = await pickRun();
   const job = (await api(`/actions/runs/${run.id}/jobs?per_page=100`)).jobs.find((j) => j.name.includes(bots));
   if (!job) throw new Error('No part named like ' + bots);
   const r = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${job.id}/logs`, { headers: { Authorization: `Bearer ${auth}`, 'User-Agent': 'bazisaz-ci' } });
@@ -116,7 +124,7 @@ if (command === 'run') {
   console.log(open ? `This month: about ${total} minutes. The repository is public, so GitHub does not count them against any limit.` : `This month: about ${total} of the 2000 free minutes (a private repository on the free plan).`);
 } else if (command === 'photos') {
   // The bot photos and test pictures the latest run kept, into ci-output/<part>/ (unzipped).
-  const run = (await api('/actions/workflows/test.yml/runs?per_page=1')).workflow_runs[0];
+  const run = await pickRun();
   const { artifacts } = await api(`/actions/runs/${run.id}/artifacts?per_page=100`);
   const { mkdirSync, writeFileSync } = await import('node:fs');
   for (const a of artifacts.filter((x) => x.name !== 'built' && (bots === 'all' || x.name.includes(bots)))) {
