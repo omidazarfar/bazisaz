@@ -271,6 +271,66 @@ how to see it, what to try or film, the next phase).
   gathered again; (4) a stamp on each object instead of a Set to give each candidate once.
 - Not done (not the biggest costs now, measured): object pools; the per-step order sort in update.
 
+### Flagship Phase A: the game and the quality bar (decided by the agent, owner asleep; the owner may change it)
+
+- **The flagship is Sky Quest** (the platformer). Why: platformers show controls, camera, animation and level
+  design most plainly; it already has wall jump, dash, pound, checkpoints and a level maker; Kenney's CC0
+  platformer pack fits it exactly. Other choices for the owner, in the morning: 1. Sky Quest (chosen) 2. Dungeon
+  Escape (top-down adventure) 3. Rooftop Run (runner).
+- **Reference games (the owner to confirm or replace):** Super Mario Run (Nintendo; one-touch controls, polish of
+  every UI screen), Leo's Fortune (1337 & Senri; camera and feel on touch), Oddmar (MobGe; art, animation and
+  effects). They set the bar for feel and finish only; nothing of theirs is copied.
+- **The quality bar** (every later phase is measured by it):
+  - Content: 5 levels, each 60–120 s, each teaching one new idea and getting harder (1 run and jump, 2 enemies
+    and stomping, 3 gaps and moving platforms, 4 spikes, checkpoints, a key and a door, 5 all of them plus a
+    final chase); 3 gems per level to find; a start menu, a level select with locked levels and stars, a pause
+    menu (resume, restart, menu, sound), a win screen (stars, score, next) and a lose screen (retry, menu).
+  - Controls: left, right and jump on screen, answering within one frame; variable jump height (let go early,
+    jump lower); coyote time 0.1 s and a jump buffer 0.12 s (both exist); speeding up over 0.1–0.15 s rather than
+    snapping; control in the air; no slipping off edges; buttons at least 110 px, never under the thumb's way.
+  - Camera: a dead zone so small steps do not shake the view; looking ahead in the direction of running; smooth
+    vertical follow that settles on landing; never showing past the world's edge; room limits where a level has
+    rooms.
+  - Animation: rest, run (2+ frames at 8+ a second), jump, fall, hurt (flash and knock back), squash on landing,
+    smooth changes between them; every enemy animated; nothing pops in or out without an effect.
+  - UI: one art style with the game (nine-slice panels and buttons), readable fonts at phone size, every button
+    gives way and clicks when pressed, menus slide or pop in, everything fits every phone shape.
+  - Effects: a sparkle, a sound and a score pop for every coin and gem; dust on running and landing; a short hit
+    stop and small shake on a stomp; parallax backgrounds in 2+ layers; fades between scenes.
+  - Sound: music for the menu and the levels; a sound for jump, coin, gem, stomp, hurt, win, lose and every button.
+  - Performance: 60 frames a second on a mid-range phone; opens in under 3 s.
+
+### Flagship Phase B progress (professional art in the engine)
+
+- Art: **Kenney's New Platformer Pack (CC0)**, downloaded from its OpenGameArt mirror (kenney.nl refused
+  automated downloads), in `src/editor/packs/kenney-platformer/` (four default spritesheets with their Starling
+  XML, ten sounds, License.txt; ~400 KB); CREDITS.md lists it.
+- src/editor/atlas.ts: `parseAtlas` (TexturePacker JSON hash/array, Aseprite JSON with frameTags and durations,
+  Starling/Sparrow XML with trims), `cutAtlas` (each frame its own PNG, trimmed frames put back in their full
+  size, rotated ones turned back), `animationsOf` (tags Idle/Run/Jump/Hurt and synonyms → rest/run/jump/hurt;
+  without tags, frame names like hero_walk_a → run), `importAtlas`, `animatedVisual`. Editor: Game tab «عکس‌ها»
+  → «+ ورق عکس (PNG با JSON یا XML)» (both files at once; an object with the animations is placed if any);
+  agent API `importAtlas`.
+- **Nine-slice**: `ImageVisual.slice {left, top, right, bottom}` → Pixi NineSliceSprite (corners keep their
+  size); Inspector «گوشه‌های ثابت (۹ تکه)» (one number for all four sides).
+- **Autotile** (done here rather than in Phase E, because the flagship's terrain needs it): `TileKind.autotile`
+  = 16 pictures indexed top 1 + right 2 + bottom 4 + left 8 (filled neighbours of any kind), in play (per cell
+  in a merged block, `tilePictures`) and in edit mode. `packTerrain(material)` maps Kenney's block, top,
+  top_left, center, horizontal_*, vertical_* names onto it. Phase E still has: joins between two materials,
+  47-tile sets, Tiled/LDtk import.
+- src/editor/packs/kenney.ts: `packPictures/packPicture/packAnimation/packCharacter/packTerrain/packSound/
+  packTrimmed` (frames of a character cut to the box they share, so the hero fills its object and does not jump).
+- **Sky Quest rebuilt in Kenney's art** (layout unchanged, so the bots and the level maker work as before):
+  sky colour, clouds and hills behind in two parallax layers, grass and stone autotiled, gold coins, blue gems,
+  green flags waving, a star at the end ("Reach the star!"), the beige character (idle, walk a/b, jump, hit),
+  walking slimes and flies, Kenney's spikes, planks, bushes, a mushroom and a sign. HUD, buttons and menus are
+  still the library's: Phase D.
+- Tests: scripts/art.smoke.mjs (new CI suite, in npm test): Aseprite tags and times, a trimmed TexturePacker
+  frame put back in place, Kenney-style XML names → animations, pixels checked; the flagship made of the pack
+  (hero frames, autotile kinds, clean check); autotile pictures chosen by neighbours (15, 6, 9, 10, 2, 0); a
+  nine-slice panel. Passed locally. Look: `node scripts/look/flagship.mjs` (a tall phone, the level, running,
+  jumping) → scripts/look/out/flagship-*.png.
+
 ### Later (small things noticed, not blocking the phase)
 
 - GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale

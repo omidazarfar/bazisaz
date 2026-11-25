@@ -8,7 +8,8 @@ import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextFi
 import type { GameProject } from '../format/types';
 import type { Editor } from './editor';
 import { pickFile, pickFiles, readDataUrl, readImage } from './images';
-import { isListUsed, isVariableUsed, keepVersion, listVersions, newId, removeScene, updateScene, type Version } from './state';
+import { isListUsed, isVariableUsed, keepVersion, listVersions, makeObject, newId, removeScene, updateScene, type Version } from './state';
+import { animatedVisual, importAtlas } from './atlas';
 import { SfxMaker } from './SfxMaker';
 import { MusicMaker } from './MusicMaker';
 import { SceneMap } from './SceneMap';
@@ -91,6 +92,33 @@ export function GamePanel({ editor }: { editor: Editor }) {
   };
   const setVariable = (name: string, patch: { initial?: number; saved?: boolean; item?: { asset: string } }, key: string) =>
     change({ ...project, variables: project.variables.map((v) => (v.name === name ? { ...v, ...patch } : v)) }, `variable.${name}.${key}`);
+
+  // A sprite sheet or texture atlas from another tool (TexturePacker, Aseprite, Kenney's XML): every picture on it
+  // becomes a picture of the game; if it has animations (Aseprite tags, or frames named walk_a, walk_b…), an
+  // object that plays them is added to the scene.
+  const [sheetNote, setSheetNote] = useState<string | null>(null);
+  const importSheet = async () => {
+    const files = await pickFiles('.png,.webp,.json,.xml,image/png,application/json,text/xml');
+    const picture = files.find((f) => f.type.startsWith('image/'));
+    const atlasFile = files.find((f) => /\.(json|xml)$/i.test(f.name));
+    if (!picture || !atlasFile) return setSheetNote('دو فایل را با هم انتخاب کن: عکس ورق (PNG) و فایل JSON یا XML کنارش.');
+    try {
+      const prefix = picture.name.replace(/\.[a-z]+$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'sheet';
+      const made = await importAtlas(project, await readDataUrl(picture), await atlasFile.text(), prefix);
+      let next = made.project;
+      const roles = (['rest', 'run', 'jump', 'hurt'] as const).filter((r) => made.animations[r]?.length);
+      if (roles.length && (made.animations.run?.length || (made.animations.rest?.length ?? 0) > 1)) {
+        const first = made.keys.values().next().value as string;
+        const object = makeObject(prefix, animatedVisual(made.animations, first), 120, 120, { x: scene.width / 2, y: scene.height / 2 });
+        next = updateScene(next, scene.id, (s) => ({ ...s, objects: [...s.objects, object] }));
+      }
+      change(next, 'assets.importAtlas');
+      const words = { rest: 'ایستادن', run: 'راه رفتن', jump: 'پریدن', hurt: 'ضربه خوردن' };
+      setSheetNote(`${made.keys.size.toLocaleString('fa-IR')} عکس اضافه شد.${roles.length ? ` انیمیشن‌ها: ${roles.map((r) => words[r]).join('، ')}؛ یک شیء با همین انیمیشن‌ها در صحنه گذاشته شد.` : ''}`);
+    } catch (error) {
+      setSheetNote(`این ورق خوانده نشد: ${(error as Error).message}`);
+    }
+  };
 
   // Things the player carries: numbers with a picture, shown in a bag.
   const items = project.variables.filter((v) => v.item);
@@ -306,6 +334,10 @@ export function GamePanel({ editor }: { editor: Editor }) {
                 ))}
               </div>
               {images.length === 0 && <p className="hint">هنوز عکسی در بازی نیست.</p>}
+              <div className="adders">
+                <button type="button" className="chip" data-import-atlas onClick={() => void importSheet()}>+ ورق عکس (PNG با JSON یا XML)</button>
+              </div>
+              {sheetNote && <p className="hint" data-atlas-note>{sheetNote}</p>}
               {unused.length > 0 && (
                 <div className="adders">
                   <button type="button" className="chip" data-remove-unused onClick={() => {

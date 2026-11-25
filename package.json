@@ -7,7 +7,7 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && vite build --mode editor",
-    "test": "node scripts/smoke.mjs && node scripts/contact.smoke.mjs && node scripts/fixtures.smoke.mjs && node scripts/stress.smoke.mjs && node scripts/editor.smoke.mjs && node scripts/server.smoke.mjs",
+    "test": "node scripts/smoke.mjs && node scripts/contact.smoke.mjs && node scripts/fixtures.smoke.mjs && node scripts/stress.smoke.mjs && node scripts/art.smoke.mjs && node scripts/editor.smoke.mjs && node scripts/server.smoke.mjs",
     "android:sync": "npm run build:player && cap sync android",
     "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
     "build:player": "tsc --noEmit && vite build",

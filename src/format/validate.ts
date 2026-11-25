@@ -122,6 +122,7 @@ export function validateProject(project: GameProject): string[] {
         for (const [key, kind] of Object.entries(tiles.kinds ?? {})) {
           if (key.length !== 1 || key === '.') say(`${where}: tile map "${obj.id}" names a kind "${key}"; kinds are one character other than ".".`);
           if (kind.asset && project.assets[kind.asset]?.type !== 'image') say(`${where}: tile map "${obj.id}" uses missing image "${kind.asset}".`);
+          for (const asset of kind.autotile ?? []) if (asset && project.assets[asset]?.type !== 'image') say(`${where}: tile map "${obj.id}" uses missing image "${asset}".`);
         }
       }
       if (obj.behaviors.some((b) => b.type === 'scrollImage') && obj.visual.kind !== 'image') {

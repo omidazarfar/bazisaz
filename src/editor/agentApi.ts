@@ -5,6 +5,7 @@
  */
 import type { GameProject, Visual } from '../format/types';
 import { validateProject } from '../format/validate';
+import { animatedVisual, importAtlas, type Animations } from './atlas';
 import { migrate } from '../format/migrate';
 import { blank } from '../templates';
 import { character } from './games';
@@ -26,6 +27,7 @@ export interface AgentApi {
   picture: (project: GameProject, id: string) => Promise<{ project: GameProject; visual: Visual; width: number; height: number }>;
   /** Adds a ready-made part (score, hearts, pause menu, on-screen buttons, ...) to a scene, around a point. */
   part: (project: GameProject, sceneId: string, id: string, at?: { x: number; y: number }) => Promise<{ project: GameProject; note: string }>;
+  importAtlas: (project: GameProject, sheetSrc: string, atlasText: string, prefix: string) => Promise<{ project: GameProject; keys: Record<string, string>; animations: Animations; visual: Visual }>;
   /** `count` harder levels made after a scene, as the editor's level maker makes them. */
   levels: (project: GameProject, sceneId: string, count: number, seed?: number) => { project: GameProject; changes: string[] };
 }
@@ -39,6 +41,11 @@ export const agentApi: AgentApi = {
     // The warnings need a game that runs; they are not looked for while it would not.
     const warnings = problems.length ? [] : findIssues(project).map((i) => ({ scene: sceneName(project, i), text: i.text }));
     return { problems, warnings };
+  },
+  /** A sprite sheet's pictures and animations put into a project (the editor's "+ ورق عکس"). */
+  importAtlas: async (project, sheetSrc, atlasText, prefix) => {
+    const made = await importAtlas(project, sheetSrc, atlasText, prefix);
+    return { project: made.project, keys: Object.fromEntries(made.keys), animations: made.animations, visual: animatedVisual(made.animations, made.keys.values().next().value ?? '') };
   },
   library: () => ({
     pictures: SPRITES.map((s) => ({ id: s.id, name: s.name, category: s.category, width: s.width, height: s.height, animated: Boolean(s.frames?.length || s.move?.length) })),

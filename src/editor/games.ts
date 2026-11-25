@@ -1,5 +1,6 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TilesVisual, Visual } from '../format/types';
 import { CRATE, DANGER, GROUND, physics, PLAYER, THROWN, withVariable } from './presets';
+import { packAnimation, packCharacter, packPicture, packTerrain, packTrimmed, type Sheet } from './packs/kenney';
 import { addAll, addClockwork, addRescueRig, badge, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
 import { SPRITES, useSprite } from './sprites';
 import { makeObject, newId, updateScene } from './state';
@@ -51,6 +52,17 @@ export async function character(project: GameProject, id: string): Promise<{ pro
 }
 
 /** A picture by library id, ready to place: the project with it stored, and its asset id. */
+/** A picture of Kenney's pack (the flagship's art), in the shape art() gives. */
+async function kenney(project: GameProject, sheet: Sheet, name: string, trim = false) {
+  if (trim) {
+    // Cut to the picture itself: Kenney's tiles sit in squares with room around them.
+    const cut = await packTrimmed(project, sheet, [name]);
+    return { project: cut.project, asset: cut.keys[0] };
+  }
+  const placed = await packPicture(project, sheet, name);
+  return { project: placed.project, asset: placed.key };
+}
+
 async function art(project: GameProject, id: string) {
   const placed = await useSprite(project, id);
   return { project: placed.project, asset: placed.asset };
@@ -241,28 +253,37 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   const cols = Math.ceil((W * 5) / CELL);
   const rows = Math.max(8, Math.floor(H / CELL));
   let p = withNumber(withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0), 'points', 0);
-  p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(s.width, cols * CELL), height: Math.max(s.height, rows * CELL), sky: 'day', music: 'music:adventure', gravity: 2400 }));
-  const coin = await art(p, 'coin');
+  // The flagship's art is one CC0 pack, Kenney's New Platformer Pack (CREDITS.md): sky colour and hills behind,
+  // terrain fitted to its neighbours (autotile), its characters, enemies and sounds.
+  p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(s.width, cols * CELL), height: Math.max(s.height, rows * CELL), sky: 'none', background: '#c8e6f5', music: 'music:adventure', gravity: 2400 }));
+  const coin = await kenney(p, 'tiles', 'coin_gold');
   p = coin.project;
   const level = platformLevel(cols, rows, coin.asset);
+  const grass = await packTerrain(p, 'grass', level.tiles.kinds.a);
+  const stone = await packTerrain(grass.project, 'stone', level.tiles.kinds.c);
+  p = stone.project;
+  const { style: _grassStyle, ...grassKind } = grass.kind;
+  const { style: _stoneStyle, ...stoneKind } = stone.kind;
+  level.tiles.kinds = { ...level.tiles.kinds, a: grassKind, c: stoneKind };
   const top = level.surface * CELL;
   const x = (share: number) => Math.round(share * cols) * CELL;
   const objects: GameObject[] = [];
 
-  // Far clouds drift slower than the level as the camera moves; bushes and trees stand behind the action.
-  const cloud = await art(p, 'cloud');
-  const bush = await art(cloud.project, 'bush');
-  const tree = await art(bush.project, 'tree');
-  p = tree.project;
-  for (const [i, share] of [0.08, 0.3, 0.52, 0.72, 0.92].entries()) {
-    objects.push(makeObject(`ابر ${i + 1}`, { kind: 'image', asset: cloud.asset }, 220, 120, { x: x(share), y: 160 + (i % 2) * 90 }, { parallax: 0.5, locked: true, opacity: 0.9 }));
+  // Behind the action: clouds far off, hills nearer, both sliding slower than the level as the camera moves.
+  const clouds = await kenney(p, 'backgrounds', 'background_clouds');
+  const hills = await kenney(clouds.project, 'backgrounds', 'background_color_hills');
+  const bush = await kenney(hills.project, 'tiles', 'bush', true);
+  const mushroom = await kenney(bush.project, 'tiles', 'mushroom_red', true);
+  const sign = await kenney(mushroom.project, 'tiles', 'sign_right', true);
+  p = sign.project;
+  const worldW = cols * CELL;
+  objects.push(makeObject('تپه‌های دور', { kind: 'image', asset: hills.asset, repeat: 'x' }, worldW, 768, { x: worldW / 2, y: top - 300 }, { parallax: 0.35, locked: true }));
+  objects.push(makeObject('ابرهای دور', { kind: 'image', asset: clouds.asset, repeat: 'x' }, worldW, 512, { x: worldW / 2, y: 300 }, { parallax: 0.15, locked: true, opacity: 0.95 }));
+  for (const [i, share] of [0.03, 0.29, 0.36, 0.86, 0.93].entries()) {
+    objects.push(makeObject(`بوته ${i + 1}`, { kind: 'image', asset: bush.asset }, 90, 90, { x: x(share) + 40, y: top - 45 }, { locked: true }));
   }
-  for (const [i, share] of [0.03, 0.29, 0.93].entries()) {
-    objects.push(makeObject(`درخت ${i + 1}`, { kind: 'image', asset: tree.asset }, 150, 210, { x: x(share) + 40, y: top - 105 }, { locked: true }));
-  }
-  for (const [i, share] of [0.36, 0.86].entries()) {
-    objects.push(makeObject(`بوته ${i + 1}`, { kind: 'image', asset: bush.asset }, 150, 80, { x: x(share) + 40, y: top - 38 }, { locked: true }));
-  }
+  objects.push(makeObject('قارچ', { kind: 'image', asset: mushroom.asset }, 70, 70, { x: x(0.58) + 40, y: top - 35 }, { locked: true }));
+  objects.push(makeObject('تابلوی شروع', { kind: 'image', asset: sign.asset }, 80, 80, { x: 4 * CELL, y: top - 40 }, { locked: true }));
   objects.push(makeObject('مرحله', level.tiles, cols * CELL, rows * CELL, { x: (cols * CELL) / 2, y: (rows * CELL) / 2 }, { locked: true }));
 
   // Where falling into a gap is caught: hidden strips along the bottom of each gap.
@@ -270,31 +291,33 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
     objects.push(makeObject(`چاله ${i + 1}`, { kind: 'rect', color: '#000000' }, (c1 - c0 + 1) * CELL, 50, { x: ((c0 + c1 + 1) / 2) * CELL, y: rows * CELL - 25 }, { opacity: 0, tags: [PIT] }));
   }
   // A platform that carries the player over the widest gap.
-  const raft = await art(p, 'platform');
+  const raft = await kenney(p, 'tiles', 'block_planks');
   p = raft.project;
   const [w0, w1] = level.pits[1];
-  objects.push(makeObject('سکوی متحرک', { kind: 'image', asset: raft.asset }, 200, 50, { x: (w0 + 1) * CELL, y: top - 40 }, {
+  objects.push(makeObject('سکوی متحرک', { kind: 'image', asset: raft.asset, repeat: 'x' }, 200, 50, { x: (w0 + 1) * CELL, y: top - 40 }, {
     tags: [GROUND], behaviors: [{ type: 'patrol', axis: 'x', distance: (w1 - w0 - 1) * CELL, speed: 110 }],
   }));
 
   // Enemies to jump on, spikes to jump over, gems up high.
-  const slime = await art(p, 'slime');
-  const bat = await art(slime.project, 'bat');
-  const spikes = await art(bat.project, 'spikes');
-  const gem = await art(spikes.project, 'gem');
+  // The slime walks all the time (its walking frames are its resting ones too); the fly beats its wings.
+  const slime = await packCharacter(p, 'enemies', 'slime_normal', 6);
+  const bat = await packAnimation(slime.project, 'enemies', ['fly_a', 'fly_b'], 10);
+  const spikes = await kenney(bat.project, 'tiles', 'spikes', true);
+  const gem = await kenney(spikes.project, 'tiles', 'gem_blue', true);
   p = gem.project;
+  const crawl = slime.visual.moveFrames ?? [slime.visual.asset];
   for (const [i, [share, reach]] of ([[0.38, 200], [0.73, 140], [0.83, 110]] as const).entries()) {
-    objects.push(makeObject(`لجن ${i + 1}`, { kind: 'image', asset: slime.asset }, 100, 72, { x: x(share), y: top - 36 }, {
+    objects.push(makeObject(`لجن ${i + 1}`, { kind: 'image', asset: crawl[0], frames: crawl.slice(1), fps: 6, flip: true }, 100, 72, { x: x(share), y: top - 36 }, {
       tags: [ENEMY, DANGER], hitboxInset: 6, behaviors: [{ type: 'patrol', axis: 'x', distance: reach, speed: 90 }],
     }));
   }
   for (const [i, share] of [0.5, 0.71].entries()) {
-    objects.push(makeObject(`خفاش ${i + 1}`, { kind: 'image', asset: bat.asset }, 130, 70, { x: x(share), y: top - 230 }, {
+    objects.push(makeObject(`مگس ${i + 1}`, bat.visual, 100, 80, { x: x(share), y: top - 230 }, {
       tags: [ENEMY, DANGER], hitboxInset: 10, behaviors: [{ type: 'patrol', axis: 'y', distance: 150, speed: 80 }],
     }));
   }
   for (const [i, share] of [0.13, 0.645].entries()) {
-    objects.push(makeObject(`تیغ ${i + 1}`, { kind: 'image', asset: spikes.asset }, 160, 40, { x: x(share), y: top - 20 }, { tags: [SPIKES], hitboxInset: 8 }));
+    objects.push(makeObject(`تیغ ${i + 1}`, { kind: 'image', asset: spikes.asset, repeat: 'x' }, 160, 40, { x: x(share), y: top - 20 }, { tags: [SPIKES], hitboxInset: 8 }));
   }
   for (const [i, [share, up]] of ([[0.34, 5.6], [0.68, 4.4], [0.9, 5]] as const).entries()) {
     objects.push(makeObject(`الماس ${i + 1}`, { kind: 'image', asset: gem.asset }, 70, 70, { x: x(share) + 40, y: top - up * CELL }, {
@@ -303,18 +326,18 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   }
 
   // Checkpoint flags, and the trophy at the end.
-  const flag = await art(p, 'flag');
-  const trophy = await art(flag.project, 'trophy');
+  const flag = await packAnimation(p, 'tiles', ['flag_green_a', 'flag_green_b'], 5);
+  const trophy = await kenney(flag.project, 'tiles', 'star', true);
   p = trophy.project;
   for (const [i, share] of [0.44, 0.8].entries()) {
-    objects.push(makeObject(`ایست بازرسی ${i + 1}`, { kind: 'image', asset: flag.asset }, 70, 100, { x: x(share), y: top - 50 }, { tags: [CHECK] }));
+    objects.push(makeObject(`ایست بازرسی ${i + 1}`, flag.visual, 90, 100, { x: x(share), y: top - 50 }, { tags: [CHECK] }));
   }
   objects.push(makeObject('جام پایان', { kind: 'image', asset: trophy.asset }, 130, 130, { x: x(0.96), y: top - 3 * CELL - 65 }, {
     tags: [GOAL], glow: '#ffd23f', behaviors: [{ type: 'pulse', amount: 0.08, seconds: 1 }, { type: 'particles', preset: 'sparkle', color: '#fff3a8', rate: 8, size: 1.2, speed: 1 }],
   }));
 
   // The hero: runs, jumps twice, the camera follows.
-  const hero = await character(p, 'hero');
+  const hero = await packCharacter(p, 'characters', 'character_beige');
   p = hero.project;
   const player = makeObject('قهرمان', hero.visual, 90, 100, { x: 2 * CELL, y: top - 50 }, {
     tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
@@ -374,7 +397,7 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
     ]),
     ...lifeRules(screen.over),
   );
-  p = await banner(p, sceneId, 'Reach the trophy!');
+  p = await banner(p, sceneId, 'Reach the star!');
   // The screen furniture: score, hearts, a pause menu, and the left, right and jump buttons.
   p = await part(p, sceneId, 'score');
   p = await hearts(p, sceneId);

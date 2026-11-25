@@ -1,0 +1,159 @@
+// Professional art in the engine (flagship Phase B): sprite sheets and atlases (TexturePacker JSON, Aseprite JSON
+// with tags, Starling XML) cut into pictures with their animations; autotile sets fitted to neighbours; nine-slice
+// pictures; and the flagship (Sky Quest) built from Kenney's CC0 pack. Run `npm run build` first.
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
+import { check, finish, launch, openPage, root, shots, until } from './lib.mjs';
+
+const browser = await launch();
+const editorUrl = pathToFileURL(resolve(root, 'dist-editor/editor.html')).href;
+const playerUrl = pathToFileURL(resolve(root, 'dist/index.html')).href;
+
+// ── Atlases, read and cut in the editor ────────────────────────────────────
+const { page, errors } = await openPage(browser, editorUrl, { viewport: { width: 1440, height: 900 } });
+await page.waitForFunction(() => window.__game && window.__editor, { timeout: 60000 });
+const results = await page.evaluate(async () => {
+  // A sheet of four 16×16 squares in a row: red, green, blue, yellow.
+  const colours = ['#ff0000', '#00ff00', '#0000ff', '#ffff00'];
+  const sheet = document.createElement('canvas');
+  sheet.width = 64;
+  sheet.height = 16;
+  const ctx = sheet.getContext('2d');
+  colours.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(i * 16, 0, 16, 16); });
+  const src = sheet.toDataURL('image/png');
+  const project = window.__editor.getState().project;
+  const pixel = async (dataUrl, x, y) => {
+    const img = new Image();
+    img.src = dataUrl;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    return { size: [img.naturalWidth, img.naturalHeight], rgba: [...g.getImageData(x, y, 1, 1).data] };
+  };
+  const frame = (i) => ({ frame: { x: i * 16, y: 0, w: 16, h: 16 }, rotated: false, trimmed: false, spriteSourceSize: { x: 0, y: 0, w: 16, h: 16 }, sourceSize: { w: 16, h: 16 }, duration: 125 });
+  // Aseprite: a hash of frames and two tags.
+  const aseprite = JSON.stringify({
+    frames: { 'hero 0.aseprite': frame(0), 'hero 1.aseprite': frame(1), 'hero 2.aseprite': frame(2), 'hero 3.aseprite': frame(3) },
+    meta: { image: 'hero.png', frameTags: [{ name: 'Idle', from: 0, to: 1, direction: 'forward' }, { name: 'Run', from: 2, to: 3, direction: 'forward' }] },
+  });
+  const a = await window.__editor.agent.importAtlas(project, src, aseprite, 'hero');
+  // TexturePacker: an array, with one frame trimmed (an 8×8 piece set at 4,4 in a 16×16 picture).
+  const packer = JSON.stringify({ frames: [
+    { filename: 'coin.png', ...frame(1) },
+    { filename: 'spark.png', frame: { x: 48, y: 0, w: 8, h: 8 }, rotated: false, trimmed: true, spriteSourceSize: { x: 4, y: 4, w: 8, h: 8 }, sourceSize: { w: 16, h: 16 } },
+  ], meta: { image: 'items.png' } });
+  const b = await window.__editor.agent.importAtlas(project, src, packer, 'items');
+  // Starling / Kenney XML, frames named like Kenney's: walk_a, walk_b, jump, hit.
+  const xml = `<TextureAtlas imagePath="kid.png">
+    <SubTexture name="kid_idle" x="0" y="0" width="16" height="16"/>
+    <SubTexture name="kid_walk_a" x="16" y="0" width="16" height="16"/>
+    <SubTexture name="kid_walk_b" x="32" y="0" width="16" height="16"/>
+    <SubTexture name="kid_jump" x="48" y="0" width="16" height="16"/>
+  </TextureAtlas>`;
+  const c = await window.__editor.agent.importAtlas(project, src, xml, 'kid');
+  return {
+    aseprite: { keys: Object.keys(a.keys), animations: a.animations, visual: a.visual, run: await pixel(a.project.assets[a.keys['hero 2']].src, 8, 8) },
+    packer: { keys: Object.keys(b.keys), spark: await pixel(b.project.assets[b.keys.spark].src, 8, 8), sparkCorner: await pixel(b.project.assets[b.keys.spark].src, 1, 1) },
+    xml: { keys: Object.keys(c.keys), animations: c.animations, jump: await pixel(c.project.assets[c.keys.kid_jump].src, 8, 8) },
+  };
+});
+check('Aseprite JSON: four frames become four pictures', results.aseprite.keys.length === 4, JSON.stringify(results.aseprite.keys));
+check('Aseprite tags become animations (Idle → rest, Run → run) at its frame times (8 a second)',
+  results.aseprite.animations.rest?.length === 2 && results.aseprite.animations.run?.length === 2 && results.aseprite.animations.fps === 8, JSON.stringify(results.aseprite.animations));
+check('the run frame is cut from the right place (blue)', results.aseprite.run.rgba.join() === '0,0,255,255', JSON.stringify(results.aseprite.run));
+check('an object made from it rests and runs', results.aseprite.visual.frames?.length === 1 && results.aseprite.visual.moveFrames?.length === 2 && results.aseprite.visual.flip === true, JSON.stringify(results.aseprite.visual));
+check('TexturePacker JSON array: each frame a picture', results.packer.keys.join() === 'coin,spark', results.packer.keys.join());
+check('a trimmed frame goes back into its full size, in its place (16×16, the piece in the middle)',
+  results.packer.spark.size.join() === '16,16' && results.packer.spark.rgba.join() === '255,255,0,255' && results.packer.sparkCorner.rgba[3] === 0, JSON.stringify(results.packer));
+check('Starling / Kenney XML: frames named walk_a, walk_b and jump become run and jump',
+  results.xml.keys.length === 4 && results.xml.animations.run?.length === 2 && results.xml.animations.jump?.length === 1 && results.xml.animations.rest?.length === 1, JSON.stringify(results.xml.animations));
+check('…and the jump frame is the yellow one', results.xml.jump.rgba.join() === '255,255,0,255', JSON.stringify(results.xml.jump));
+check('atlas import: no errors in the page', errors.length === 0, errors.join(' | '));
+
+// ── The flagship, made by the genre helper from Kenney's pack ──────────────
+await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('بازی جدید'))?.click());
+await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('بله، بازی خالی'))?.click());
+await new Promise((r) => setTimeout(r, 300));
+await page.click('[data-library="objects"]');
+await page.click('[data-library-tab="genre"]');
+await page.click('[data-genre="platform"]');
+await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 120000 });
+const flagship = await page.evaluate(() => window.__editor.getState().project);
+const level = flagship.scenes[0];
+const hero = level.objects.find((o) => o.tags.includes('بازیکن'));
+const map = level.objects.find((o) => o.visual.kind === 'tiles');
+const kenney = Object.keys(flagship.assets).filter((k) => k.startsWith('kenney-'));
+check('the flagship is drawn with Kenney\'s pack (pictures and sounds)', kenney.length >= 40, `${kenney.length} pictures`);
+check('its hero rests, walks, jumps and gets hurt in Kenney\'s frames', hero?.visual.asset.startsWith('kenney-character-beige') && hero.visual.moveFrames?.length === 2 && hero.visual.airFrames?.length === 1 && hero.visual.hurtFrames?.length === 1, JSON.stringify(hero?.visual));
+check('its ground and stone are autotile sets of 16', map?.visual.kinds.a.autotile?.length === 16 && map?.visual.kinds.c.autotile?.length === 16, JSON.stringify(Object.keys(map?.visual.kinds ?? {})));
+const problems = await page.evaluate((p) => window.__editor.agent.check(p).problems, flagship);
+check('the flagship checks clean', problems.length === 0, problems.join(' | '));
+await page.close();
+
+// ── Autotile and nine-slice in the player ──────────────────────────────────
+{
+  const solid = (r, g, b) => {
+    // A 4×4 picture of one colour, as a data URL made here (no canvas in node): a tiny BMP is enough for the player.
+    const px = [b, g, r, 255];
+    const header = Buffer.alloc(54);
+    header.write('BM');
+    header.writeUInt32LE(54 + 64, 2);
+    header.writeUInt32LE(54, 10);
+    header.writeUInt32LE(40, 14);
+    header.writeInt32LE(4, 18);
+    header.writeInt32LE(4, 22);
+    header.writeUInt16LE(1, 26);
+    header.writeUInt16LE(32, 28);
+    const data = Buffer.alloc(64);
+    for (let i = 0; i < 16; i++) Buffer.from(px).copy(data, i * 4);
+    return `data:image/bmp;base64,${Buffer.concat([header, data]).toString('base64')}`;
+  };
+  const assets = {};
+  for (let i = 0; i < 16; i++) assets[`t${i}`] = { type: 'image', src: solid(i * 16, 255 - i * 16, 128) };
+  assets.panel = { type: 'image', src: solid(40, 90, 200) };
+  const project = {
+    formatVersion: 3, lists: [],
+    meta: { name: 'Art', orientation: 'portrait', width: 720, height: 1280, background: '#202833', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.art', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets, variables: [], startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      objects: [
+        // A 3×3 block, a row of 3 below it, a lone cell: the centre gets picture 15, a row's middle 10, a lone cell 0.
+        { id: 'map', name: 'map', x: 0, y: 0, width: 400, height: 500, tags: [], visible: true, behaviors: [],
+          visual: { kind: 'tiles', cell: 80, rows: ['ggg.', 'ggg.', 'ggg.', '....', 'ggg.', '....', '...g'], kinds: { g: { name: 'g', color: '#00ff00', tags: ['ground'], separate: true, autotile: Object.keys(assets).filter((k) => k !== 'panel') } } } },
+        { id: 'panel', name: 'panel', x: 100, y: 800, width: 500, height: 300, tags: [], visible: true, behaviors: [],
+          visual: { kind: 'image', asset: 'panel', slice: { left: 1, top: 1, right: 1, bottom: 1 } } },
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, playerUrl, { project });
+  await until(page, () => window.__game, null, 30000);
+  const r = await page.evaluate(() => {
+    const g = window.__game;
+    const pictureOf = (x, y) => {
+      const e = g.entities.find((e) => e.def.id === 'map' && Math.abs(e.x - x) < 1 && Math.abs(e.y - y) < 1);
+      const texture = e?.view.children?.[0]?.texture;
+      return [...g.textures.entries()].find(([, t]) => t.texture === texture)?.[0] ?? null;
+    };
+    const panel = g.entities.find((e) => e.def.id === 'panel');
+    return {
+      centre: pictureOf(80, 80), topLeft: pictureOf(0, 0), bottomRight: pictureOf(160, 160), rowMiddle: pictureOf(80, 320), rowLeft: pictureOf(0, 320), lone: pictureOf(240, 480),
+      panel: { nine: 'leftWidth' in panel.view && panel.view.leftWidth === 1, width: panel.view.width, height: panel.view.height },
+    };
+  });
+  check('autotile: the middle of a block shows picture 15 (all four neighbours)', r.centre === 't15', JSON.stringify(r));
+  check('autotile: the top-left corner shows 6 (right and below), the bottom-right 9 (above and left)', r.topLeft === 't6' && r.bottomRight === 't9', JSON.stringify(r));
+  check('autotile: a row\'s middle shows 10, its left end 2, a lone cell 0', r.rowMiddle === 't10' && r.rowLeft === 't2' && r.lone === 't0', JSON.stringify(r));
+  check('nine-slice: the panel stretches to its size as nine pieces', r.panel.nine && Math.round(r.panel.width) === 500 && Math.round(r.panel.height) === 300, JSON.stringify(r.panel));
+  await page.screenshot({ path: resolve(shots, 'art-autotile-nineslice.png') });
+  check('autotile and nine-slice: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+await browser.close();
+finish();

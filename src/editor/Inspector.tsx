@@ -360,6 +360,21 @@ export function Inspector({ editor }: { editor: Editor }) {
             })}
           />
         )}
+        {visual.kind === 'image' && !visual.repeat && (
+          <Slider
+            label="گوشه‌های ثابت (۹ تکه)"
+            hint="برای پنل و دکمه: این‌قدر پیکسل از هر لبه‌ی عکس کش نمی‌آید، پس گوشه‌ها گرد و تیز می‌مانند و وسط کش می‌آید. صفر یعنی کل عکس کش بیاید."
+            unit="پیکسل"
+            min={0}
+            max={128}
+            step={1}
+            value={visual.slice?.left ?? 0}
+            onChange={(n) => update('slice', (o) => {
+              const { slice: _old, ...rest } = visual;
+              return { ...o, visual: n > 0 ? { ...rest, slice: { left: n, top: n, right: n, bottom: n } } : rest };
+            })}
+          />
+        )}
         {visual.kind === 'image' && (
           <Check label="رو به جهت حرکت برگردد" hint="عکس را رو به راست بکش؛ وقتی به چپ برود خودش برمی‌گردد." value={visual.flip ?? false} onChange={(flip) => setVisual('flip', { flip })} />
         )}

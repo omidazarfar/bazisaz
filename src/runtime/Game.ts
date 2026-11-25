@@ -1,4 +1,4 @@
-import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Matrix, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
+import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Matrix, NineSliceSprite, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
 import { AdvancedBloomFilter, CRTFilter, DropShadowFilter, GlowFilter, OldFilmFilter, PixelateFilter, ShockwaveFilter } from 'pixi-filters';
 import type {
   Action,
@@ -25,6 +25,7 @@ import type {
   Rule,
   Scene,
   Target,
+  TileKind,
   TilesVisual,
   TileStyle,
 } from '../format/types';
@@ -542,6 +543,8 @@ export class Game {
   private skyView: SkyView | null = null;
   private bloomFilter: AdvancedBloomFilter | null = null;
   /** The blocks of tile maps made of a material, with how each of their cells is drawn. */
+  /** A block of a tile map whose kind has an autotile set: the picture of each of its cells, chosen by its neighbours. */
+  private readonly tilePictures = new WeakMap<GameObject, { cell: number; assets: string[] }>();
   private readonly tileLooks = new WeakMap<GameObject, { style: Exclude<TileStyle, 'flat'>; cell: number; cells: OpenSides[]; variant: number }>();
   /** The scene's gravity, which a rule can change while the scene runs. */
   gravity = 0;
@@ -1493,9 +1496,11 @@ export class Game {
           y: def.y + r * cell,
           width: run * cell,
           height: cell,
-          visual: kind.asset && this.textures.has(kind.asset)
-            ? { kind: 'image', asset: kind.asset, ...(run > 1 ? { repeat: 'x' as const } : {}) }
-            : { kind: 'rect', color: kind.color },
+          visual: kind.autotile && !kind.slope
+            ? { kind: 'rect', color: kind.color }
+            : kind.asset && this.textures.has(kind.asset)
+              ? { kind: 'image', asset: kind.asset, ...(run > 1 ? { repeat: 'x' as const } : {}) }
+              : { kind: 'rect', color: kind.color },
           tags: [...new Set([...def.tags, ...kind.tags])],
           visible: def.visible,
           behaviors: [],
@@ -1503,6 +1508,10 @@ export class Game {
           ...(def.parallax !== undefined ? { parallax: def.parallax } : {}),
           ...(kind.slope ? { slope: kind.slope } : {}),
         };
+        // An autotile set: each cell shows the picture for the neighbours it has (drawn in viewOf).
+        if (kind.autotile && !kind.slope) {
+          this.tilePictures.set(block, { cell, assets: Array.from({ length: run }, (_, i) => autotileAsset(kind, tileSides(tiles, r, c + i)) ?? '') });
+        }
         // A material (and no picture of the user's own) is drawn cell by cell, each knowing which of its sides are open.
         if (kind.style && kind.style !== 'flat' && !(kind.asset && this.textures.has(kind.asset)) && !kind.slope) {
           const cells = Array.from({ length: run }, (_, i) => tileSides(tiles, r, c + i));
@@ -1538,7 +1547,7 @@ export class Game {
     const byValue = v.kind === 'image' ? v.frameBy : undefined;
     const view = this.createView(def);
     // A repeated picture cannot also be an animation.
-    const frames = v.kind === 'image' && animated && !(view instanceof TilingSprite) ? textures([v.asset, ...(v.frames ?? [])]) : null;
+    const frames = v.kind === 'image' && animated && !(view instanceof TilingSprite) && !(view instanceof NineSliceSprite) ? textures([v.asset, ...(v.frames ?? [])]) : null;
     let [vx, vy] = launch?.type === 'launch' ? [launch.vx, launch.vy] : [0, 0];
     if (launch?.type === 'launch' && launch.toward && launch.toward !== 'fixed') {
       // Aimed: toward where the screen was last touched, or toward the nearest object of a group.
@@ -1701,6 +1710,18 @@ export class Game {
         : [0, 0, 0, def.height, def.width, def.height];
       return centred(new Graphics().poly(points).fill(color), def);
     }
+    // A block of a tile map with an autotile set: its cells side by side, each the picture for its neighbours.
+    const pictures = this.tilePictures.get(def);
+    if (pictures && !look?.color) {
+      const box = new Container();
+      pictures.assets.forEach((asset, i) => {
+        const sprite = new Sprite(this.textures.get(asset)?.texture ?? Texture.EMPTY);
+        sprite.position.set(i * pictures.cell, 0);
+        sprite.width = sprite.height = pictures.cell;
+        box.addChild(sprite);
+      });
+      return centred(box, def);
+    }
     // A block of a tile map made of a material: its cells side by side, each drawn for the sides of it that are open.
     const material = this.tileLooks.get(def);
     if (material && !look?.color) {
@@ -1758,6 +1779,14 @@ export class Game {
           if (look?.color) tiling.tint = look.color;
           return tiling;
         }
+        // Nine-slice: the corners keep their size, the edges and middle stretch (panels, buttons).
+        if (v.slice && texture !== Texture.EMPTY) {
+          const s = v.slice;
+          const nine = new NineSliceSprite({ texture, leftWidth: s.left, topHeight: s.top, rightWidth: s.right, bottomHeight: s.bottom, width: def.width, height: def.height });
+          nine.pivot.set(def.width / 2, def.height / 2);
+          if (look?.color) nine.tint = look.color;
+          return nine;
+        }
         const shown = v.crop && texture !== Texture.EMPTY ? cropped(texture, v.crop) : texture;
         const sprite = new Sprite(shown);
         // Pivot is in the texture's own pixels, before the sprite is scaled to the object's size.
@@ -1797,7 +1826,8 @@ export class Game {
         const kind = v.kinds[row[c]];
         if (row[c] === EMPTY_TILE || !kind) continue;
         const [x, y] = [c * cell, r * cell];
-        const texture = kind.asset ? this.textures.get(kind.asset)?.texture : undefined;
+        const picture = kind.autotile && !kind.slope ? autotileAsset(kind, tileSides(v, r, c)) : kind.asset;
+        const texture = picture ? this.textures.get(picture)?.texture : undefined;
         const material = kind.style && kind.style !== 'flat' && !kind.slope ? kind.style : null;
         if ((texture || material) && !kind.slope) {
           const sprite = new Sprite(texture ?? tileTexture(material!, cell, tileSides(v, r, c), Math.round(c + r * 3)));
@@ -1831,7 +1861,12 @@ export class Game {
       // Shapes and images turn around their centre, so their view sits at the centre.
       view.position.set(x + e.width / 2, y + e.height / 2);
       // The entity's size can differ from the definition's while a resize handle is being dragged.
-      if (view instanceof TilingSprite) {
+      if (view instanceof NineSliceSprite) {
+        view.width = e.width;
+        view.height = e.height;
+        view.pivot.set(e.width / 2, e.height / 2);
+        view.scale.set(e.scale);
+      } else if (view instanceof TilingSprite) {
         view.width = e.width;
         view.height = e.height;
         view.pivot.set(e.width / 2, e.height / 2);
@@ -4457,6 +4492,12 @@ export class Game {
 }
 
 /** Which sides of a tile map's cell have no cell of the map next to them. */
+/** The picture of an autotile set for a cell with these open sides (index: top 1 + right 2 + bottom 4 + left 8 for each filled neighbour). */
+function autotileAsset(kind: TileKind, open: OpenSides): string | undefined {
+  const mask = (open.top ? 0 : 1) | (open.right ? 0 : 2) | (open.bottom ? 0 : 4) | (open.left ? 0 : 8);
+  return kind.autotile?.[mask] || kind.asset;
+}
+
 function tileSides(tiles: TilesVisual, r: number, c: number): OpenSides {
   const filled = (row: number, col: number) => {
     const key = tiles.rows[row]?.[col];

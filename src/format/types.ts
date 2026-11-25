@@ -300,6 +300,12 @@ export interface TilesVisual {
 }
 
 export interface TileKind {
+  /**
+   * Autotile: sixteen pictures, one for each way its neighbours can be filled, index = top 1 + right 2 +
+   * bottom 4 + left 8 (a filled cell of any kind counts): 0 a block alone, 15 the middle, 5 a column, 10 a row…
+   * A missing one uses `asset`. Like Kenney's terrain sets (block, top, top_left, center, …).
+   */
+  autotile?: string[];
   /** Shown in the editor only. */
   name: string;
   color: string;
@@ -370,6 +376,11 @@ export interface ImageVisual {
   crop?: { x: number; y: number; w: number; h: number };
   /** Repeats the picture to fill the object instead of stretching it: sideways (fitted to the height) or downward (fitted to the width). */
   repeat?: 'x' | 'y';
+  /**
+   * Nine-slice, for panels and buttons: this many pixels of the picture on each side keep their size (the corners
+   * never blur or stretch); the edges stretch one way and the middle both ways.
+   */
+  slice?: { left: number; top: number; right: number; bottom: number };
 }
 
 export interface TextVisual {
