@@ -198,6 +198,25 @@ how to see it, what to try or film, the next phase).
   6, step 5 (80acd4d) won 3 of 6. The same: the bot's luck (see Later), not the move.
 - Next: Phase 2, which starts with a report and the owner's choice, no code.
 
+### Phase 2 progress (one contact model)
+
+- Report: docs/contact-report.md (seven differences between body and physics, each with a scene; three
+  directions). The owner was asleep: the agent chose **direction 2, one contact question, two movers**.
+- src/runtime/contacts.ts: , the one definition (hidden never touch; resting on or
+  walked into = touching, whatever the inset; shaped physics only where shapes meet; else overlaps or planck
+  contact), and , a spatial hash grid (192 px cells, world and screen apart) rebuilt lazily when
+  stale (runRules start, after any action, list changes). touch and near ask it; results keep the game's order.
+- Game.ts:  (the solid it walked into this step);  (the group's objects, cached per step,
+  cleared by  on update start, insertAbove, the dead filter, scene load, any action), used by
+  matching(), moveBody, shove, separateBodies, crouch's ceiling test. moveBody sweeps a body that moves more
+  than half its size in a step (x and y), so it cannot pass through a thin wall; slower bodies unchanged.
+- scripts/contact.smoke.mjs (new CI suite, in npm test): 20 real and 20 arcade crates at rest (jitter ≤ 1 px /
+  0, sinking ≤ 1.5 px / 0), bullets at 3000 and 12000 px/s against a 10 px wall (≤ 0.5 px past), a walker up
+  and down ramps (≥ 97% grounded, float ≤ 2, sink ≤ 1), riders on a sideways platform and a lift (slide ≤ 1,
+  gap ≤ 1, never off), a crate pushed into a corner (none into the wall, no jitter), the inset touch, and 300
+  coins through the grid. Measured locally: all pass (real crates jitter 0.007 px, ramp float 1.1 px).
+- GUIDE-fa §۸: «کی دو شیء به هم می‌خورند؟».
+
 ### Later (small things noticed, not blocking the phase)
 
 - `isVariableUsed` (state.ts, the warning before deleting a value) knows only some blocks (not e.g. a bar, a

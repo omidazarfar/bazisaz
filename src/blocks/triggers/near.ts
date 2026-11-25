@@ -29,8 +29,13 @@ export const near = triggerBlock({
     const now = new Set<string>();
     const hits: Context[] = [];
     const seconds = game.matching(w.b);
+    const wanted = new Set(seconds);
     for (const first of game.matching(w.a)) {
-      for (const second of seconds) {
+      // Only what lies within the distance of its middle is looked at (the broadphase, src/runtime/contacts.ts).
+      const [cx, cy] = [first.x + first.width / 2, first.y + first.height / 2];
+      const square = { x: cx - w.distance, y: cy - w.distance, width: 2 * w.distance, height: 2 * w.distance };
+      for (const second of game.contacts.around(game.entities, Boolean(first.def.fixed), square, 1)) {
+        if (!wanted.has(second)) continue;
         if (first === second || !first.visible || !second.visible || Boolean(first.def.fixed) !== Boolean(second.def.fixed)) continue;
         const distance = Math.hypot(first.x + first.width / 2 - (second.x + second.width / 2), first.y + first.height / 2 - (second.y + second.height / 2));
         if (distance > w.distance) continue;

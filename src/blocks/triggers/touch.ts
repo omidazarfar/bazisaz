@@ -1,5 +1,5 @@
 import type { Context } from '../../runtime/Game';
-import { overlaps } from '../../runtime/geometry';
+import { touching } from '../../runtime/contacts';
 import { firstRef } from '../fields';
 import { describeRef } from '../say';
 import { triggerBlock } from '../types';
@@ -29,14 +29,12 @@ export const touch = triggerBlock({
     const before = game.touching.get(rule.id) ?? new Set<string>();
     const now = new Set<string>();
     const hits: Context[] = [];
-    const seconds = game.matching(w.b);
+    const seconds = new Set(game.matching(w.b));
     for (const first of game.matching(w.a)) {
-      for (const second of seconds) {
-        // Bodies resting on each other are pressed together without their boxes quite overlapping.
-        // Bodies with a shape of their own (an outline, a capsule) touch only where those shapes do.
-        if (first === second) continue;
-        const touching = game.physics?.exactly(first, second) ? game.physics.touches(first, second) : overlaps(first, second) || game.physics?.touches(first, second);
-        if (!touching) continue;
+      // Only what is near it is looked at (the broadphase), in the game's order; one definition of touching
+      // for every kind of object (src/runtime/contacts.ts, docs/contact-report.md).
+      for (const second of game.contacts.near(game.entities, first)) {
+        if (!seconds.has(second) || !touching(first, second, game.physics)) continue;
         const key = `${game.uids.get(first)}|${game.uids.get(second)}`;
         now.add(key);
         if (before.has(key)) continue;

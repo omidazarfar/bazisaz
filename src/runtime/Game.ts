@@ -46,6 +46,7 @@ import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './so
 import { applyDirection, fillTemplate } from './text';
 import { clamp } from './math';
 import { contains, cornersOf, terrainTop, test } from './geometry';
+import { Contacts } from './contacts';
 import { SHAKE_SECONDS, STICK_REACH, TAP_GRACE } from './constants';
 import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
 import type { BehaviorStep, TriggerStep } from '../blocks/types';
@@ -203,6 +204,8 @@ export interface Entity extends Box {
   prevY: number;
   /** The solid object it is standing on, if any. */
   ground: Entity | null;
+  /** The solid object it walked into this step, if any (it counts as touching it, Phase 2). */
+  against: Entity | null;
   /** Seconds since it last stood on something. */
   airTime: number;
   /** A jump was asked for this long ago and has not happened yet; it still happens if the ground arrives in time. */
@@ -486,6 +489,8 @@ export class Game {
   private readonly fitted = new WeakSet<Text>();
   /** Real physics for the scene being played, if any of its objects asks for it. */
   physics: Physics<Entity> | null = null;
+  /** Where objects are, for the questions rules ask about contact (src/runtime/contacts.ts). */
+  readonly contacts = new Contacts();
   /** Ropes, springs and a sling's band and aim, drawn over the world. */
   private readonly physicsView = new Graphics();
   private physicsDrawn = false;
@@ -1279,6 +1284,7 @@ export class Game {
     this.entities = this.scene.objects.flatMap((def) =>
       play && def.visual.kind === 'tiles' ? this.tileEntities(def, def.visual) : [this.createEntity(def, def.x, def.y)],
     );
+    this.listChanged();
     this.entities.forEach((e) => this.layerOf(e).addChild(e.view));
     this.placeOnScreen(this.entities);
     this.healthBars = new Graphics();
@@ -1458,6 +1464,7 @@ export class Game {
     const centre = prefab.fixed ? { x: width / 2, y: height / 2 } : this.viewCentre();
     const entity = this.createEntity(prefab, centre.x - prefab.width / 2, centre.y - prefab.height / 2);
     this.entities.push(entity);
+    this.listChanged();
     this.layerOf(entity).addChild(entity.view);
   }
 
@@ -1530,6 +1537,7 @@ export class Game {
       prevX: x,
       prevY: y,
       ground: null,
+      against: null,
       airTime: 0,
       jumpAsked: 0,
       rising: false,
@@ -1900,6 +1908,7 @@ export class Game {
     if (this.mode.kind !== 'play') return;
     if (this.paused) return this.updatePaused();
     this.time += dt;
+    this.listChanged();
     const { width: W, height: H } = this.view;
     const tapsOnScreen = this.time > TAP_GRACE ? this.taps.filter((t) => !this.onControl(t)) : [];
     const screenTapped = this.time > TAP_GRACE && (tapsOnScreen.length > 0 || this.keyTap);
@@ -2094,6 +2103,7 @@ export class Game {
       } else e.view.destroy({ children: true });
     }
     this.entities = this.entities.filter((e) => e.alive);
+    this.listChanged();
     this.refreshTexts(spawned.length > 0 || this.valuesChanged);
     this.valuesChanged = false;
 
@@ -2171,15 +2181,15 @@ export class Game {
       const solid = this.bodyOf(e)?.solidTag;
       if (!solid) return true;
       const [x, y] = [e.x + dx, e.y + dy];
-      return !this.entities.some((s) => s !== e && s.alive && s.visible && !s.def.slope && s.def.tags.includes(solid) &&
+      return !this.tagged(solid).some((s) => s !== e && s.alive && s.visible && !s.def.slope &&
         x < s.x + s.width - 0.01 && x + e.width > s.x + 0.01 && y < s.y + s.height - 0.01 && y + e.height > s.y + 0.01);
     };
     for (let round = 0; round < 3; round++) {
       let moved = false;
       for (const e of bumpers) {
         const tag = this.bodyOf(e)!.bumpTag!;
-        for (const o of this.entities) {
-          if (o === e || !o.alive || !o.visible || !o.def.tags.includes(tag)) continue;
+        for (const o of this.tagged(tag)) {
+          if (o === e || !o.alive || !o.visible) continue;
           // Measured on the collision boxes (inside any hitbox inset), so that once apart they still just touch.
           const ie = e.def.hitboxInset ?? 0;
           const io = o.def.hitboxInset ?? 0;
@@ -2217,6 +2227,25 @@ export class Game {
     }
   }
 
+  /** The objects of each group, in the game's order; gathered when first asked for in a step, and again after the list changes. */
+  private byTag = new Map<string, Entity[]>();
+
+  /** The objects of a group (alive or not, seen or not: callers check), without looking through every object. */
+  tagged(tag: string): Entity[] {
+    let list = this.byTag.get(tag);
+    if (!list) {
+      list = this.entities.filter((e) => e.def.tags.includes(tag));
+      this.byTag.set(tag, list);
+    }
+    return list;
+  }
+
+  /** The list of objects changed: the groups are gathered again, and contact questions look again. */
+  private listChanged(): void {
+    this.byTag.clear();
+    this.contacts.stale();
+  }
+
   private bodyOf(e: Entity): BodyBehavior | undefined {
     return e.def.behaviors.find((b): b is BodyBehavior => b.type === 'body');
   }
@@ -2229,6 +2258,7 @@ export class Game {
       e.y += e.ground.y - e.ground.prevY;
     }
     e.ground = null;
+    e.against = null;
     const wasGrounded = e.grounded;
     e.wallSide = 0;
     if (body.gravity) e.vy += this.gravity * dt;
@@ -2242,7 +2272,7 @@ export class Game {
       if (!body.gravity && Math.abs(e.vy) < 2) e.vy = 0;
     }
     const all = body.solidTag
-      ? this.entities.filter((s) => s !== e && s.alive && s.visible && s.def.tags.includes(body.solidTag))
+      ? this.tagged(body.solidTag).filter((s) => s !== e && s.alive && s.visible)
       : [];
     // Ramps are met by their sloping surface, not as boxes.
     const solids = all.filter((s) => !s.def.slope && s.def.visual.kind !== 'terrain');
@@ -2266,15 +2296,25 @@ export class Game {
 
     // One axis at a time, so sliding along a wall or floor works.
     e.x += e.vx * dt;
+    // Faster than half its own width in a step, it is swept: whatever lies between where it was and where it got
+    // to stops it, so it cannot pass through a thin wall (Phase 2). Slower, it is tested where it got to.
+    const sweptX = Math.abs(e.x - startX) > e.width / 2;
+    const rightward = e.x > startX;
+    const blockedX = (s: Entity) => sweptX
+      ? Math.min(startX, e.x) < s.x + s.width && Math.max(startX, e.x) + e.width > s.x && e.y < s.y + s.height && e.y + e.height > s.y
+      : blocked(s);
     // Jump-through platforms have no sides: only their tops stop anything.
     for (const s of body.oneWay ? [] : solids) {
-      if (!blocked(s)) continue;
+      if (!blockedX(s)) continue;
       // Standing still and pushed by a moving wall, it gives way to the side it is already on.
-      const fromLeft = e.vx !== 0 ? e.vx > 0 : e.x + e.width / 2 < s.x + s.width / 2;
+      const fromLeft = sweptX ? rightward : e.vx !== 0 ? e.vx > 0 : e.x + e.width / 2 < s.x + s.width / 2;
       // Something that can be pushed goes ahead of it, if there is room.
       if (e.vx !== 0 && this.shove(s, fromLeft ? e.x + e.width - s.x : e.x - (s.x + s.width))) continue;
       e.x = fromLeft ? s.x - e.width : s.x + s.width;
-      if (e.vx !== 0) e.wallSide = fromLeft ? 1 : -1;
+      if (e.vx !== 0) {
+        e.wallSide = fromLeft ? 1 : -1;
+        e.against = s;
+      }
       e.vx = rebound(e.vx, body.bounce);
     }
     // A ramp's steep side is a wall to whatever comes at it from beyond that side.
@@ -2308,11 +2348,19 @@ export class Game {
 
     const bottomBefore = e.y + e.height;
     e.y += e.vy * dt;
+    // Swept too when it falls or rises more than half its height in a step.
+    const topBefore = bottomBefore - e.height;
+    const sweptY = Math.abs(e.y - topBefore) > e.height / 2;
+    const downward = e.y > topBefore;
+    const blockedY = (s: Entity) => sweptY
+      ? e.x < s.x + s.width && e.x + e.width > s.x && Math.min(topBefore, e.y) < s.y + s.height && Math.max(topBefore, e.y) + e.height > s.y
+      : blocked(s);
     for (const s of solids) {
-      if (!blocked(s)) continue;
+      if (!blockedY(s)) continue;
+      const falling = sweptY ? downward : e.vy > 0;
       // From below or from inside, a jump-through platform is not there.
-      if (body.oneWay && !(e.vy > 0 && bottomBefore <= s.y + 1)) continue;
-      if (e.vy > 0) {
+      if (body.oneWay && !(falling && bottomBefore <= s.y + 1)) continue;
+      if (falling) {
         e.y = s.y - e.height;
         land(s);
       } else {
@@ -2381,8 +2429,8 @@ export class Game {
     const limit = s.def.fixed ? this.project.meta : this.scene;
     if (body.edges !== 'none' && body.edges !== 'wrap') room = dx > 0 ? Math.min(room, limit.width - (s.x + s.width)) : Math.max(room, -s.x);
     if (body.solidTag) {
-      for (const o of this.entities) {
-        if (o === s || !o.alive || !o.visible || o.def.slope || !o.def.tags.includes(body.solidTag)) continue;
+      for (const o of this.tagged(body.solidTag)) {
+        if (o === s || !o.alive || !o.visible || o.def.slope) continue;
         if (!(s.y < o.y + o.height && s.y + s.height > o.y)) continue;
         if (dx > 0 && o.x >= s.x + s.width - 0.5) room = Math.min(room, o.x - (s.x + s.width));
         else if (dx < 0 && o.x + o.width <= s.x + 0.5) room = Math.max(room, o.x + o.width - s.x);
@@ -2588,6 +2636,7 @@ export class Game {
 
   insertAbove(entity: Entity, below: Entity): void {
     this.entities.splice(this.entities.indexOf(below) + 1, 0, entity);
+    this.listChanged();
     const layer = this.layerOf(entity);
     // In another layer there is no "just above"; it goes on top of that layer.
     if (layer === this.layerOf(below)) layer.addChildAt(entity.view, layer.getChildIndex(below.view) + 1);
@@ -2603,6 +2652,8 @@ export class Game {
     // Messages sent since the rules last ran arrive now; ones sent now arrive next step, so a message can never loop forever within one step.
     this.inbox = this.outbox;
     this.outbox = [];
+    // Everything moved since the rules last asked where things are.
+    this.contacts.stale();
     const step: TriggerStep = { dt, screenTapped, left };
     for (const rule of this.scene.rules) {
       for (const context of this.fired(rule, step)) {
@@ -2629,6 +2680,8 @@ export class Game {
 
   /** Performs actions in order. A "wait" sets the rest aside until its time has passed. */
   private runActions(actions: Action[], context: Context): void {
+    // An action may move, make, remove or reorder objects: the groups and the next contact question look again.
+    if (actions.length) this.listChanged();
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i];
       // A wait, or words to read: the rest of the rule runs later.
@@ -2980,7 +3033,7 @@ export class Game {
       e.height = low;
     } else if (e.crouchFrom && (!down || !e.grounded)) {
       const rise = e.crouchFrom - e.height;
-      const blocked = body.solidTag !== '' && this.entities.some((s) => s !== e && s.alive && s.visible && s.def.tags.includes(body.solidTag) &&
+      const blocked = body.solidTag !== '' && this.tagged(body.solidTag).some((s) => s !== e && s.alive && s.visible &&
         e.x < s.x + s.width && e.x + e.width > s.x && e.y - rise < s.y + s.height && e.y > s.y);
       if (!blocked) {
         e.y -= rise;
@@ -3169,7 +3222,7 @@ export class Game {
       if (spot.is === 'home' || spot.is === 'away') return (Math.abs(e.x - e.homeX) < 1 && Math.abs(e.y - e.homeY) < 1) === (spot.is === 'home');
       return this.occupants(spot.tag ?? '', { x: e.x, y: e.y, width: e.width, height: e.height }, e).length > 0 === (spot.is === 'on');
     };
-    const found = this.entities.filter((e) => e.alive && e.def.tags.includes(ref.tag) && (!where || test(e.values.get(where.name) ?? 0, where.op, where.value)) && inSpot(e));
+    const found = this.tagged(ref.tag).filter((e) => e.alive && (!where || test(e.values.get(where.name) ?? 0, where.op, where.value)) && inSpot(e));
     return ref.pick === 'random' && found.length > 1 ? [found[Math.floor(Math.random() * found.length)]] : found;
   }
 
