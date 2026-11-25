@@ -117,10 +117,20 @@ step that passes. One phase per session, in this order.
   word for word as before). `takesRest` (wait, say): the block gets the rest of the rule's actions to run later.
   give and take share one file (giveTake.ts), as they shared their code. Every moved action's run code was
   compared line by line with the code before Phase 1 (no difference). Game.ts: 5365 → 4821 lines.
-- Next: the triggers (`fired`: a TriggerBlock with `fired(game, trigger, rule, …) → Context[]`), then the
-  behaviors (the switch in `update`), with the same steps and the same line-by-line comparison.
-- Before Phase 1 counts as done: the Action union in src/format/types.ts still has to be edited for a new
-  action; make the union include the registry's types (so a new action is truly one file and one line), and
+- **All 26 triggers are blocks** (step 4): `src/blocks/triggers/` (`TriggerBlock`: `type`, `editor`,
+  `sentence(trigger, { scene })`, optional `subjects` (what "first"/"second" mean, was `subjectsOf`), optional
+  `check(trigger, kit)`, `fired(game, trigger, rule, { dt, screenTapped, left }) → Context[]`). `Game.fired`,
+  the editor's `TRIGGERS`, `triggerSentence`, `subjectsOf` are now only the registry (`triggerBlocks`,
+  `everyTriggerIsABlock`); `validateProject` keeps only the common `target` check and builds one `CheckKit`
+  per rule for the trigger and the actions. thrown and rest share one file (thrownRest.ts). Moved as they were
+  for it: `src/runtime/geometry.ts` (contains, overlaps, terrainTop, cornersOf, polygonsMeet, test),
+  `TAP_GRACE` (constants.ts), `COMPARE` (fields.ts), `Subjects` (say.ts). Mover:
+  `node scripts/blocks-move-triggers.mjs "<Family>" a b c` (refuses shared cases; validate checks by hand). Every
+  moved fired case, editor entry, sentence and subjects line was compared with the code before (scratch script,
+  whitespace-normalised, `this.`→`game.`): no difference. Game.ts: 4821 → 4533 lines.
+- Next: the behaviors (the switch in `update`), with the same steps and the same line-by-line comparison.
+- Before Phase 1 counts as done: the Action and Trigger unions in src/format/types.ts still have to be edited
+  for a new block; make the unions include the registry's types (so a new action is truly one file and one line), and
   rewrite "A new block" under Gotchas. SHORT_ABOUT (labels.ts, one line of help per block) also belongs in the
   blocks' own files.
 
@@ -417,22 +427,28 @@ say so in the log.
   `id`. Existing projects keep the PNGs already stored in their assets.
 - A new action (Phase 1 way): its type in the Action union of `types.ts`, one file in `src/blocks/actions/`
   (copy one: editor description, sentence, check, run), one line in `src/blocks/registry.ts`, the GUIDE block
-  list, a lab test. Nothing in Game.ts, labels.ts, sentences.ts or validate.ts. A new trigger or behavior is still the old way until they are moved:
-- A new block (trigger or action), old way:
-  1. Add it to `types.ts`.
-  2. Implement it in `Game.ts` (`fired` for triggers, `perform` for actions).
-  3. Check it in `validate.ts`.
-  4. Add it to `TRIGGERS`/`ACTIONS` and a group in `labels.ts`.
-  5. Write its sentence in `sentences.ts`.
-  6. Update `isVariableUsed` in `state.ts` if it names a variable.
-  7. Update the GUIDE block list and counts (§۵).
-  8. Add a lab test.
+  list, a lab test. Nothing in Game.ts, sentences.ts or validate.ts; in labels.ts only its place in a pick-list
+  group (`ACTION_GROUPS`); `isVariableUsed` in `state.ts` if it names a variable.
+- A new trigger (Phase 1 way): the same, with its type in the Trigger union, one file in `src/blocks/triggers/`
+  (editor description, sentence, subjects if it is about objects, check, fired), one line in the registry's
+  `triggers`, a place in `TRIGGER_GROUPS`. A new behavior is still the old way until behaviors are moved:
+  add it to `types.ts`, `Game.ts` (`update`), `validate.ts`, `BEHAVIORS` and a group in `labels.ts`,
+  `behaviorSentence` in `sentences.ts`, the GUIDE block list and counts (§۵), a lab test.
 - After any visual change, photograph it (scripts/look) and look before
   reporting.
 
 ---
 
 ## Session log (newest first)
+
+### 2026-11-25 — Claude, Phase 1 step 4: the triggers (owner: "read HANDOFF and continue Phase 1 (triggers)")
+
+- All 26 triggers moved as they were into src/blocks/triggers/ (see "Phase 1 progress"), with
+  scripts/blocks-move-triggers.mjs; thrown/rest and the validate checks by hand. Compared with the code before
+  Phase 1 step 4: no difference. `npx tsc` and `npm run build` pass. CI run 47 (all bots): all four test
+  suites pass; 14 of 16 bots win (physics and puzzle won this time); platform-levels (Game over, score 136) and
+  bricks-levels (Game over, score 720), no page errors, lose on CI as they did before Phase 1 (see Later). Not done: the behaviors; the Trigger/Action unions in types.ts still have to be edited for
+  a new block; SHORT_ABOUT still in labels.ts.
 
 ### 2026-11-25 — Claude, roadmap "foundations, not features", Phase 1 started (block registry)
 
