@@ -1,6 +1,7 @@
 import './player.css';
 import { BRAND } from '../brand';
 import type { GameProject } from '../format/types';
+import { migrate } from '../format/migrate';
 import { startAds, type Ads } from '../runtime/ads';
 import { loadFonts } from '../runtime/fonts';
 import { Game } from '../runtime/Game';
@@ -28,7 +29,8 @@ async function main(): Promise<void> {
     await loadFonts();
     // With no game supplied, an example plays; ?template=catch picks which, for development and tests.
     const example = new URLSearchParams(location.search).get('template') ?? 'runner';
-    const project = window.__GAME_PROJECT__ ?? buildExample(example);
+    // A game saved by an older Bazisaz is made current first (src/format/migrate.ts).
+    const project = migrate(window.__GAME_PROJECT__ ?? buildExample(example));
     window.__project = project;
     document.title = project.meta.name;
 

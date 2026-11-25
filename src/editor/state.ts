@@ -1,5 +1,6 @@
 import { EMPTY_TILE, ruleActions, type Action, type Behavior, type GameObject, type GameProject, type Place, type Ref, type Rule, type Scene, type TilesVisual, type Visual } from '../format/types';
 import { validateProject } from '../format/validate';
+import { migrate } from '../format/migrate';
 import { blank } from '../templates';
 
 export interface EditorState {
@@ -466,7 +467,9 @@ export async function loadSaved(): Promise<GameProject | null> {
       request.onsuccess = () => resolve(request.result as GameProject | undefined);
       request.onerror = () => reject(request.error);
     });
-    return project && validateProject(project).length === 0 ? project : null;
+    // Saved by an older Bazisaz: made current first (src/format/migrate.ts).
+    const current = project && migrate(project);
+    return current && validateProject(current).length === 0 ? current : null;
   } catch {
     return null;
   }

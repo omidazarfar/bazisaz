@@ -1,5 +1,6 @@
 import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
 import type { BehaviorCheckKit, CheckKit } from '../blocks/types';
+import { OLDEST_FORMAT } from './migrate';
 import { FORMAT_VERSION, isBuiltinMusic, ruleActions, type GameObject, type GameProject, type Place, type Ref } from './types';
 
 const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -15,7 +16,9 @@ export function validateProject(project: GameProject): string[] {
   const say = (text: string) => problems.push(text);
 
   if (project.formatVersion !== FORMAT_VERSION) {
-    say(`formatVersion is ${String(project.formatVersion)}; this runtime reads version ${FORMAT_VERSION}.`);
+    const v = project.formatVersion as unknown;
+    const why = typeof v === 'number' && v > FORMAT_VERSION ? ' It was made with a newer Bazisaz.' : '';
+    say(`formatVersion is ${String(v)}; this runtime reads version ${FORMAT_VERSION} (and older ones from ${OLDEST_FORMAT}, made current first).${why}`);
     return problems; // Nothing below can be trusted on another version's shape.
   }
   if (!(project.meta.width > 0) || !(project.meta.height > 0)) {

@@ -1,0 +1,31 @@
+{
+  "formatVersion": 2,
+  "meta": { "name": "Oldest shape", "orientation": "portrait", "width": 720, "height": 1280, "background": "#87ceeb", "fontFamily": "Fredoka" },
+  "app": { "appId": "com.example.oldestshape", "versionCode": 1, "versionName": "1.0", "icon": null },
+  "ads": { "enabled": false, "testMode": true, "banner": false, "appId": "", "bannerId": "", "interstitialId": "", "rewardedId": "" },
+  "sound": false,
+  "assets": {},
+  "variables": [{ "name": "score", "initial": 0 }],
+  "startScene": "play",
+  "scenes": [
+    {
+      "id": "play", "name": "Play", "width": 720, "height": 1280, "background": null, "music": null, "gravity": 2000,
+      "prefabs": [],
+      "objects": [
+        { "id": "ground", "name": "Ground", "x": 0, "y": 1100, "width": 720, "height": 180, "visual": { "kind": "rect", "color": "#5d4037" }, "tags": ["ground"], "visible": true, "behaviors": [] },
+        { "id": "player", "name": "Player", "x": 100, "y": 900, "width": 80, "height": 100, "visual": { "kind": "rect", "color": "#ff7043" }, "tags": ["player"], "visible": true,
+          "behaviors": [
+            { "type": "body", "gravity": true, "solidTag": "ground", "bounce": 0, "edges": "stop", "oneWay": false },
+            { "type": "jumper", "jumpSpeed": 1000, "maxJumps": 1, "on": "tap", "buttonTag": "" },
+            { "type": "walker", "speed": 200, "control": "auto", "leftTag": "", "rightTag": "" }
+          ] },
+        { "id": "coin", "name": "Coin", "x": 400, "y": 1020, "width": 60, "height": 60, "visual": { "kind": "rect", "color": "#ffd54f" }, "tags": ["coin"], "visible": true, "behaviors": [] },
+        { "id": "label", "name": "Score", "x": 40, "y": 40, "width": 300, "height": 60, "visual": { "kind": "text", "text": "Score: {score}", "size": 40, "color": "#ffffff" }, "tags": [], "visible": true, "behaviors": [], "fixed": true }
+      ],
+      "rules": [
+        { "id": "take", "when": { "type": "touch", "a": { "by": "id", "id": "player" }, "b": { "by": "tag", "tag": "coin" } }, "condition": null,
+          "then": [{ "type": "setVariable", "name": "score", "op": "add", "amount": 1 }, { "type": "destroy", "target": "second" }] }
+      ]
+    }
+  ]
+}

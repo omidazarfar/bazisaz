@@ -5,6 +5,7 @@
  */
 import type { GameProject, Visual } from '../format/types';
 import { validateProject } from '../format/validate';
+import { migrate } from '../format/migrate';
 import { blank } from '../templates';
 import { character } from './games';
 import { findIssues, sceneName } from './issues';
@@ -31,7 +32,9 @@ export interface AgentApi {
 
 export const agentApi: AgentApi = {
   blank,
-  check: (project) => {
+  check: (given) => {
+    // A project of an older format is checked as the editor would open it: made current first.
+    const project = migrate(given);
     const problems = validateProject(project);
     // The warnings need a game that runs; they are not looked for while it would not.
     const warnings = problems.length ? [] : findIssues(project).map((i) => ({ scene: sceneName(project, i), text: i.text }));

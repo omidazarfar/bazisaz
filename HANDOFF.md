@@ -217,6 +217,20 @@ how to see it, what to try or film, the next phase).
   coins through the grid. Measured locally: all pass (real crates jitter 0.007 px, ramp float 1.1 px).
 - GUIDE-fa §۸: «کی دو شیء به هم می‌خورند؟».
 
+### Phase 3 progress (format migrations)
+
+- src/format/migrate.ts: `migrate(project)` runs STEPS[n] (version n → n + 1) from the project's version to
+  FORMAT_VERSION on a copy; a current project comes back as the same object; newer, older than OLDEST_FORMAT (2)
+  or not a project: unchanged, for validateProject to say (it now says "made with a newer Bazisaz"). Called before
+  validation by the player (main.ts), the editor's open-file, the saved project (loadSaved) and the agent check.
+- The format has always been version 2 (no version 1 ever existed in the repo), so STEPS is empty; the first real
+  step comes with Phase 4 (functions and lists, version 3).
+- scripts/fixtures/: v2-oldest-shape (no optional field at all), v2-star-catch (examples/), v2-sky-quest (the
+  platform genre game as exported). scripts/fixtures.smoke.mjs (CI suite, in npm test): one fixture per version
+  from the oldest; each opens in the player, plays 4 s with a tap, is current once opened, passes the editor's
+  check; a newer format is refused with a message saying so. Passed locally.
+- GUIDE-fa §۲: «فایل‌های قدیمی». Gotchas: "A format change".
+
 ### Later (small things noticed, not blocking the phase)
 
 - `isVariableUsed` (state.ts, the warning before deleting a value) knows only some blocks (not e.g. a bar, a
@@ -520,10 +534,18 @@ say so in the log.
   in `src/blocks/registry.ts` (tsc names a block without one). It shows in the pick-list group «بقیه» until
   placed in a group in labels.ts. Also: the GUIDE block list and counts (§۵), a lab test, and
   `isVariableUsed` in state.ts if it names a variable. Nothing in Game.ts, sentences.ts or validate.ts.
-- **Do not push code while a CI run with bots is going**: a new run on main cancels the one in progress (run 49,
-  step 5, was cancelled by the push of step 6). Wait for it, or push docs only (HANDOFF/README pushes start no
-  run). `CI_RUN=<number> node scripts/ci.mjs status` (or `watch`) follows an earlier run; plain `watch` follows
-  the newest, which may be a push run that the bot run cancelled.
+- **CI runs cancel each other on main**: a push cancels a push run in progress, and a push and a plain bot run
+  share that group too (run 49 and run 61 were lost so). Play the bots on a commit with
+  `CI_REF=<commit> node scripts/ci.mjs run all`: a run with a ref is its own group (only the bots, no suites), so
+  later pushes do not touch it. The push run gives the suites; do not push code again before it ends.
+  `CI_RUN=<number> node scripts/ci.mjs status` (or `watch`) follows a given run.
+- **A format change** (a field becomes required, something is renamed or moved; not an optional field with a
+  sensible meaning when left out): raise FORMAT_VERSION in types.ts, add the step to STEPS in
+  src/format/migrate.ts (version n → n + 1), and put a project of the old version in scripts/fixtures/
+  (`v<n>-<what>.json`, e.g. copy a current fixture before the change). fixtures.smoke checks there is one per
+  version and that each opens and plays in the player and passes the editor's checks.
+- **Text with backticks through a shell**: `node -e "…"` in bash expands backticks and `$` inside double quotes
+  (the Phase 2 notes lost their names so). Write such text with the Edit/Write tools or a heredoc file.
 - After any visual change, photograph it (scripts/look) and look before
   reporting.
 

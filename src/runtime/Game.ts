@@ -4320,6 +4320,7 @@ function tileSides(tiles: TilesVisual, r: number, c: number): OpenSides {
 }
 
 function assertPlayable(project: GameProject): void {
+  // The player and the editor make an older project current before it gets here (src/format/migrate.ts).
   const problems = validateProject(project);
   if (problems.length > 0) throw new Error(`This game cannot be played:\n- ${problems.join('\n- ')}`);
 }

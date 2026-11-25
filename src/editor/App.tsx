@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { BRAND } from '../brand';
 import type { GameProject } from '../format/types';
 import { validateProject } from '../format/validate';
+import { migrate } from '../format/migrate';
 import type { EditView, Game, GameMode } from '../runtime/Game';
 import { blank } from '../templates';
 import { agentApi, type AgentApi } from './agentApi';
@@ -251,7 +252,8 @@ export function App({ saved }: { saved: GameProject | null }) {
     const file = await pickFile('.json,application/json');
     if (!file) return;
     try {
-      const loaded = JSON.parse(await file.text()) as GameProject;
+      // A game saved by an older Bazisaz is made current first (src/format/migrate.ts).
+      const loaded = migrate(JSON.parse(await file.text()) as GameProject);
       const problems = validateProject(loaded);
       if (problems.length > 0) return setNotice(`این فایل را نمی‌توان باز کرد: ${problems[0]}`);
       setNotice(null);
