@@ -119,3 +119,20 @@ export const LOOK_OPTIONS: Option[] = [
 ];
 
 export const hasPrefabs = ({ scene }: Context) => scene.prefabs.length > 0;
+
+export const messageNamesOf = (scene: Scene): string[] => {
+  const names = new Set<string>();
+  for (const r of scene.rules) {
+    if (r.when.type === 'message') names.add(r.when.name);
+    for (const a of [...r.then, ...(r.otherwise ?? [])]) if (a.type === 'send') names.add(a.name);
+  }
+  return [...names].filter(Boolean);
+};
+
+export const hasTexts = ({ project }: Context) => Boolean(project.textVariables?.length);
+
+export const hasVariables = ({ project }: Context) => project.variables.length > 0;
+
+export const hasItems = ({ project }: Context) => project.variables.some((v) => v.item);
+
+export const firstItem = ({ project }: Context) => project.variables.find((v) => v.item)?.name ?? '';

@@ -486,7 +486,7 @@ export class Game {
   private readonly mount: HTMLElement;
   readonly options: GameOptions;
   /** The screen in game pixels: the design's size, or taller or wider when filling a phone's screen. */
-  private view = { width: 0, height: 0 };
+  view = { width: 0, height: 0 };
   /** Where each screen-fixed object was designed to be, before keeping it to its edge of a larger screen. */
   private readonly hudBase = new WeakMap<Entity, { x: number; y: number; width: number; height: number }>();
   /** Objects in the world, shifted as the camera moves. */
@@ -501,7 +501,7 @@ export class Game {
   // Text views already fitted to the screen for the words they show.
   private readonly fitted = new WeakSet<Text>();
   /** Real physics for the scene being played, if any of its objects asks for it. */
-  private physics: Physics<Entity> | null = null;
+  physics: Physics<Entity> | null = null;
   /** Ropes, springs and a sling's band and aim, drawn over the world. */
   private readonly physicsView = new Graphics();
   private physicsDrawn = false;
@@ -540,7 +540,7 @@ export class Game {
   /** The blocks of tile maps made of a material, with how each of their cells is drawn. */
   private readonly tileLooks = new WeakMap<GameObject, { style: Exclude<TileStyle, 'flat'>; cell: number; cells: OpenSides[]; variant: number }>();
   /** The scene's gravity, which a rule can change while the scene runs. */
-  private gravity = 0;
+  gravity = 0;
   /** Route markers by group, found once per step. */
   private readonly marks = new Map<string, Entity[]>();
   private readonly overlay = new Graphics();
@@ -558,8 +558,8 @@ export class Game {
   private grid = 0;
   private brush = EMPTY_TILE;
   /** Play: how close the camera is, and a smooth change of it under way. */
-  private playZoom = 1;
-  private zoomGlide: { from: number; to: number; elapsed: number; seconds: number } | null = null;
+  playZoom = 1;
+  zoomGlide: { from: number; to: number; elapsed: number; seconds: number } | null = null;
   /** Music a rule started in place of the scene's: an asset id, "" for silence, or null for the scene's own. */
   musicOverride: string | null = null;
   /** For chasers that go around walls: which cells of the world are blocked, by wall group and cell size, found once per step. */
@@ -574,9 +574,9 @@ export class Game {
   readonly textVariables = new Map<string, string>();
   readonly variables = new Map<string, number>();
   readonly camera: Point = { x: 0, y: 0 };
-  private time = 0;
+  time = 0;
   private started = false;
-  private nextScene: string | null = null;
+  nextScene: string | null = null;
   private shownValues = '';
   private particles: Particle[] = [];
   /** Words floating up from objects, and how long each has left. */
@@ -598,15 +598,15 @@ export class Game {
   /** The outline of each light that walls block, as last drawn. */
   private lit: { id: string; points: number[] }[] = [];
   tweens: Tween[] = [];
-  private paused = false;
+  paused = false;
   soundOn = true;
   private fade: { phase: 'out' | 'in'; left: number } | null = null;
   /** Bodies that came down onto something during this step, for the "land" trigger. */
   private landings: { entity: Entity; on: Entity | null }[] = [];
   /** Where the screen was last touched, for things launched toward the touch. */
-  private lastTap: Point | null = null;
+  lastTap: Point | null = null;
   /** Objects whose health reached zero since the rules last ran, and rewarded ads watched through. */
-  private died: Entity[] = [];
+  died: Entity[] = [];
   private diedLastFrame: Entity[] = [];
   rewards = 0;
   /** How far the camera moved during the last frame, for spawners that work by distance. */
@@ -620,9 +620,9 @@ export class Game {
   private lastKnock = new WeakMap<Entity, number>();
   private knocksThisStep = 0;
   /** Actions held back by a "wait", with the moment they are due. */
-  private waiting: { at: number; actions: Action[]; context: Context }[] = [];
+  waiting: { at: number; actions: Action[]; context: Context }[] = [];
   /** Messages sent by rules: those on their way, and those the rules are reading this step. */
-  private outbox: { name: string; context: Context }[] = [];
+  outbox: { name: string; context: Context }[] = [];
   private inbox: { name: string; context: Context }[] = [];
   /** The player's bag: when each thing they carry was picked up (by order), so things keep their places. */
   private readonly bagGot = new Map<string, number>();
@@ -637,7 +637,7 @@ export class Game {
   /** Health bars over objects, made anew with each scene's world. */
   private healthBars: Graphics | null = null;
   /** Set by going through a door: in the next scene, the objects of group `bring` appear at the first object of group `at`. */
-  private arrival: { at: string; bring: string } | null = null;
+  arrival: { at: string; bring: string } | null = null;
 
   // Input since the last frame, and what is being held right now. All in screen coordinates.
   private readonly pointers = new Map<number, Pointer>();
@@ -1259,7 +1259,7 @@ export class Game {
   }
 
   /** Puts variables back to their starting values. Saved ones keep what is stored on the device unless `includeSaved`. */
-  private resetVariables(includeSaved: boolean): void {
+  resetVariables(includeSaved: boolean): void {
     if (includeSaved) {
       this.variables.clear();
       this.textVariables.clear();
@@ -1903,7 +1903,7 @@ export class Game {
     return this.inSpace(Boolean(e.def.fixed), screen);
   }
 
-  private inSpace(fixed: boolean, screen: Point): Point {
+  inSpace(fixed: boolean, screen: Point): Point {
     const z = this.z;
     if (!fixed) return { x: screen.x / z + this.camera.x, y: screen.y / z + this.camera.y };
     const origin = this.hudOrigin();
@@ -2838,7 +2838,7 @@ export class Game {
     }
   }
 
-  private insertAbove(entity: Entity, below: Entity): void {
+  insertAbove(entity: Entity, below: Entity): void {
     this.entities.splice(this.entities.indexOf(below) + 1, 0, entity);
     const layer = this.layerOf(entity);
     // In another layer there is no "just above"; it goes on top of that layer.
@@ -2882,14 +2882,8 @@ export class Game {
   private runActions(actions: Action[], context: Context): void {
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i];
-      if (action.type === 'wait') {
-        this.waiting.push({ at: this.time + action.seconds, actions: actions.slice(i + 1), context });
-        return;
-      }
-      if (action.type === 'say') {
-        this.speak(action, actions.slice(i + 1), context);
-        return;
-      }
+      // A wait, or words to read: the rest of the rule runs later.
+      if (actionBlocks.get(action.type)?.takesRest) return actionBlocks.get(action.type)!.run(this, action as never, context, actions.slice(i + 1));
       this.perform(action, context);
     }
   }
@@ -3080,250 +3074,9 @@ export class Game {
     return truth && !was;
   }
 
-  private perform(action: Exclude<Action, { type: 'wait' }>, context: Context): void {
-    // Blocks in their own files (src/blocks/) first; the rest are still below.
-    const block = actionBlocks.get(action.type);
-    if (block) return block.run(this, action as never, context);
-    const { width: W, height: H } = this.view;
-    switch (action.type) {
-      case 'setTextVariable':
-        this.setTextVariable(action.name, action.text);
-        break;
-      case 'setVariable': {
-        const old = this.variables.get(action.name) ?? 0;
-        const amount = this.amount(action.amount, context);
-        const value =
-          action.op === 'set' ? amount
-          : action.op === 'add' ? old + amount
-          : action.op === 'subtract' ? old - amount
-          : action.op === 'multiply' ? old * amount
-          : action.op === 'divide' ? (amount === 0 ? old : old / amount)
-          : Math.max(old, amount);
-        this.setValueOf(action.name, value);
-        break;
-      }
-      case 'give':
-      case 'take': {
-        const old = this.variables.get(action.item) ?? 0;
-        const amount = Math.max(0, action.amount);
-        this.setValueOf(action.item, action.type === 'give' ? old + amount : Math.max(0, old - amount));
-        if (action.type === 'give' && amount > 0 && action.from !== undefined) {
-          const from = this.targets(action.from, context)[0];
-          if (from) this.flyToBag(action.item, from, old <= 0);
-        }
-        break;
-      }
-      case 'resetVariables':
-        this.resetVariables(false);
-        break;
-      case 'destroy':
-        this.targets(action.target, context).forEach((e) => (e.alive = false));
-        break;
-      case 'spawn': {
-        const prefab = this.scene.prefabs.find((p) => p.id === action.prefab)!;
-        if (action.at === 'tap') {
-          // Where the screen was last touched, in the space the new object lives in.
-          if (!this.lastTap) break;
-          const spot = this.inSpace(Boolean(prefab.fixed), this.lastTap);
-          const entity = this.createEntity(prefab, spot.x - prefab.width / 2, spot.y - prefab.height / 2);
-          entity.spawned = true;
-          this.entities.push(entity);
-          this.layerOf(entity).addChild(entity.view);
-          break;
-        }
-        for (const at of this.targets(action.at, context)) {
-          // Ahead is the way it faces; seen from above, walking up or down (or slantwise), it is that way:
-          // a sword swung at a skeleton above the knight, not at the empty floor beside it.
-          const way = action.ahead && at.went && at.went.y !== 0 ? at.went : null;
-          const ahead = way
-            ? { x: (way.x * (at.width + prefab.width)) / 2, y: (way.y * (at.height + prefab.height)) / 2 }
-            : { x: action.ahead ? (at.facing * (at.width + prefab.width)) / 2 : 0, y: 0 };
-          const entity = this.createEntity(prefab, at.x + (at.width - prefab.width) / 2 + ahead.x, at.y + (at.height - prefab.height) / 2 + ahead.y);
-          entity.spawned = true;
-          if (action.ahead) entity.facing = at.facing;
-          // A picture drawn pointing right, turned to point that way (its mirror image when it faces left).
-          if (way) entity.angle = at.facing < 0 ? Math.atan2(-way.y, -way.x) : Math.atan2(way.y, way.x);
-          this.insertAbove(entity, at);
-        }
-        break;
-      }
-      case 'show':
-        this.targets(action.target, context).forEach((e) => (e.visible = true));
-        break;
-      case 'hide':
-        this.targets(action.target, context).forEach((e) => (e.visible = false));
-        break;
-      case 'moveTo':
-        for (const e of this.targets(action.target, context)) this.place(e, action.x, action.y);
-        break;
-      case 'saveGame':
-        try {
-          localStorage.setItem(this.savedKey('#game'), JSON.stringify({ scene: this.scene.id, values: Object.fromEntries([...this.variables, ...this.textVariables]) }));
-        } catch {
-          // Progress simply isn't kept on this device.
-        }
-        break;
-      case 'loadGame': {
-        let saved: { scene?: string; values?: Record<string, unknown> } | null = null;
-        try {
-          saved = JSON.parse(localStorage.getItem(this.savedKey('#game')) ?? 'null');
-        } catch {
-          saved = null;
-        }
-        if (saved?.scene && this.project.scenes.some((s) => s.id === saved.scene)) {
-          for (const v of this.project.variables) {
-            const value = saved.values?.[v.name];
-            if (typeof value === 'number') this.setValueOf(v.name, value);
-          }
-          for (const v of this.project.textVariables ?? []) {
-            const value = saved.values?.[v.name];
-            this.setTextVariable(v.name, typeof value === 'string' ? value : v.initial);
-          }
-          this.nextScene = saved.scene;
-        } else if (this.project.scenes.some((s) => s.id === action.scene)) this.nextScene = action.scene;
-        break;
-      }
-      case 'checkpoint':
-        for (const e of this.targets(action.target, context)) e.checkpoint = { x: e.x, y: e.y };
-        break;
-      case 'respawn':
-        for (const e of this.targets(action.target, context)) {
-          const back = e.checkpoint ?? { x: e.def.x, y: e.def.y };
-          this.place(e, back.x, back.y);
-          e.vx = e.vy = 0;
-        }
-        break;
-      case 'moveBy':
-        for (const e of this.targets(action.target, context)) this.place(e, e.x + action.dx, e.y + action.dy);
-        break;
-      case 'moveRandom':
-        for (const e of this.targets(action.target, context)) {
-          const origin = e.def.fixed ? { x: 0, y: 0 } : this.camera;
-          const [w, h] = e.def.fixed ? [W, H] : [W / this.z, H / this.z];
-          this.place(e, origin.x + Math.random() * Math.max(0, w - e.width), origin.y + Math.random() * Math.max(0, h - e.height));
-        }
-        break;
-      case 'turn':
-        for (const e of this.targets(action.target, context)) {
-          const by = (action.degrees * Math.PI) / 180;
-          e.angle = action.op === 'set' ? by : e.angle + by;
-        }
-        break;
-      case 'zoom':
-        this.zoomGlide = { from: this.playZoom, to: clamp(action.amount, 0.25, 4), elapsed: 0, seconds: Math.max(0, action.seconds) };
-        if (this.zoomGlide.seconds === 0) this.stepZoom(0);
-        break;
-      case 'push':
-        for (const e of this.targets(action.target, context)) {
-          e.vx = action.vx;
-          e.vy = action.vy;
-        }
-        break;
-      case 'kick':
-        for (const e of this.targets(action.target, context)) {
-          e.vx += action.vx;
-          e.vy += action.vy;
-        }
-        break;
-      case 'spin':
-        for (const e of this.targets(action.target, context)) this.physics?.spin(e, action.speed);
-        break;
-      case 'cut':
-        for (const e of this.targets(action.target, context)) this.physics?.cut(e);
-        break;
-      case 'setPhysics':
-        for (const e of this.targets(action.target, context)) this.physics?.setKind(e, action.kind);
-        break;
-      case 'blast':
-        if (!this.physics) break;
-        for (const at of this.targets(action.at, context)) {
-          this.physics.blast({ x: at.x + at.width / 2, y: at.y + at.height / 2 }, action.strength, Math.max(1, action.radius));
-        }
-        break;
-      case 'jump':
-        for (const e of this.targets(action.target, context)) {
-          const jumper = e.def.behaviors.find((b): b is JumperBehavior => b.type === 'jumper');
-          if (jumper) e.vy = -jumper.jumpSpeed;
-        }
-        break;
-      case 'goToScene':
-        this.nextScene = action.scene;
-        this.arrival = action.arriveAt ? { at: action.arriveAt, bring: action.bring || 'بازیکن' } : null;
-        break;
-      case 'nextScene': {
-        const scenes = this.project.scenes;
-        this.nextScene = scenes[(scenes.findIndex((s) => s.id === this.scene.id) + 1) % scenes.length].id;
-        break;
-      }
-      case 'send':
-        if (action.name) this.outbox.push({ name: action.name, context });
-        break;
-      case 'restartScene':
-        this.nextScene = this.scene.id;
-        break;
-      case 'glide':
-        for (const e of this.targets(action.target, context)) {
-          this.tweens.push({ entity: e, kind: 'glide', elapsed: 0, seconds: action.seconds, from: { x: e.x, y: e.y }, to: { x: action.x, y: action.y }, ease: action.ease });
-        }
-        break;
-      case 'damage':
-        for (const e of this.targets(action.target, context)) {
-          if (e.def.health === undefined || e.health <= 0 || this.time < (e.hurtUntil ?? 0) || this.time < (e.safeUntil ?? 0)) continue;
-          e.health -= action.amount;
-          if (action.amount > 0) e.hurtPoseUntil = this.time + 0.22;
-          if (e.health <= 0) this.died.push(e);
-          else if (e.def.invincible) e.hurtUntil = this.time + e.def.invincible;
-          // Knocked away from whatever hit it, and up a little.
-          const from = e === context.first ? context.second : context.first;
-          if (action.push && from) {
-            const side = e.x + e.width / 2 >= from.x + from.width / 2 ? 1 : -1;
-            e.vx = side * action.push;
-            e.vy = -action.push * 0.6;
-          }
-        }
-        break;
-      case 'pause':
-        this.paused = true;
-        break;
-      case 'achieve':
-        this.achieve(action.name);
-        break;
-      case 'recordScore':
-        this.recordScore(Number(this.variables.get(action.variable) ?? 0));
-        break;
-      case 'resume':
-        this.paused = false;
-        break;
-      case 'setGravity':
-        this.gravity = action.amount;
-        break;
-      case 'shoot': {
-        const prefab = this.scene.prefabs.find((p) => p.id === action.prefab);
-        if (!prefab) break;
-        for (const from of this.targets(action.from, context)) {
-          const cx = from.x + from.width / 2;
-          const cy = from.y + from.height / 2;
-          const count = Math.max(1, Math.round(action.count));
-          let base = (action.direction * Math.PI) / 180;
-          if (action.pattern === 'aimed') {
-            const target = this.nearest(from, action.aimTag);
-            if (target) base = Math.atan2(target.y + target.height / 2 - cy, target.x + target.width / 2 - cx);
-          }
-          const angles = action.pattern === 'single' || count === 1 ? [base]
-            : action.pattern === 'ring' ? Array.from({ length: count }, (_, i) => base + (i * 2 * Math.PI) / count)
-            : Array.from({ length: count }, (_, i) => base + ((i / (count - 1) - 0.5) * action.spread * Math.PI) / 180);
-          for (const a of angles) {
-            const shot = this.createEntity(prefab, cx - prefab.width / 2, cy - prefab.height / 2);
-            shot.spawned = true;
-            shot.vx = Math.cos(a) * action.speed;
-            shot.vy = Math.sin(a) * action.speed;
-            shot.angle = a + Math.PI / 2;
-            this.insertAbove(shot, from);
-          }
-        }
-        break;
-      }
-    }
+  /** Every action is a block in its own file (src/blocks/actions/), listed in src/blocks/registry.ts. */
+  private perform(action: Action, context: Context): void {
+    actionBlocks.get(action.type)?.run(this, action as never, context, []);
   }
 
   /** Throws small squares out from the middle of an object. They are decoration only: nothing can touch them. */
@@ -3455,7 +3208,7 @@ export class Game {
 
   /** Moves a camera zoom along, easing in and out, and keeps the followed object in the middle as it goes. */
   /** A character starts to speak: the game waits, the box shows, and the words appear letter by letter. */
-  private speak(action: Extract<Action, { type: 'say' }>, rest: Action[], context: Context): void {
+  speak(action: Extract<Action, { type: 'say' }>, rest: Action[], context: Context): void {
     this.dialogue?.view.destroy({ children: true });
     const { width: W, height: H } = this.view;
     const font = [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'];
@@ -3516,7 +3269,7 @@ export class Game {
   }
 
   /** The first time only: kept on the device, and a gold banner slides in to say so. */
-  private achieve(name: string): void {
+  achieve(name: string): void {
     const got = this.achievements();
     if (got.includes(name)) return;
     try {
@@ -3568,7 +3321,7 @@ export class Game {
     }
   }
 
-  private recordScore(value: number): void {
+  recordScore(value: number): void {
     const list = [...this.topScores(), value].sort((a, b) => b - a).slice(0, 5);
     try {
       localStorage.setItem(this.savedKey('#top'), JSON.stringify(list));
@@ -3790,7 +3543,7 @@ export class Game {
     this.darkness = day + (night - day) * dusk;
   }
 
-  private stepZoom(dt: number): void {
+  stepZoom(dt: number): void {
     const glide = this.zoomGlide!;
     glide.elapsed = Math.min(glide.seconds, glide.elapsed + dt);
     const part = glide.seconds > 0 ? glide.elapsed / glide.seconds : 1;
@@ -3803,7 +3556,7 @@ export class Game {
     if (part >= 1) this.zoomGlide = null;
   }
 
-  private place(e: Entity, x: number, y: number): void {
+  place(e: Entity, x: number, y: number): void {
     e.x = e.homeX = x;
     e.y = e.homeY = y;
     e.age = 0;
@@ -3923,13 +3676,13 @@ export class Game {
   // ── The player's bag ─────────────────────────────────────────────────────
 
   /** Sets a game variable, keeping it on the device if it is a saved one. */
-  private setTextVariable(name: string, value: string): void {
+  setTextVariable(name: string, value: string): void {
     this.textVariables.set(name, value);
     this.valuesChanged = true;
     if (this.project.textVariables?.find(v => v.name === name)?.saved) this.writeSaved('#text.' + name, value);
   }
 
-  private setValueOf(name: string, value: number): void {
+  setValueOf(name: string, value: number): void {
     this.variables.set(name, value);
     if (this.project.variables.find((v) => v.name === name)?.saved) this.writeSaved(name, value);
   }
@@ -3975,7 +3728,7 @@ export class Game {
   }
 
   /** The picture of a thing flies from an object into its place in the bag, and pops there when it lands. */
-  private flyToBag(item: string, from: Entity, isNew: boolean): void {
+  flyToBag(item: string, from: Entity, isNew: boolean): void {
     const asset = this.project.variables.find((v) => v.name === item)?.item?.asset;
     const texture = asset ? this.textures.get(asset)?.texture : undefined;
     const bag = this.bagOnShow();
@@ -4085,7 +3838,7 @@ export class Game {
     return this.matching(target);
   }
 
-  private nearest(from: Entity, tag: string): Entity | undefined {
+  nearest(from: Entity, tag: string): Entity | undefined {
     let best: Entity | undefined;
     let bestDistance = Infinity;
     for (const e of this.entities) {
@@ -4907,7 +4660,7 @@ export class Game {
   // Storage can be unavailable (private browsing, some embedded previews), and
   // a game should still play there, so every access is guarded.
 
-  private savedKey(name: string): string {
+  savedKey(name: string): string {
     return `save:${this.project.app.appId}:${name}`;
   }
 

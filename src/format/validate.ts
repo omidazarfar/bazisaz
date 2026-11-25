@@ -160,24 +160,16 @@ export function validateProject(project: GameProject): string[] {
       for (const a of ruleActions(rule)) {
         if ('target' in a) checkRef(a.target, name);
         // Blocks in their own files (src/blocks/) check themselves.
-        actionBlocks.get(a.type)?.check?.(a as never, { project, say: (problem) => say(`${where}: ${name} ${problem}`) });
-        if (a.type === 'blast') checkRef(a.at, name);
-        if (a.type === 'give' || a.type === 'take') needItem(a.item, `${where}: ${name}`);
-        if (a.type === 'give' && a.from !== undefined) checkRef(a.from, name);
-        if (a.type === 'spawn') {
-          checkRef(a.at, name);
-          if (!prefabIds.has(a.prefab)) say(`${where}: ${name} creates missing prefab "${a.prefab}".`);
-        }
-        if (a.type === 'setTextVariable') checkText(a.name, a.text, where);
-        if (a.type === 'setVariable') {
-          needVariable(a.name, `${where}: ${name}`);
-          if (typeof a.amount === 'object' && 'variable' in a.amount) needVariable(a.amount.variable, `${where}: ${name}`);
-        }
-        if (a.type === 'glide' && !(a.seconds > 0)) say(`${where}: ${name} has an effect that takes no time.`);
-        if (a.type === 'wait' && !(a.seconds > 0)) say(`${where}: ${name} waits for no time.`);
-        if ((a.type === 'goToScene' || a.type === 'loadGame') && !sceneIds.has(a.scene)) {
-          say(`${where}: ${name} goes to missing scene "${a.scene}".`);
-        }
+        actionBlocks.get(a.type)?.check?.(a as never, {
+          project,
+          say: (problem) => say(`${where}: ${name} ${problem}`),
+          checkRef: (ref) => checkRef(ref, name),
+          needVariable: (variable) => needVariable(variable, `${where}: ${name}`),
+          needItem: (item) => needItem(item, `${where}: ${name}`),
+          checkText: (text, value) => checkText(text, value, where),
+          hasPrefab: (id) => prefabIds.has(id),
+          hasScene: (id) => sceneIds.has(id),
+        });
         // An empty picture or music is "not chosen yet" (or, for music, silence), which plays fine.
       }
     }

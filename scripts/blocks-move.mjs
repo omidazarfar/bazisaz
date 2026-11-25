@@ -71,6 +71,13 @@ function cutCase(name) {
 
 function cutLabel(name) {
   const start = labels.findIndex((l) => l.startsWith('const ACTIONS_HERE'));
+  // A short description on one line: `  destroy: { title: …, make: …, fields: […] },`.
+  const one = labels.findIndex((l, i) => i > start && l.startsWith(`  ${name}: { `) && l.endsWith(' },'));
+  if (one >= 0) {
+    const inner = labels[one].slice(`  ${name}: { `.length, -' },'.length);
+    labels.splice(one, 1);
+    return [`  ${inner},`];
+  }
   const a = labels.findIndex((l, i) => i > start && l === `  ${name}: {`);
   if (a < 0) throw new Error(`no label for '${name}'`);
   const b = labels.findIndex((l, i) => i > a && l === '  },');
@@ -98,6 +105,7 @@ function cutSentence(name) {
 
 function cutChecks(name) {
   const found = [];
+  if (process.env.KEEP_CHECKS) return found;
   validate = validate.filter((l) => {
     const m = new RegExp(`^ {8}if \\(a\\.type === '${name}' && (.*)\\) say\\(\`\\$\\{where\\}: \\$\\{name\\} (.*)\`\\);$`).exec(l);
     if (m) {

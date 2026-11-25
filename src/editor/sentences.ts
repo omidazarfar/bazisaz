@@ -78,60 +78,8 @@ const MATERIAL_LABEL: Record<string, string> = { wood: 'چوب', stone: 'سنگ'
 export function actionSentence(project: GameProject, scene: Scene, a: Action, subjects: Subjects): string {
   const who = (target: Place) =>
     target === 'tap' ? 'جایی که لمس شد' : target === 'first' ? (subjects.first ?? 'همان شیء') : target === 'second' ? (subjects.second ?? 'همان شیء دوم') : describeRef(scene, target);
-  // Blocks in their own files (src/blocks/) say themselves.
-  const block = actionBlocks.get(a.type);
-  if (block) return block.sentence(a as never, { project, scene, who });
-  switch (a.type) {
-    case 'setTextVariable': return `متن ${a.name} را به «${a.text}» تغییر بده`;
-    case 'setVariable': {
-      const n = amountText(a.amount, who);
-      if (a.op === 'add') return `${a.name} را ${n} تا زیاد کن`;
-      if (a.op === 'subtract') return `${a.name} را ${n} تا کم کن`;
-      if (a.op === 'set') return `${a.name} را برابر ${n} بگذار`;
-      if (a.op === 'multiply') return `${a.name} را در ${n} ضرب کن`;
-      if (a.op === 'divide') return `${a.name} را بر ${n} تقسیم کن`;
-      return `اگر ${n} بیشتر بود، ${a.name} را برابرش بگذار`;
-    }
-    case 'resetVariables': return 'همه‌ی مقدارها را از نو کن';
-    case 'give': return `${a.amount === 1 ? 'یک' : fa(a.amount)} ${a.item || '؟'} به کوله‌پشتی بده${a.from !== undefined ? ` (از روی ${who(a.from)} پرواز کند)` : ''}`;
-    case 'checkpoint': return `جای فعلی ${who(a.target)} را ایست بازرسی‌اش کن`;
-    case 'respawn': return `${who(a.target)} را به ایست بازرسی‌اش برگردان`;
-    case 'take': return `${a.amount === 1 ? 'یک' : fa(a.amount)} ${a.item || '؟'} از کوله‌پشتی بردار`;
-    case 'destroy': return `${who(a.target)} را حذف کن`;
-    case 'spawn': return `یک «${scene.prefabs.find((p) => p.id === a.prefab)?.name ?? '؟'}» روی ${who(a.at)} بساز`;
-    case 'show': return `${who(a.target)} را نشان بده`;
-    case 'hide': return `${who(a.target)} را پنهان کن`;
-    case 'moveTo': return `${who(a.target)} را به نقطه‌ی (${fa(a.x)}، ${fa(a.y)}) ببر`;
-    case 'glide': return `${who(a.target)} را نرم به نقطه‌ی (${fa(a.x)}، ${fa(a.y)}) ببر`;
-    case 'moveBy': return `${who(a.target)} را جابه‌جا کن`;
-    case 'moveRandom': return `${who(a.target)} را به جایی تصادفی ببر`;
-    case 'wait': return `${fa(a.seconds)} ثانیه صبر کن`;
-    case 'push': return `${who(a.target)} را هل بده`;
-    case 'kick': return `به ${who(a.target)} ضربه بزن`;
-    case 'spin': return `${who(a.target)} را به چرخش بینداز`;
-    case 'cut': return `اتصال‌های ${who(a.target)} را ببُر`;
-    case 'setPhysics': return a.kind === 'moving' ? `${who(a.target)} را رها کن تا بیفتد` : `${who(a.target)} را همان‌جا محکم کن`;
-    case 'blast': return `روی ${who(a.at)} انفجار کن و اشیای فیزیکی دور و برش را پرت کن`;
-    case 'jump': return `${who(a.target)} را بپران`;
-    case 'goToScene': return `به صحنه‌ی «${project.scenes.find((s) => s.id === a.scene)?.name ?? '؟'}» برو${a.arriveAt ? ` و کنار «${a.arriveAt}» برس` : ''}`;
-    case 'restartScene': return 'صحنه را از اول شروع کن';
-    case 'saveGame': return 'بازی را روی گوشی ذخیره کن';
-    case 'loadGame': return `بازی ذخیره‌شده را ادامه بده (اگر نبود، به صحنه‌ی «${project.scenes.find((s) => s.id === a.scene)?.name ?? '؟'}» برو)`;
-    case 'nextScene': return 'به صحنه‌ی بعد برو';
-    case 'send': return `پیام «${a.name || '؟'}» را بفرست`;
-    case 'say': return `${a.speaker || 'کسی'} می‌گوید: «${a.text}»`;
-    case 'achieve': return `دستاورد «${a.name}» را بده`;
-    case 'recordScore': return `${a.variable} را در جدول امتیاز ثبت کن`;
-    case 'shoot': return `از ${who(a.from)} ${{ single: 'یک تیر', spread: `${fa(a.count)} تیر بادبزنی`, ring: `${fa(a.count)} تیر دور تا دور`, aimed: `${fa(a.count)} تیر رو به هدف` }[a.pattern]} شلیک کن`;
-    case 'damage': return `از جان ${who(a.target)} ${fa(a.amount)} تا کم کن`;
-    case 'pause': return 'بازی را نگه دار';
-    case 'resume': return 'بازی را ادامه بده';
-    case 'setGravity': return `جاذبه را ${fa(a.amount)} کن`;
-    case 'turn': return a.op === 'set' ? `${who(a.target)} را به زاویه‌ی ${fa(a.degrees)} درجه بچرخان` : `${who(a.target)} را ${fa(a.degrees)} درجه بچرخان`;
-    case 'zoom': return `دوربین را ${fa(a.amount)} برابر نزدیک کن`;
-  }
-  // Every other action is a block in its own file, said above.
-  return '';
+  // Every action is a block in its own file (src/blocks/actions/), which says itself.
+  return actionBlocks.get(a.type)?.sentence(a as never, { project, scene, who }) ?? '';
 }
 
 /** What one behavior makes an object do, as a short sentence. */
