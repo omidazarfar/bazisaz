@@ -202,12 +202,12 @@ how to see it, what to try or film, the next phase).
 
 - Report: docs/contact-report.md (seven differences between body and physics, each with a scene; three
   directions). The owner was asleep: the agent chose **direction 2, one contact question, two movers**.
-- src/runtime/contacts.ts: , the one definition (hidden never touch; resting on or
+- src/runtime/contacts.ts: `touching(a, b, physics)`, the one definition (hidden never touch; resting on or
   walked into = touching, whatever the inset; shaped physics only where shapes meet; else overlaps or planck
-  contact), and , a spatial hash grid (192 px cells, world and screen apart) rebuilt lazily when
+  contact), and `Contacts`, a spatial hash grid (192 px cells, world and screen apart) rebuilt lazily when
   stale (runRules start, after any action, list changes). touch and near ask it; results keep the game's order.
-- Game.ts:  (the solid it walked into this step);  (the group's objects, cached per step,
-  cleared by  on update start, insertAbove, the dead filter, scene load, any action), used by
+- Game.ts: `e.against` (the solid it walked into this step); `tagged(tag)` (the group's objects, cached per step,
+  cleared by `listChanged()` on update start, insertAbove, the dead filter, scene load, any action), used by
   matching(), moveBody, shove, separateBodies, crouch's ceiling test. moveBody sweeps a body that moves more
   than half its size in a step (x and y), so it cannot pass through a thin wall; slower bodies unchanged.
 - scripts/contact.smoke.mjs (new CI suite, in npm test): 20 real and 20 arcade crates at rest (jitter ≤ 1 px /
