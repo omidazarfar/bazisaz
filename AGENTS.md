@@ -2,6 +2,8 @@
 
 This project is worked on by two agents in turn, Claude Code and Codex.
 
+0. **Asked to make a game (not to change the engine)?** Read `AGENTS-GAMES.md`: a game is one JSON
+   file, and `scripts/game.mjs` makes, checks, plays and photographs it.
 1. **First, read `HANDOFF.md` in full.** It has where the work stands, how
    to talk to the owner, how to build, test and *see* your work, and the
    session log.
@@ -19,4 +21,4 @@ This project is worked on by two agents in turn, Claude Code and Codex.
    - a new dated entry at the top of "Session log"
 
    Then commit and push with git, as described in the "Git" section of
-   `HANDOFF.md`. The repository is private on GitHub.
+   `HANDOFF.md`. The repository is on GitHub (public since 2026-11-24, at the owner's request).

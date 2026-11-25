@@ -433,6 +433,14 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-25 — Claude, a toolkit for other agents to make games (owner: "I want each agent to easily build its own game")
+
+- `AGENTS-GAMES.md`: the guide for an agent making a game as a project file (setup, the loop, the model, behaviors/triggers/actions at a glance, coordinates and tall phones, the group names the parts expect, pitfalls learned in the bug hunts, a hand-over checklist). `src/format/types.ts` stays the full reference.
+- `scripts/game.mjs`: `new <genre|blank>`, `check` (validateProject + the editor's warnings), `run` (plays 60 steps a second on the game's clock, holding keys and tapping, logs every variable and scene change), `shots` (every scene, design and tall), `levels` (the level maker), `library`, `picture` (a library picture into the assets, printing the visual to use), `part` (a ready-made part into a scene). It drives the built editor headlessly through `window.__editor.agent` (`src/editor/agentApi.ts`).
+- `examples/star-catch.json`, made from blank with the toolkit (as an outside agent would). Making it found a trap now in the guide: a `mover` with `atEdge: remove` never fires `offscreen`.
+- Library bug found by listing it: two pictures shared the id `mushroom`, so the second (scenery) could never be added; it is now `toadstool` (Rescue's meadow uses it, as was meant).
+- `scripts/agent.smoke.mjs` (new CI suite `agent.smoke`) runs every command. README, AGENTS.md, CLAUDE.md and GUIDE-fa point to the guide.
+
 ### 2026-11-25 — Claude, bug hunt part 4 (each level in play, after the opening words, and with the pause menu open; design shape and tall phone; made levels too)
 
 - Pause menu on tall phones: "Sound: on" fell off its button (the button empty, the word below it). `placeOnScreen` moved each screen-fixed thing by the smallest fixed thing around it: the word went by its button (in the bottom third → to the bottom), the button by the menu (middle → half). Now the outermost holder decides, so everything on a menu moves with the menu. Lab 28 has a word on a low button.

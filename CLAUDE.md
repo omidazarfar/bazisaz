@@ -1,5 +1,6 @@
 # Notes for Claude
 
+- **Asked to make a game rather than change the engine?** Read `AGENTS-GAMES.md` and use `scripts/game.mjs`.
 - **Start by reading `HANDOFF.md`.** The owner switches between Claude Code and
   Codex, and that file says what the other agent did last. At the end of a
   session, or when the owner says they are switching, update it: current

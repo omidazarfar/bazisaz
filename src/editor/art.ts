@@ -639,7 +639,7 @@ export const ART_SPRITES: Sprite[] = [
       shine(k, 52, 32, 16, 6, -30, 0.55)),
   },
   {
-    id: 'mushroom', name: 'قارچ', category: 'scenery', width: 100, height: 110,
+    id: 'toadstool', name: 'قارچ خال‌دار', category: 'scenery', width: 100, height: 110,
     body: draw((k) =>
       `<path d="M38 60h24l4 46H34z" fill="${k.side('#f3ead8')}" ${ol('#c9b896', 3)}/>` +
       `<path d="M6 62C6 20 94 20 94 62z" fill="${k.lin('#e53935', 0.4, 0.3)}" ${ol('#e53935', 4)}/>` +

@@ -4,6 +4,7 @@ import type { GameProject } from '../format/types';
 import { validateProject } from '../format/validate';
 import type { EditView, Game, GameMode } from '../runtime/Game';
 import { blank } from '../templates';
+import { agentApi, type AgentApi } from './agentApi';
 import { DebugPanel } from './DebugPanel';
 import type { Editor } from './editor';
 import { ExportDialog } from './ExportDialog';
@@ -28,7 +29,13 @@ import {
 declare global {
   interface Window {
     /** For automated tests: read the editor's state, and open a game as "open file" would. */
-    __editor?: { getState: () => EditorState; open: (project: GameProject) => void; makeLevels: (count: number, seed?: number) => void };
+    __editor?: {
+      getState: () => EditorState;
+      open: (project: GameProject) => void;
+      makeLevels: (count: number, seed?: number) => void;
+      /** For agents and tools (scripts/game.mjs); see AGENTS-GAMES.md. */
+      agent: AgentApi;
+    };
   }
 }
 
@@ -158,6 +165,7 @@ export function App({ saved }: { saved: GameProject | null }) {
       open,
       // For the tests and bots: the next levels of the scene being edited, made as the dialog makes them.
       makeLevels: (count: number, seed = 7) => open(generateLevels(state.project, state.sceneId, { ...DEFAULT_LEVEL_OPTIONS, count, seed }).project),
+      agent: agentApi,
     };
   });
   // A note about what was just done stays long enough to be read, then goes.

@@ -902,7 +902,7 @@ async function buildRescue(project: GameProject, first: string): Promise<GameRes
     if (vehicle === 'bike') {
       // Scenery along the trail, behind the bike: it touches nothing.
       const surface = top + (H - top) * 0.25 - 4;
-      const scenery: [string, number, number, number][] = [['signpost', 0.08, 110, 126], ['flower-bush', 0.3, 150, 84], ['oak-tree', 0.62, 170, 226], ['mushroom', 0.92, 70, 78]];
+      const scenery: [string, number, number, number][] = [['signpost', 0.08, 110, 126], ['flower-bush', 0.3, 150, 84], ['oak-tree', 0.62, 170, 226], ['toadstool', 0.92, 70, 78]];
       for (const [sprite, share, w, h] of scenery) {
         const made = await picture(p, sprite, sprite, w, h, { x: W * share, y: surface - h / 2 + 6 }, { locked: true });
         p = addAll(made.project, stage.id, [made.object]);

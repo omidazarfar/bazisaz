@@ -31,6 +31,13 @@ npm run check      # all of it in one go: build, then the tests, then the bots (
 
 `npm test` needs Chrome; set `CHROME_PATH` if it isn't at `/usr/bin/google-chrome`.
 
+## Making a game as a file (for AI agents)
+
+Any agent can make a whole game without the editor: a game is one JSON file. `AGENTS-GAMES.md` is the
+guide, `scripts/game.mjs` the toolkit (start from a genre game or blank, add library pictures and
+ready-made parts, check, play headlessly, take pictures of every scene, make more levels), and
+`examples/star-catch.json` a small game made that way. `scripts/agent.smoke.mjs` keeps the toolkit working.
+
 ## How a game is described
 
 The editor opens on an empty game. There are no templates to pick from: the
