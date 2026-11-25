@@ -2559,6 +2559,8 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
         box('jump', 550, 1100, 140, 140, { fixed: true }),
         box('menu', 100, 270, 520, 740, { fixed: true }),
         box('sound', 190, 805, 340, 110, { fixed: true }),
+        // A word on that button: the button is in the bottom third, but it goes with the menu, and so must its word.
+        box('soundWord', 300, 840, 120, 40, { fixed: true }),
         box('curtain', 0, 0, 720, 1280, { fixed: true, opacity: 0.2 }),
       ],
     }],
@@ -2574,6 +2576,7 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('fill: the score at the top stays at the top', e('score').y === 30);
   check('fill: a button at the bottom goes to the bottom edge', Math.abs(e('jump').y - (1100 + extra)) < 1, String(e('jump').y));
   check('fill: a menu stays in the middle, with its button on it', Math.abs(e('menu').y - (270 + extra / 2)) < 1 && Math.abs(e('sound').y - (805 + extra / 2)) < 1, e('menu').y + ' / ' + e('sound').y);
+  check('fill: a word on a button low on a menu stays on its button (it fell off on tall phones)', Math.abs(e('soundWord').y - (840 + extra / 2)) < 1, String(e('soundWord').y));
   check('fill: a cover over the whole screen grows to cover it all', e('curtain').height === 1280 + extra, String(e('curtain').height));
   // The ground of a game with gravity stays at the bottom of the screen: the room is added to the sky.
   const ground = await page.evaluate(() => { const g = window.__game; return g.camera.y; });

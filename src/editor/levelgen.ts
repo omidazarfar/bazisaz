@@ -277,8 +277,12 @@ function bricksLayout(scene: Scene, f: number, rnd: () => number): Scene {
 
 /** A label that says which level this is, popping in at the start and fading away. */
 function levelBanner(scene: Scene, n: number, width: number, height: number): Scene {
+  // Near the top; but where the game's own goal words were put lower down (clear of what is up there, like the
+  // bricks of Brick Blitz), just above them.
+  const goal = scene.objects.find((o) => o.fixed && o.name === 'نوشته‌ی هدف' && o.visual.kind === 'text');
+  const y = goal && goal.y > height * 0.4 ? goal.y - 84 : height * 0.2;
   const label: GameObject = {
-    id: newId('obj'), name: 'شماره‌ی مرحله', x: width / 2, y: height * 0.2, width: 0, height: 0, fixed: true, tags: [], visible: true, behaviors: [],
+    id: newId('obj'), name: 'شماره‌ی مرحله', x: width / 2, y, width: 0, height: 0, fixed: true, tags: [], visible: true, behaviors: [],
     visual: { kind: 'text', text: `Level ${n}`, color: '#ffd23f', size: 76, weight: 'bold', outline: '#5a2a00', shadow: true, align: 'center' },
   };
   const rules: Rule[] = [

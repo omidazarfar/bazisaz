@@ -1126,7 +1126,7 @@ export async function buildBricks(project: GameProject, sceneId: string): Promis
     ]),
   );
   // Between the bricks and the paddle, not over the bricks.
-  p = await banner(p, sceneId, 'Break every brick!', 0.55);
+  p = await banner(p, sceneId, 'Break every brick!', 0.62);
   const lives = await badge(p, 'heart', 'جان‌ها', '{lives}', { x: W * 0.72, y: 70 }, { w: 170, h: 80 });
   const points = await badge(lives.project, 'coin', 'امتیاز', '{score}', { x: W * 0.28, y: 70 }, { w: 220, h: 80 });
   p = addAll(points.project, sceneId, [...lives.objects, ...points.objects]);
@@ -1222,7 +1222,8 @@ export async function buildHopper(project: GameProject, sceneId: string): Promis
     objects.push(makeObject(`لوله پایین ${i + 1}`, { kind: 'image', asset: pipe.asset }, 120, H - lower, { x, y: (lower + H) / 2 }, { tags: [DANGER], locked: true }));
     // The pipe goes on up out of sight: on a tall phone more sky shows above the world, where a top pipe
     // ended in mid-air (and a bird could fly over it). Only its body, so the cap keeps its size.
-    objects.push(makeObject(`بدنه‌ی لوله ${i + 1}`, { kind: 'image', asset: pipe.asset, crop: { x: 0, y: 0.16, w: 1, h: 0.83 } }, 120, Math.round(H * 0.7), { x, y: -Math.round(H * 0.35) }, { tags: [DANGER], rotation: 180, locked: true }));
+    // (It reaches a little way down over the pipe, hiding the line where the pipe's picture ends.)
+    objects.push(makeObject(`بدنه‌ی لوله ${i + 1}`, { kind: 'image', asset: pipe.asset, crop: { x: 0, y: 0.18, w: 1, h: 0.78 } }, 120, Math.round(H * 0.7) + 16, { x, y: 8 - Math.round(H * 0.35) }, { tags: [DANGER], rotation: 180, locked: true }));
     objects.push(makeObject(`دروازه ${i + 1}`, { kind: 'rect', color: '#ffffff' }, 20, GAP, { x: x + 80, y: middle }, { tags: [CHECK], opacity: 0 }));
   }
   objects.push(makeObject('پرچم پایان', { kind: 'image', asset: flag.asset }, 90, 130, { x: LENGTH - W / 2, y: H * 0.5 }, { tags: [GOAL] }));

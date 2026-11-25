@@ -5176,11 +5176,13 @@ export class Game {
         continue;
       }
       const centre = { x: base.x + base.width / 2, y: base.y + base.height / 2 };
-      // The smallest other fixed thing it sits inside decides where it goes (never a whole-screen cover).
+      // The outermost other fixed thing it sits inside decides where it goes (never a whole-screen cover), so a
+      // word on a button on a menu moves with the menu, as the button does: going by the button, a word on a
+      // button low on the menu went to the bottom while its button stayed with the menu.
       const holder = fixed
         .map((o) => ({ o, b: this.hudBase.get(o)! }))
         .filter(({ o, b }) => o !== e && !cover(b) && b.width * b.height > base.width * base.height && contains(b, centre))
-        .sort((a, b) => a.b.width * a.b.height - b.b.width * b.b.height)[0]?.b ?? base;
+        .sort((a, b) => b.b.width * b.b.height - a.b.width * a.b.height)[0]?.b ?? base;
       const at = { x: holder.x + holder.width / 2, y: holder.y + holder.height / 2 };
       e.x = base.x + moreW * share(at.x, W);
       e.y = base.y + moreH * share(at.y, H);

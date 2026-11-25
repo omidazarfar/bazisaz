@@ -433,6 +433,12 @@ say so in the log.
 
 ## Session log (newest first)
 
+### 2026-11-25 — Claude, bug hunt part 4 (each level in play, after the opening words, and with the pause menu open; design shape and tall phone; made levels too)
+
+- Pause menu on tall phones: "Sound: on" fell off its button (the button empty, the word below it). `placeOnScreen` moved each screen-fixed thing by the smallest fixed thing around it: the word went by its button (in the bottom third → to the bottom), the button by the menu (middle → half). Now the outermost holder decides, so everything on a menu moves with the menu. Lab 28 has a word on a low button.
+- Made levels: "Level n" went at 0.2 H, over Brick Blitz's bricks. When the game's goal words ("نوشته‌ی هدف") sit low (below 0.4 H), the level number goes just above them; Brick Blitz's goal words moved to 0.62 H, clear of nine rows of bricks.
+- Sky Hopper: the hidden pipe body now reaches 16 px down over the top pipe and leaves out the outline at the end of the picture, hiding the line where they met on tall phones.
+
 ### 2026-11-25 — Claude, bug hunt part 3 (every scene of the ten games looked at on a tall phone)
 
 - Tower Climb: the first floor (the hero's start, a slime, coins) was behind the arrow and jump buttons: the ground was 80 px thick at the bottom of the world. It is now 340 px (`BASE`; the tower is that much taller, so the top keeps its room). The hero also started on a coin, picked up unseen during the opening film (score 1 at the start): that coin is left out, and the level maker's coin rows avoid the hero's start (editor.smoke checks all three levels).
