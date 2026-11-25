@@ -23,7 +23,7 @@ other did. **It is the single source of truth for "where are we".**
 ### Git (since 2026-11-19)
 
 - The project is a git repository, branch `main`.
-- It is pushed to a **private** GitHub repository:
+- It is pushed to a GitHub repository (public since 2026-11-24, at the owner's request):
   `https://github.com/omidazarfar/bazisaz.git` (remote `origin`).
 - Git is installed at `C:\Program Files\Git\cmd\git.exe`. In a shell opened
   before the install, `git` may not be on the PATH; call it by that full path.
@@ -58,86 +58,77 @@ other did. **It is the single source of truth for "where are we".**
 - They will test on a real phone themselves later; nothing has been tried on a
   phone yet.
 
-## THE PLAN NOW: a professional engine (agreed by the owner 2026-11-20)
+## THE PLAN NOW: foundations, not features (owner's roadmap, 2026-11-25)
 
-The owner said no to an AI game maker: there is **no money and no API key**.
-They want a **professional, complete game engine**, good enough to show investors:
-"something that has everything, physics, powerful graphics", games **without
-problems**, and **"better contact between objects"** (nothing sinks into, sticks
-to, jitters on or passes through anything it should meet). Also "make it easier
-to work with". Usage is not a concern for now.
+Bazisaz has more features than it needs (29 behaviors, 26 triggers, 68 actions, 31 parts, 95 pictures, ten
+genre games). What it lacks next to GDevelop or Construct 3 is foundations. This replaces the feature plan
+of 2026-11-20 (in git history). Android export is out of scope: it cannot be tested yet.
 
-Rule for every phase: a feature is done only when a real game uses it, a bot
-plays it through, it has been checked by eye in screenshots, and it has tests
-and a Persian guide entry.
+**The rule:** until the five phases are done, do NOT add behaviors, triggers, actions, parts, pictures, genre
+games or visual polish unless the owner asks for one by name. A small issue that does not block the phase
+goes in one line under "Later" below. Signs of drifting: renaming, reformatting, recommenting or restyling
+code; a change of a few lines in one file rather than a system; tuning a genre game or a picture.
+Each phase leaves the engine behaving exactly as before except where it means to change it. `npm run build`,
+`npm test` and the bots on CI (`node scripts/ci.mjs run all`) pass after every step; commit after every
+step that passes. One phase per session, in this order.
 
-0. **Fix the games (DONE 2026-11-20).** Bots play all five games (`npm run bots`).
-   Fixed: the trophy could be jumped over; spikes under a block; the knight and
-   ship were hurt over and over with no knock-back or blink; skeletons walked
-   through the knight; the ship's hitbox was its whole picture; the shooter's
-   enemy fire was too fast; the puzzle goal was too easy (now 90 points).
-1. **Physics and contact.** Done: `body.bumpTag` (bodies push each other apart
-   instead of overlapping); `physics.material` (wood, stone, metal, ice,
-   rubber, glass, each with its own hit sound); `physics.breaks` (shatters
-   into picture pieces); `physics.passTag`; the `slowMotion` action (0 = hit
-   stop); new art: glass-block, stone-block, steel-beam, tnt. Rock Smash was
-   rebuilt with all of them. Also done: `joint.drive: 'player'` (a motor the
-   player drives like a pedal: right half of the screen or the right arrow is
-   forward, left is back; the "car" part uses it) and `chase.sight` (a chaser
-   only notices what it can see; out of sight it goes to where it last saw
-   it, looks for two seconds and gives up; Dungeon Escape's skeletons use it).
-   Rescue Relay now uses drawn terrain, a five-link chain and a jointed rescue
-   figure, a local planetary field, and a trail bike, four-wheel rescue crawler
-   and powered boat. **Phase 1 is DONE (2026-11-21, Claude):** `physics.shape`
-   ('outline' traces the picture's convex outline, 'capsule', 'triangle',
-   'hexagon'; touch rules between shaped bodies use real contact, not boxes;
-   rect visuals are drawn as their shape), `joint.kind: 'gear'` (couples a
-   hinge to another hinge, or to a slider as a rack; `belt` for same-way;
-   ratio from the sizes), and `field.kind: 'gravity'` (replaces the scene's
-   gravity inside the zone: upside down, sideways, or 0 for weightless).
-   Rescue Relay's sixth leg, "Clockwork lift", uses all three; the "gears"
-   part is the same rig.
-2. **Graphics.** Started 2026-11-21 (Claude). Done: `light.shadowTag` (walls
-   cast shadows: a visibility polygon per light, `src/runtime/shadows.ts`;
-   Dungeon Escape uses it), `scene.weather` (rain, storm with lightning and
-   thunder, snow, leaves, embers, fog; `src/runtime/weather.ts`; Rescue Relay
-   uses leaves and storm), the `floatText` action ("+10" popping up; used in
-   all genre games), and 23 more particle presets (30 in all); later the same
-   day: `scene.dayLength` (day and night cycle; Rescue ridge, with headlights),
-   `scene.retro` ('pixel', 'crt' on Star Raiders, 'film'; crt and film are
-   dropped by lighten()), the `shockwave` action (ShockwaveFilter ripple), the
-   `zoomPunch` action (scales `scenery` about the screen centre) and
-   `shake.axis` ('side' or 'up'). Rock Smash's barrel and the Star Raiders
-   boss use the ripple and punch. Outline glow already existed (object glow).
-   The particle workshop now previews all 30 presets and edits their colour,
-   rate, size and speed. Rescue Relay uses it for rear-wheel dust.
-   Still open: dissolve, layered maps, animated
-   tiles, autotile edges (tile materials already draw open edges). Original list: Real lights and shadows cast by walls, flickering torches,
-   day/night; rain, snow, fog, wind; a particle editor with 30+ presets;
-   hit-stop, directional shake, impact zoom, flash, floating damage numbers;
-   dissolve, ripple, outline glow, retro/pixel filters; layered maps,
-   animated tiles, autotile edges.
-3. **Character and combat kits.** Started 2026-11-21 (Claude). Done: the
-   `moves` behavior (wallJump with slide, dash, climbTag ladders, ground
-   pound; keys X/Shift and the down arrow, or button groups), `steer.roll`
-   (dodge roll, `safeUntil` makes damage miss), the `shoot` action (single,
-   spread, ring, aimed; prefab picture points up) and the `homing` behavior.
-   Sky Quest's hero has wall jump, dash and pound buttons; Dungeon Escape's
-   knight has a roll button; Star Raiders' bolts home in a little and the boss
-   fires rings and aimed fans. Not done: crouch, ladders in a genre game, ready
-   boss patterns as a part, a wave maker. Original list: Wall jump/slide, dash, ladders, crouch,
-   ground pound; top-down 8-way with dodge roll; weapons (gun, spread, bow,
-   homing); ready smart enemies and bosses with attack patterns; a wave maker.
-4. **Professional editor.** Started 2026-11-21 (Claude): a sound-effect maker (`src/editor/sfx.ts`, `SfxMaker.tsx`; WAV data URLs), a map of scenes (`SceneMap.tsx`, arrows from goToScene/nextScene), versions to go back to (IndexedDB key `history-v1`, one kept automatically every 3 minutes, 15 kept; restore is an undoable change). Rest of the original list: Drag-and-drop rule blocks, keyframe animation
-   timeline and cut-out (bone) animation, layers panel, level map, asset
-   manager, sound-effect maker, simple music maker, live edit on phone,
-   version history.
-5. **Game systems.** Started 2026-11-21 (Claude): the `say` action (dialogue box, typewriter, pauses until tapped, the rest of the rule runs after), `achieve` (gold banner once, kept on the device), `recordScore` (best five kept; variables top1..top3 show them; all genre screens use it). Rest of the original list: Branching dialogue, quests, achievements, cutscenes,
-   settings menu, save slots, leaderboard, equipment and crafting.
-6. **Speed and reliability.** Started: lighten() also drops wall shadows and halves the weather; `npm run check` = build + test + bots. Rest of the original list: 60 fps on mid-range phones; bots in every test run.
-7. **Showcase.** Ten genre games now: Brick Blitz (`buildBricks`; real physics, capsule paddle), Rooftop Run (`buildRunner`; auto-run, widening gaps, day and night) and Sky Hopper (`buildHopper`; flap through twelve pipe pairs), each with a bot; hidden trigger zones must use opacity 0, not visible: false (touch ignores hidden objects). Before them: Tower Climb (`buildTower`, genre `tower`), a four-floor rain tower with ladders, slimes, coins, dialogue and every special move; `scripts/bots/tower.mjs` climbs it. Ladders now centre the climber. Rest of the original list: 10 multi-level games and large art packs.
+1. **A block registry (split Game.ts).** One file per block (src/blocks/actions/shake.ts…): its editor
+   description (Persian title, help, fields, starting value), its Persian sentence, its checks, and what it
+   does at run time; all listed in src/blocks/registry.ts. Game.ts keeps the core (loop, scenes, entities,
+   input, drawing, edit mode) and asks the registry instead of the big switches. Code moves AS IT IS (no
+   renaming or "improving"; doubts go under Later). Done when adding an action is one new file and one line
+   in the registry. — IN PROGRESS, see "Phase 1 progress".
+2. **One contact model.** First a short report, no code: every place where `body` and `physics` decide
+   contact differently, with an example scene each; show the owner in Finglish, recommend one direction,
+   wait for the choice. Then build it, with a broadphase (spatial hash grid) for touch, near and overlaps,
+   and a contact lab that measures: 20 crates resting still, a fast bullet against a thin wall, walking up
+   and down a ramp, standing on a moving platform, a crate pushed into a corner; each check states how much
+   sinking, jitter or pass-through is allowed.
+3. **Format migrations.** migrate(project): steps from each old formatVersion to the current one, run before
+   validation in the editor and the player; fixture projects of every version in scripts/fixtures/ that must
+   open and play. From then on every format change comes with its migration step and fixture.
+4. **User-made functions and lists.** Functions: named lists of actions with inputs, called from any rule as
+   one action; the same for a yes/no condition; shown like built-in blocks with Persian sentences. Lists:
+   list variables (numbers or text) with add, remove, get by index, count, "for each item". Rebuild one genre
+   game's repeated rules with functions; update GUIDE-fa.md.
+5. **A performance budget.** A stress scene (500 objects, 100 rules, 50 physics bodies, particles, two
+   lights) logging update time per step and per system; it must step in under 8 ms on CI. Fix the biggest
+   costs (object pools, no per-step allocations in hot paths, cached matching()). The stress test runs on CI.
 
-Persian text inside games: asked, not answered yet; games stay English for now.
+### Phase 1 progress
+
+- The shape: `src/blocks/types.ts` (`ActionBlock`: `type`, `editor`, `sentence(action, { project, scene, who })`,
+  optional `check(action, { project, say })`, `run(game, action, context)`), `src/blocks/registry.ts` (the list,
+  by family; `actionBlocks` by type; `BlockActionType`). The runtime (`Game.perform`), the editor's `ACTIONS`
+  (labels.ts: the rest are `ACTIONS_HERE`), `actionSentence` and `validateProject` ask the registry first.
+- Shared pieces moved as they were: `src/blocks/fields.ts` (Field, Block, Context, slider, firstRef, TARGET,
+  fa, SOUND_LABEL, LOOK_OPTIONS, hasPrefabs; labels.ts re-exports them), `src/blocks/say.ts` (describeRef,
+  OP_WORD, amountText), `src/runtime/math.ts` (clamp), `src/runtime/constants.ts` (SHAKE_SECONDS). What a
+  moved block uses from Game.ts is no longer `private`; `Entity` and `Context` are exported (types).
+- `scripts/blocks-move.mjs` moves actions mechanically: `node scripts/blocks-move.mjs "<Family>" a b c`, then
+  `node scripts/blocks-move.mjs --open` (un-privates what tsc names; a `break` that left the case becomes
+  `return`), then `npx tsc --noEmit` and read every new file. It refuses shared cases and odd checks: move
+  those by hand. A block file must not import labels.ts or sentences.ts (they import the registry): move the
+  helper it needs to fields.ts or say.ts first, as it is.
+- Moved (29 of 68 actions): sound and effects (12), looks (9), ads (2), puzzles and logic (6).
+  Still in Game.ts: values and score, dialogue (say: runActions), bag (give/take share a case), objects,
+  movement, real physics, scene and flow (wait: runActions; goToScene/loadGame share a check). Then the
+  triggers (`fired`), then the behaviors (the switch in `update`), with the same steps.
+- Before Phase 1 counts as done: the Action union in src/format/types.ts still has to be edited for a new
+  action; make the union include the registry's types (so a new action is truly one file and one line), and
+  rewrite "A new block" under Gotchas.
+
+### Later (small things noticed, not blocking the phase)
+
+- The player bundle now carries the moved blocks' Persian editor texts (+21 KB so far, 1.6%). When all are
+  moved, let a block file export its runtime part separately so the player's registry leaves the editor part out.
+- tower-levels bot: game over at score 56 on level 2 about one run in two (bot timing on the extra slimes);
+  same before Phase 1.
+- physics bot (Rock Smash): fails on CI (Game over, score 60–90) both before and after Phase 1 (checked on a
+  temporary branch at a235f62); wins locally (score 123). The slow CI runner, not the game. platform-levels
+  and bricks-levels bots also fail on CI, as before.
+- Brick Blitz levels: the level maker's level 2 can have half the bricks of level 1 (a checkerboard shape)
+  while being "harder".
 
 ## Owner decision, 2026-11-20: whole games in the genre helper
 
@@ -417,7 +408,10 @@ say so in the log.
 - Fixed (screen-stuck) objects use screen coordinates, not world coordinates.
 - A new library picture: add it to `ART_SPRITES` in `art.ts`, with a unique
   `id`. Existing projects keep the PNGs already stored in their assets.
-- A new block (trigger or action):
+- A new action (Phase 1 way): its type in the Action union of `types.ts`, one file in `src/blocks/actions/`
+  (copy a moved one: editor description, sentence, check, run), one line in `src/blocks/registry.ts`, the
+  GUIDE block list, a lab test. A new trigger or behavior is still the old way until they are moved:
+- A new block (trigger or action), old way:
   1. Add it to `types.ts`.
   2. Implement it in `Game.ts` (`fired` for triggers, `perform` for actions).
   3. Check it in `validate.ts`.
@@ -432,6 +426,14 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-25 — Claude, roadmap "foundations, not features", Phase 1 started (block registry)
+
+- The owner's roadmap replaces THE PLAN NOW (five phases; no new features until done). Phase 1 started:
+  src/blocks/ (types, registry, fields, say), 29 actions moved as they were in four families, the mover
+  script scripts/blocks-move.mjs. See "Phase 1 progress". Step 1 (registry + sound and effects) on CI: all
+  four test suites pass; 12 of 16 bots win; the four that lose (physics, tower-levels, platform-levels,
+  bricks-levels) lose the same way without Phase 1 (see Later). Step 2 (looks, ads, puzzles): see the next run.
 
 ### 2026-11-25 — Claude, a toolkit for other agents to make games (owner: "I want each agent to easily build its own game")
 
