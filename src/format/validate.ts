@@ -179,8 +179,6 @@ export function validateProject(project: GameProject): string[] {
           say(`${where}: ${name} goes to missing scene "${a.scene}".`);
         }
         // An empty picture or music is "not chosen yet" (or, for music, silence), which plays fine.
-        if (a.type === 'setImage' && a.asset !== '' && project.assets[a.asset]?.type !== 'image') say(`${where}: ${name} shows missing image "${a.asset}".`);
-        if (a.type === 'flash' && !(a.seconds > 0)) say(`${where}: ${name} has a flash that takes no time.`);
       }
     }
   }

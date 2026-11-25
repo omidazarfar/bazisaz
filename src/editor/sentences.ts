@@ -1,6 +1,9 @@
-import type { Action, Amount, Behavior, Comparison, Condition, GameObject, GameProject, Place, Ref, Scene, Trigger } from '../format/types';
+import type { Action, Behavior, Condition, GameObject, GameProject, Place, Scene, Trigger } from '../format/types';
 import { actionBlocks } from '../blocks/registry';
-import { fa, LOOK_OPTIONS } from './labels';
+import { amountText, describeRef, OP_WORD } from '../blocks/say';
+
+export { describeRef };
+import { fa } from './labels';
 
 /**
  * Rules said as plain Persian sentences, so a list of them can be read like a
@@ -12,18 +15,7 @@ export interface Subjects {
   second?: string;
 }
 
-const OP_WORD: Record<Comparison, string> = { '>=': 'دست‌کم', '<=': 'حداکثر', '==': 'برابر', '!=': 'نابرابر با', '>': 'بیشتر از', '<': 'کمتر از' };
 
-export function describeRef(scene: Scene, ref: Ref): string {
-  if (ref.by === 'tag') {
-    if (!ref.tag) return 'گروهی که هنوز انتخاب نشده';
-    const narrowed = ref.where ? ` که ${ref.where.name} آن ${OP_WORD[ref.where.op]} ${fa(ref.where.value)} است` : '';
-    const spots = { home: ' که سر جای اولش است', away: ' که از جای اولش رفته', on: ` که روی گروه «${ref.spot?.tag ?? ''}» است`, off: ` که روی گروه «${ref.spot?.tag ?? ''}» نیست` };
-    return `${ref.pick === 'random' ? 'یکی تصادفی' : 'چیزی'} از گروه «${ref.tag}»${narrowed}${ref.spot ? spots[ref.spot.is] : ''}`;
-  }
-  const object = [...scene.objects, ...scene.prefabs].find((o) => o.id === ref.id);
-  return `«${object?.name ?? '؟'}»`;
-}
 
 /** What "first" and "second" mean in a rule's actions, said in terms of its trigger. */
 export function subjectsOf(scene: Scene, when: Trigger): Subjects {
@@ -80,12 +72,6 @@ export function triggerSentence(scene: Scene, w: Trigger): string {
   }
 }
 
-function amountText(amount: Amount, who: (target: Place) => string = () => 'شیء'): string {
-  if (typeof amount === 'number') return fa(amount);
-  if ('value' in amount) return `${amount.value}ِ ${who(amount.of)}`;
-  if ('count' in amount) return `تعداد اشیای گروه «${amount.count}»`;
-  return 'random' in amount ? `عددی تصادفی از ${fa(amount.random[0])} تا ${fa(amount.random[1])}` : `مقدار ${amount.variable}`;
-}
 
 const MATERIAL_LABEL: Record<string, string> = { wood: 'چوب', stone: 'سنگ', metal: 'فلز', ice: 'یخ', rubber: 'لاستیک', glass: 'شیشه' };
 
@@ -96,17 +82,6 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
   const block = actionBlocks.get(a.type);
   if (block) return block.sentence(a as never, { project, scene, who });
   switch (a.type) {
-    case 'setValue': {
-      const n = amountText(a.amount, who);
-      const what = `${a.name}ِ ${who(a.target)}`;
-      if (a.op === 'multiply') return `${what} را در ${n} ضرب کن`;
-      return a.op === 'set' ? `${what} را برابر ${n} بگذار` : a.op === 'add' ? `${what} را ${n} تا زیاد کن` : `${what} را ${n} تا کم کن`;
-    }
-    case 'shuffle': return a.target.by === 'tag' ? `جای اشیای گروه «${a.target.tag}» را بُر بزن` : `جای ${describeRef(scene, a.target)} را بُر بزن`;
-    case 'swap': return `جای ${who(a.target)} و ${who(a.other)} را${a.near ? '، اگر کنار هم‌اند،' : ''} با هم عوض کن`;
-    case 'settle': return a.target.by === 'tag' ? `مهره‌های گروه «${a.target.tag}» را پایین بریز و جای خالی را پر کن` : 'صفحه را پر کن';
-    case 'slideAll': return `همه‌ی مهره‌های ${a.target.by === 'tag' ? `گروه «${a.target.tag}»` : describeRef(scene, a.target)} را به ${{ left: 'چپ', right: 'راست', up: 'بالا', down: 'پایین' }[a.direction]} سُر بده`;
-    case 'step': return `${who(a.target)} را یک خانه به ${{ left: 'چپ', right: 'راست', up: 'بالا', down: 'پایین' }[a.direction]} ببر`;
     case 'setTextVariable': return `متن ${a.name} را به «${a.text}» تغییر بده`;
     case 'setVariable': {
       const n = amountText(a.amount, who);
@@ -143,8 +118,6 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'saveGame': return 'بازی را روی گوشی ذخیره کن';
     case 'loadGame': return `بازی ذخیره‌شده را ادامه بده (اگر نبود، به صحنه‌ی «${project.scenes.find((s) => s.id === a.scene)?.name ?? '؟'}» برو)`;
     case 'nextScene': return 'به صحنه‌ی بعد برو';
-    case 'setLook': return `حال و هوای تصویر را «${LOOK_OPTIONS.find((o) => o.value === a.look)?.label ?? a.look}» کن`;
-    case 'setDarkness': return a.amount <= 0.01 ? 'صحنه را روشن کن' : `صحنه را ${a.amount >= 0.99 ? 'کاملاً' : 'کمی'} تاریک کن`;
     case 'send': return `پیام «${a.name || '؟'}» را بفرست`;
     case 'say': return `${a.speaker || 'کسی'} می‌گوید: «${a.text}»`;
     case 'achieve': return `دستاورد «${a.name}» را بده`;
@@ -154,16 +127,7 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
     case 'pause': return 'بازی را نگه دار';
     case 'resume': return 'بازی را ادامه بده';
     case 'setGravity': return `جاذبه را ${fa(a.amount)} کن`;
-    case 'showAd': return 'تبلیغ تمام‌صفحه نشان بده';
-    case 'showRewardedAd': return 'تبلیغ جایزه‌ای پیشنهاد بده';
-    case 'setColor': return `رنگ ${who(a.target)} را عوض کن`;
-    case 'setImage': return `عکس ${who(a.target)} را عوض کن`;
-    case 'setText': return `متن ${who(a.target)} را «${a.text}» کن`;
-    case 'resize': return `اندازه‌ی ${who(a.target)} را ${fa(a.width)} در ${fa(a.height)} کن`;
     case 'turn': return a.op === 'set' ? `${who(a.target)} را به زاویه‌ی ${fa(a.degrees)} درجه بچرخان` : `${who(a.target)} را ${fa(a.degrees)} درجه بچرخان`;
-    case 'setOpacity': return `پررنگی ${who(a.target)} را ${fa(a.opacity)} کن`;
-    case 'flash': return `${who(a.target)} را یک لحظه بدرخشان`;
-    case 'layer': return a.to === 'front' ? `${who(a.target)} را جلوی همه بیاور` : `${who(a.target)} را پشت همه ببر`;
     case 'zoom': return `دوربین را ${fa(a.amount)} برابر نزدیک کن`;
   }
   // Every other action is a block in its own file, said above.

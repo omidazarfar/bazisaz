@@ -484,7 +484,7 @@ const MAX_BURST = 60;
 export class Game {
   readonly app: Application;
   private readonly mount: HTMLElement;
-  private readonly options: GameOptions;
+  readonly options: GameOptions;
   /** The screen in game pixels: the design's size, or taller or wider when filling a phone's screen. */
   private view = { width: 0, height: 0 };
   /** Where each screen-fixed object was designed to be, before keeping it to its edge of a larger screen. */
@@ -520,10 +520,10 @@ export class Game {
   /** The scene's background colour as a sheet inside the scenery, so a look tints it along with everything else. */
   private readonly backdrop = new Graphics();
   private readonly lookFilter = new ColorMatrixFilter();
-  private look: Look = 'none';
+  look: Look = 'none';
   /** How dark the scene is now, and a change of it under way. */
-  private darkness = 0;
-  private darknessGlide: { from: number; to: number; elapsed: number; seconds: number } | null = null;
+  darkness = 0;
+  darknessGlide: { from: number; to: number; elapsed: number; seconds: number } | null = null;
   /** The dark sheet with the lights cut out of it, drawn once a frame into a texture of its own. */
   private readonly shade = new Sprite();
   private readonly shadeLayer = new Container();
@@ -549,7 +549,7 @@ export class Game {
   private readonly cleanup: (() => void)[] = [];
 
   project: GameProject;
-  private scene: Scene;
+  scene: Scene;
   private mode: GameMode;
   private selection: string | null = null;
   private selected: string[] = [];
@@ -570,7 +570,7 @@ export class Game {
   /** Where the view was when editing was last left, to come back to the same place. */
   private editView: { scene: string; x: number; y: number } | null = null;
 
-  private entities: Entity[] = [];
+  entities: Entity[] = [];
   readonly textVariables = new Map<string, string>();
   readonly variables = new Map<string, number>();
   readonly camera: Point = { x: 0, y: 0 };
@@ -608,7 +608,7 @@ export class Game {
   /** Objects whose health reached zero since the rules last ran, and rewarded ads watched through. */
   private died: Entity[] = [];
   private diedLastFrame: Entity[] = [];
-  private rewards = 0;
+  rewards = 0;
   /** How far the camera moved during the last frame, for spawners that work by distance. */
   private cameraTravel = 0;
   shakeLeft = 0;
@@ -660,7 +660,7 @@ export class Game {
   /** For rules that fire once per object: the objects the rule's test held for when it was last looked at. */
   private readonly ruleHeld = new Map<string, Set<Entity>>();
   /** An object's own value changed, so texts that show one must be written again. */
-  private valuesChanged = false;
+  valuesChanged = false;
   private readonly touching = new Map<string, Set<string>>();
   private readonly uids = new WeakMap<Entity, number>();
   private uidCounter = 0;
@@ -1477,7 +1477,7 @@ export class Game {
     this.layerOf(entity).addChild(entity.view);
   }
 
-  private createEntity(def: GameObject, x: number, y: number): Entity {
+  createEntity(def: GameObject, x: number, y: number): Entity {
     const jumper = def.behaviors.find((b): b is JumperBehavior => b.type === 'jumper');
     const spawner = def.behaviors.find((b) => b.type === 'spawner');
     const launch = def.behaviors.find((b) => b.type === 'launch');
@@ -1601,13 +1601,13 @@ export class Game {
   }
 
   /** Puts an object's effects on its picture: its own lasting ones, and a flash while it lasts. */
-  private applyFilters(e: Entity): void {
+  applyFilters(e: Entity): void {
     const list = e.flash ? [e.flash.filter, ...e.fx] : e.fx;
     e.view.filters = list.length > 0 ? list : [];
   }
 
   /** Draws an object anew after a rule changed its colour or picture, in the same place among the others. */
-  private redraw(e: Entity): void {
+  redraw(e: Entity): void {
     const old = e.view;
     const layer = old.parent;
     e.view = this.createView(e.def, e);
@@ -1761,7 +1761,7 @@ export class Game {
     return box;
   }
 
-  private layerOf(e: Entity): Container {
+  layerOf(e: Entity): Container {
     return e.def.fixed ? this.hud : this.world;
   }
 
@@ -3203,67 +3203,10 @@ export class Game {
           this.place(e, origin.x + Math.random() * Math.max(0, w - e.width), origin.y + Math.random() * Math.max(0, h - e.height));
         }
         break;
-      case 'setColor':
-        for (const e of this.targets(action.target, context)) {
-          e.color = action.color;
-          if (e.def.visual.kind === 'text') (e.view as Text).style.fill = action.color;
-          else if (e.def.visual.kind === 'bar') this.refreshTexts(true);
-          else this.redraw(e);
-        }
-        break;
-      case 'setImage':
-        if (this.project.assets[action.asset]?.type !== 'image') break;
-        for (const e of this.targets(action.target, context)) {
-          if (e.def.visual.kind === 'text' || e.def.visual.kind === 'bar') continue;
-          e.image = action.asset;
-          this.redraw(e);
-        }
-        break;
-      case 'setText':
-        for (const e of this.targets(action.target, context)) e.text = action.text;
-        this.refreshTexts(true);
-        break;
-      case 'resize':
-        for (const e of this.targets(action.target, context)) {
-          if (e.def.visual.kind === 'text') continue;
-          // It grows or shrinks around its middle, so it does not seem to jump.
-          const width = Math.max(1, action.width);
-          const height = Math.max(1, action.height);
-          e.x += (e.width - width) / 2;
-          e.y += (e.height - height) / 2;
-          e.width = width;
-          e.height = height;
-        }
-        break;
       case 'turn':
         for (const e of this.targets(action.target, context)) {
           const by = (action.degrees * Math.PI) / 180;
           e.angle = action.op === 'set' ? by : e.angle + by;
-        }
-        break;
-      case 'setOpacity':
-        for (const e of this.targets(action.target, context)) e.opacity = clamp(action.opacity, 0, 1);
-        break;
-      case 'flash':
-        for (const e of this.targets(action.target, context)) {
-          const filter = e.flash?.filter ?? new ColorMatrixFilter();
-          e.flash = { color: action.color, left: Math.max(0.05, action.seconds), span: Math.max(0.05, action.seconds), filter };
-          this.applyFilters(e);
-          this.paintFlash(e);
-        }
-        break;
-      case 'layer':
-        for (const e of this.targets(action.target, context)) {
-          const layer = this.layerOf(e);
-          // The list of objects is kept in drawing order too, so what is tapped is what is seen on top.
-          this.entities.splice(this.entities.indexOf(e), 1);
-          if (action.to === 'front') {
-            this.entities.push(e);
-            layer.addChild(e.view);
-          } else {
-            this.entities.unshift(e);
-            layer.addChildAt(e.view, 0);
-          }
         }
         break;
       case 'zoom':
@@ -3318,20 +3261,10 @@ export class Game {
       case 'restartScene':
         this.nextScene = this.scene.id;
         break;
-      case 'showAd':
-        if (this.project.ads.enabled) this.options.onShowAd?.();
-        break;
       case 'glide':
         for (const e of this.targets(action.target, context)) {
           this.tweens.push({ entity: e, kind: 'glide', elapsed: 0, seconds: action.seconds, from: { x: e.x, y: e.y }, to: { x: action.x, y: action.y }, ease: action.ease });
         }
-        break;
-      case 'setLook':
-        this.look = action.look;
-        this.applyLook();
-        break;
-      case 'setDarkness':
-        this.darknessGlide = { from: this.darkness, to: clamp(action.amount, 0, 1), elapsed: 0, seconds: Math.max(0, action.seconds) };
         break;
       case 'damage':
         for (const e of this.targets(action.target, context)) {
@@ -3361,182 +3294,9 @@ export class Game {
       case 'resume':
         this.paused = false;
         break;
-      case 'showRewardedAd':
-        void this.options.onShowRewardedAd?.().then((watched) => {
-          if (watched) this.rewards += 1;
-        });
-        break;
       case 'setGravity':
         this.gravity = action.amount;
         break;
-      case 'setValue': {
-        const by = this.amount(action.amount, context);
-        for (const e of this.targets(action.target, context)) {
-          const now = e.values.get(action.name) ?? 0;
-          e.values.set(action.name, action.op === 'set' ? by : action.op === 'add' ? now + by : action.op === 'multiply' ? now * by : now - by);
-        }
-        this.valuesChanged = true;
-        break;
-      }
-      case 'shuffle': {
-        // Everyone in the group keeps a place of the group, but not their own.
-        const group = this.entities.filter((e) => e.alive && (action.target.by === 'id' ? e.def.id === action.target.id : e.def.tags.includes(action.target.tag)));
-        const places = group.map((e) => ({ x: e.x + e.width / 2, y: e.y + e.height / 2 }));
-        for (let i = places.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [places[i], places[j]] = [places[j], places[i]];
-        }
-        group.forEach((e, i) => this.slideTo(e, places[i].x - e.width / 2, places[i].y - e.height / 2, 0.35));
-        break;
-      }
-      case 'step': {
-        const way = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[action.direction];
-        for (const e of this.targets(action.target, context)) {
-          const cell = this.scene.cell || e.width;
-          const [dx, dy] = [way[0] * cell, way[1] * cell];
-          const inside = (b: Box) => b.x >= 0 && b.y >= 0 && b.x + b.width <= this.scene.width && b.y + b.height <= this.scene.height;
-          const ahead = { x: e.x + dx, y: e.y + dy, width: e.width, height: e.height };
-          if (!inside(ahead) || this.occupants(action.blockTag, ahead, e).length > 0) continue;
-          const pushed = this.occupants(action.pushTag, ahead, e);
-          // Whatever is pushed needs a free cell to go to; two in a row are too heavy.
-          const free = pushed.every((p) => {
-            const beyond = { x: p.x + dx, y: p.y + dy, width: p.width, height: p.height };
-            return inside(beyond) && this.occupants(action.blockTag, beyond, p).length === 0 && this.occupants(action.pushTag, beyond, p).length === 0;
-          });
-          if (!free) continue;
-          for (const p of [...pushed, e]) this.slideTo(p, p.x + dx, p.y + dy, 0.12);
-        }
-        break;
-      }
-      case 'swap': {
-        const a = this.targets(action.target, context)[0];
-        const b = this.targets(action.other, context)[0];
-        if (!a || !b || a === b) break;
-        const centre = (e: Entity) => ({ x: e.x + e.width / 2, y: e.y + e.height / 2 });
-        const [ca, cb] = [centre(a), centre(b)];
-        if (action.near) {
-          // Side by side: one cell apart along a row or a column, not on a slant.
-          const cell = this.scene.cell || a.width;
-          const [dx, dy] = [Math.abs(ca.x - cb.x), Math.abs(ca.y - cb.y)];
-          if (Math.min(dx, dy) > cell * 0.25 || Math.abs(Math.max(dx, dy) - cell) > cell * 0.5) break;
-        }
-        if (action.match && action.match >= 2) {
-          // Try the swap on the quiet: unless it lines one of the two up, they stay where they were.
-          const before = [a.x, a.y, b.x, b.y];
-          [a.x, a.y, b.x, b.y] = [cb.x - a.width / 2, cb.y - a.height / 2, ca.x - b.width / 2, ca.y - b.height / 2];
-          const group = this.entities.filter((e) => e.alive && e.def.tags.some((tag) => a.def.tags.includes(tag)));
-          const lined = this.inLines(group, action.matchBy ?? '', action.match, false);
-          [a.x, a.y, b.x, b.y] = before;
-          if (!lined.has(a) && !lined.has(b)) {
-            // A short lean toward each other and back says "no" without a word.
-            a.slide = { x: (cb.x - ca.x) * 0.3, y: (cb.y - ca.y) * 0.3, left: 0.14, span: 0.14 };
-            b.slide = { x: (ca.x - cb.x) * 0.3, y: (ca.y - cb.y) * 0.3, left: 0.14, span: 0.14 };
-            break;
-          }
-        }
-        this.slideTo(a, cb.x - a.width / 2, cb.y - a.height / 2, 0.15);
-        this.slideTo(b, ca.x - b.width / 2, ca.y - b.height / 2, 0.15);
-        break;
-      }
-      case 'slideAll': {
-        if (action.target.by !== 'tag') break;
-        const pieceTag = action.target.tag;
-        const slots = this.entities.filter((e) => e.alive && e.def.tags.includes(action.boardTag));
-        if (slots.length === 0) break;
-        const cell = this.scene.cell || slots[0].width;
-        const mid = (e: Entity) => ({ x: e.x + e.width / 2, y: e.y + e.height / 2 });
-        const left = Math.min(...slots.map((e) => mid(e).x)) - cell / 2;
-        const top = Math.min(...slots.map((e) => mid(e).y)) - cell / 2;
-        const cols = Math.round((Math.max(...slots.map((e) => mid(e).x)) - left) / cell + 0.5);
-        const rows = Math.round((Math.max(...slots.map((e) => mid(e).y)) - top) / cell + 0.5);
-        const grid: (Entity | null)[][] = Array.from({ length: rows }, () => Array<Entity | null>(cols).fill(null));
-        for (const piece of this.entities) {
-          if (!piece.alive || !piece.def.tags.includes(pieceTag)) continue;
-          const col = Math.floor((mid(piece).x - left) / cell);
-          const row = Math.floor((mid(piece).y - top) / cell);
-          if (row >= 0 && row < rows && col >= 0 && col < cols) grid[row][col] = piece;
-        }
-        const [dx, dy] = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[action.direction];
-        const [lines, length] = dx !== 0 ? [rows, cols] : [cols, rows];
-        // Each row (or column) is walked from the edge the pieces are heading for.
-        const cellAt = (line: number, i: number): [number, number] => (dx !== 0 ? [line, dx > 0 ? length - 1 - i : i] : [dy > 0 ? length - 1 - i : i, line]);
-        let moved = false;
-        for (let line = 0; line < lines; line++) {
-          let free = 0;
-          let ahead: Entity | null = null;
-          let aheadMerged = false;
-          for (let i = 0; i < length; i++) {
-            const [row, col] = cellAt(line, i);
-            const piece = grid[row][col];
-            if (!piece) continue;
-            grid[row][col] = null;
-            const mine = piece.values.get(action.mergeBy) ?? 0;
-            if (ahead && !aheadMerged && action.mergeBy !== '' && (ahead.values.get(action.mergeBy) ?? 0) === mine) {
-              // It runs into one like itself: the two become one, a step higher. A piece merges once per move.
-              ahead.values.set(action.mergeBy, mine + 1);
-              aheadMerged = true;
-              piece.alive = false;
-              this.valuesChanged = true;
-              moved = true;
-              continue;
-            }
-            const [toRow, toCol] = cellAt(line, free);
-            if (toRow !== row || toCol !== col) moved = true;
-            grid[toRow][toCol] = piece;
-            this.slideTo(piece, left + toCol * cell + (cell - piece.width) / 2, top + toRow * cell + (cell - piece.height) / 2, 0.1);
-            ahead = piece;
-            aheadMerged = false;
-            free += 1;
-          }
-        }
-        const prefab = this.scene.prefabs.find((p) => p.id === action.prefab);
-        const empty = grid.flatMap((cells, row) => cells.flatMap((piece, col) => (piece ? [] : [[row, col]])));
-        if (moved && prefab && empty.length > 0) {
-          const [row, col] = empty[Math.floor(Math.random() * empty.length)];
-          const entity = this.createEntity(prefab, left + col * cell + (cell - prefab.width) / 2, top + row * cell + (cell - prefab.height) / 2);
-          entity.spawned = true;
-          this.entities.push(entity);
-          this.layerOf(entity).addChild(entity.view);
-        }
-        break;
-      }
-      case 'settle': {
-        if (action.target.by !== 'tag') break;
-        const tag = action.target.tag;
-        // The board is where the scene, as it was built, has objects of the group.
-        const built = this.scene.objects.filter((o) => o.tags.includes(tag));
-        if (built.length === 0) break;
-        const cell = this.scene.cell || built[0].width;
-        const left = Math.min(...built.map((o) => o.x + o.width / 2 - cell / 2));
-        const top = Math.min(...built.map((o) => o.y + o.height / 2 - cell / 2));
-        const cols = Math.round((Math.max(...built.map((o) => o.x + o.width / 2 + cell / 2)) - left) / cell);
-        const rows = Math.round((Math.max(...built.map((o) => o.y + o.height / 2 + cell / 2)) - top) / cell);
-        const prefabs = action.prefabs.flatMap((id) => this.scene.prefabs.filter((p) => p.id === id));
-        const pieces = this.entities.filter((e) => e.alive && e.def.tags.includes(tag));
-        for (let col = 0; col < cols; col++) {
-          const middle = left + col * cell + cell / 2;
-          const column = pieces.filter((e) => Math.floor((e.x + e.width / 2 - left) / cell) === col).sort((a, b) => b.y - a.y);
-          let row = rows - 1;
-          // Those already there drop to the lowest free cells, keeping their order.
-          for (const piece of column) {
-            if (row < 0) break;
-            const y = top + row * cell + (cell - piece.height) / 2;
-            if (Math.abs(piece.y - y) > 0.5) this.slideTo(piece, middle - piece.width / 2, y, 0.2);
-            row -= 1;
-          }
-          // New ones come in from above the board to fill what is left.
-          for (let above = 1; row >= 0 && prefabs.length > 0; row--, above++) {
-            const prefab = prefabs[Math.floor(Math.random() * prefabs.length)];
-            const y = top + row * cell + (cell - prefab.height) / 2;
-            const entity = this.createEntity(prefab, middle - prefab.width / 2, top - above * cell);
-            entity.spawned = true;
-            this.entities.push(entity);
-            this.layerOf(entity).addChild(entity.view);
-            this.slideTo(entity, entity.x, y, 0.25);
-          }
-        }
-        break;
-      }
       case 'shoot': {
         const prefab = this.scene.prefabs.find((p) => p.id === action.prefab);
         if (!prefab) break;
@@ -3684,7 +3444,7 @@ export class Game {
   }
 
   /** Mixes the flash colour into the object's own, strongly at first and fading to nothing. */
-  private paintFlash(e: Entity): void {
+  paintFlash(e: Entity): void {
     if (!e.flash) return;
     const k = clamp(e.flash.left / e.flash.span, 0, 1);
     const hex = e.flash.color.replace('#', '');
@@ -4051,7 +3811,7 @@ export class Game {
     e.animApplied = null;
   }
 
-  private amount(amount: Amount, context: Context = {}): number {
+  amount(amount: Amount, context: Context = {}): number {
     if (typeof amount === 'number') return amount;
     if ('variable' in amount) return this.variables.get(amount.variable) ?? 0;
     if ('count' in amount) return this.matching({ by: 'tag', tag: amount.count, where: amount.where }).length;
@@ -4086,7 +3846,7 @@ export class Game {
   }
 
   /** Moves an object to a new place at once, and lets its picture travel there over `seconds`. */
-  private slideTo(e: Entity, x: number, y: number, seconds: number): void {
+  slideTo(e: Entity, x: number, y: number, seconds: number): void {
     // If it was still catching up from an earlier move, it goes on from where its picture is.
     const behind = e.slide ? e.slide.left / e.slide.span : 0;
     const from = { x: e.x + (e.slide?.x ?? 0) * behind, y: e.y + (e.slide?.y ?? 0) * behind };
@@ -4096,7 +3856,7 @@ export class Game {
   }
 
   /** Objects of a group overlapping a box, other than `except`. Boxes that only share an edge do not count. */
-  private occupants(tag: string, box: Box, except: Entity): Entity[] {
+  occupants(tag: string, box: Box, except: Entity): Entity[] {
     if (tag === '') return [];
     return this.entities.filter(
       (e) => e.alive && e !== except && e.def.tags.includes(tag) && e.x < box.x + box.width - 1 && e.x + e.width > box.x + 1 && e.y < box.y + box.height - 1 && e.y + e.height > box.y + 1,
@@ -4107,7 +3867,7 @@ export class Game {
    * The objects of a group that stand in a straight line of `length` or more,
    * side by side on the scene's grid, sharing the same value of `name`.
    */
-  private inLines(group: Entity[], name: string, length: number, diagonal: boolean): Set<Entity> {
+  inLines(group: Entity[], name: string, length: number, diagonal: boolean): Set<Entity> {
     const found = new Set<Entity>();
     if (group.length < length) return found;
     const cell = this.scene.cell || group[0].width || 1;
@@ -5006,7 +4766,7 @@ export class Game {
   // ── Presentation ─────────────────────────────────────────────────────────
 
   /** Rewrites text objects when a variable they might show has changed. */
-  private refreshTexts(force: boolean): void {
+  refreshTexts(force: boolean): void {
     const key = [...this.variables.values()].join('|');
     if (!force && key === this.shownValues) return;
     this.shownValues = key;

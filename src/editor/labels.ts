@@ -1,9 +1,9 @@
 import type { Action, Behavior, Scene, Trigger } from '../format/types';
 import { PARTICLE_COLORS } from '../runtime/particles';
-import { fa, firstRef, slider, SOUND_LABEL, TARGET, type Block, type Context, type Field, type Option } from '../blocks/fields';
+import { fa, firstRef, hasPrefabs, LOOK_OPTIONS, slider, SOUND_LABEL, TARGET, type Block, type Context, type Field, type Option } from '../blocks/fields';
 import { ACTION_BLOCKS, type BlockActionType } from '../blocks/registry';
 
-export { fa, SOUND_LABEL, type Context, type Field };
+export { fa, LOOK_OPTIONS, SOUND_LABEL, type Context, type Field };
 
 /**
  * Everything the editor says about the format, in the user's words. Each
@@ -21,7 +21,6 @@ const hasTexts = ({ project }: Context) => Boolean(project.textVariables?.length
 const hasVariables = ({ project }: Context) => project.variables.length > 0;
 const hasItems = ({ project }: Context) => project.variables.some((v) => v.item);
 const firstItem = ({ project }: Context) => project.variables.find((v) => v.item)?.name ?? '';
-const hasPrefabs = ({ scene }: Context) => scene.prefabs.length > 0;
 const SPEED = (key: string, label: string, hint: string) => slider(key, label, -1500, 1500, 10, hint);
 /** The group most games call their ground, if this scene has one, so new physics stands on it from the start. */
 const groundTag = ({ scene }: Context): string => {
@@ -30,17 +29,6 @@ const groundTag = ({ scene }: Context): string => {
 };
 const moving = (v: Record<string, unknown>) => v.kind !== 'still';
 const custom = (v: Record<string, unknown>) => !v.material || v.material === 'custom';
-/** The colour treatments of a scene's picture, in words. */
-export const LOOK_OPTIONS: Option[] = [
-  { value: 'none', label: 'معمولی' },
-  { value: 'warm', label: 'گرم (غروب)' },
-  { value: 'cold', label: 'سرد (زمستان)' },
-  { value: 'gray', label: 'سیاه‌وسفید' },
-  { value: 'old', label: 'قدیمی (قهوه‌ای)' },
-  { value: 'night', label: 'شب (آبی و کم‌رنگ)' },
-  { value: 'dream', label: 'رؤیایی (روشن و ملایم)' },
-  { value: 'vivid', label: 'پررنگ و شاد' },
-];
 /** The painted backdrops, in words. */
 export const RETRO_OPTIONS: Option[] = [
   { value: 'none', label: 'هیچ' },
@@ -879,89 +867,11 @@ const ACTIONS_HERE: { [K in Exclude<Action['type'], BlockActionType>]: Block<Ext
   },
   pause: { title: 'مکث بازی', about: 'همه‌چیز می‌ایستد. فقط قانون‌های «لمس» کار می‌کنند تا بتوانی بازی را ادامه بدهی.', make: () => ({ type: 'pause' }), fields: [] },
   resume: { title: 'ادامه‌ی بازی بعد از مکث', make: () => ({ type: 'resume' }), fields: [] },
-  setValue: {
-    title: 'تغییر مقدار یک شیء',
-    about: 'هر شیء می‌تواند مقدارهای خودش را داشته باشد؛ مثل «باز بودن» یک کارت. اگر شیء آن مقدار را نداشته باشد، همین‌جا ساخته می‌شود.',
-    make: (ctx) => ({ type: 'setValue', target: firstRef(ctx), name: 'open', op: 'set', amount: 1 }),
-    fields: [
-      TARGET,
-      { key: 'name', label: 'کدام مقدارش', kind: 'valueName' },
-      { key: 'op', label: 'چه کار', kind: 'choice', options: [
-        { value: 'set', label: 'بگذار برابر' },
-        { value: 'add', label: 'اضافه کن' },
-        { value: 'subtract', label: 'کم کن' },
-        { value: 'multiply', label: 'ضرب کن در' },
-      ] },
-      { key: 'amount', label: 'چقدر', kind: 'amount' },
-    ],
-  },
-  shuffle: {
-    title: 'بُر زدن جای اشیا',
-    about: 'اشیای یک گروه جایشان را تصادفی با هم عوض می‌کنند؛ مثل بُر زدن کارت‌ها در شروع بازی.',
-    make: (ctx) => ({ type: 'shuffle', target: firstRef(ctx) }),
-    fields: [{ key: 'target', label: 'اشیای کدام گروه', kind: 'ref' }],
-  },
-  swap: {
-    title: 'جا عوض کردن دو شیء',
-    about: 'دو شیء جایشان را با هم عوض می‌کنند. اگر «فقط اگر کنار هم‌اند» روشن باشد و کنار هم نباشند، هیچ کاری نمی‌شود.',
-    make: (ctx) => ({ type: 'swap', target: firstRef(ctx), other: firstRef(ctx), near: true }),
-    fields: [TARGET, { key: 'other', label: 'با کدام شیء', kind: 'target' }, { key: 'near', label: 'فقط اگر کنار هم‌اند', hint: 'یعنی یک خانه فاصله، در یک ردیف یا یک ستون.', kind: 'bool' },
-      { ...slider('match', 'فقط اگر خطی به این درازا بسازد', 0, 6, 1, 'صفر یعنی همیشه جا عوض کنند. با ۳، فقط وقتی جا عوض می‌کنند که یکی‌شان در یک ردیف سه‌تایی هم‌نوع بنشیند؛ وگرنه سر جایشان می‌مانند.'), fallback: 0, advanced: true },
-      { key: 'matchBy', label: 'هم‌نوع یعنی این مقدارشان یکی باشد', kind: 'valueName', fallback: '', advanced: true, showIf: (v) => Number(v.match ?? 0) >= 2 },
-    ],
-  },
-  settle: {
-    title: 'پایین ریختن و پر کردن صفحه',
-    about: 'برای صفحه‌ای که بعضی مهره‌هایش حذف شده‌اند: مهره‌های گروه در ستون خودشان پایین می‌ریزند و جای خالی از بالا با مهره‌های تازه پر می‌شود. صفحه همان جایی است که اشیای گروه را در ویرایشگر چیده‌ای.',
-    available: hasPrefabs,
-    make: (ctx) => ({ type: 'settle', target: firstRef(ctx), prefabs: [ctx.scene.prefabs[0].id] }),
-    fields: [{ key: 'target', label: 'مهره‌های کدام گروه', kind: 'ref' }, { key: 'prefabs', label: 'مهره‌های تازه از این‌ها', kind: 'prefabs' }],
-  },
-  slideAll: {
-    title: 'سُر دادن همه‌ی مهره‌ها به یک طرف',
-    about: 'حرکت بازی ۲۰۴۸: همه‌ی مهره‌های گروه تا جایی که راه دارند به یک طرف سُر می‌خورند. دو مهره که مقدارشان یکی است به هم که برسند یکی می‌شوند و مقدارش یکی بالا می‌رود. اگر چیزی جابه‌جا شد، یک مهره‌ی تازه در یک خانه‌ی خالی می‌آید.',
-    available: hasPrefabs,
-    make: (ctx) => ({ type: 'slideAll', target: firstRef(ctx), direction: 'left', boardTag: '', mergeBy: 'level', prefab: ctx.scene.prefabs[0].id }),
-    fields: [
-      { key: 'target', label: 'مهره‌های کدام گروه', kind: 'ref' },
-      { key: 'direction', label: 'به کدام طرف', kind: 'choice', options: [
-        { value: 'left', label: 'چپ' },
-        { value: 'right', label: 'راست' },
-        { value: 'up', label: 'بالا' },
-        { value: 'down', label: 'پایین' },
-      ] },
-      { key: 'boardTag', label: 'گروه خانه‌های صفحه', hint: 'اشیایی که خانه‌های صفحه را نشان می‌دهند؛ مهره‌ها از آن‌ها بیرون نمی‌روند.', kind: 'tag' },
-      { key: 'mergeBy', label: 'دو تا با این مقدارِ یکسان یکی شوند', hint: 'خالی بگذار تا فقط سُر بخورند.', kind: 'valueName' },
-      { key: 'prefab', label: 'مهره‌ی تازه', kind: 'prefab' },
-    ],
-  },
-  step: {
-    title: 'یک خانه جابه‌جا شدن',
-    about: 'شیء یک خانه می‌رود، مگر اینکه چیزی جلویش باشد یا از دنیا بیرون بزند. اندازه‌ی خانه در برگه‌ی «بازی» است؛ اگر نگذاشته باشی، اندازه‌ی خود شیء حساب می‌شود.',
-    make: (ctx) => ({ type: 'step', target: firstRef(ctx), direction: 'right', blockTag: '', pushTag: '' }),
-    fields: [
-      TARGET,
-      { key: 'direction', label: 'به کدام طرف', kind: 'choice', options: [
-        { value: 'right', label: 'راست' },
-        { value: 'left', label: 'چپ' },
-        { value: 'up', label: 'بالا' },
-        { value: 'down', label: 'پایین' },
-      ] },
-      { key: 'blockTag', label: 'از این گروه رد نشود', hint: 'مثلاً دیوار. خالی یعنی هیچ‌چیز جلویش را نمی‌گیرد.', kind: 'tag' },
-      { key: 'pushTag', label: 'این گروه را هل بدهد', hint: 'مثلاً جعبه. اگر پشت جعبه جا باشد، جعبه هم یک خانه می‌رود.', kind: 'tag' },
-    ],
-  },
   setGravity: {
     title: 'تغییر جاذبه',
     about: 'جاذبه‌ی این صحنه را تا آخر صحنه عوض می‌کند. عدد منفی یعنی همه‌چیز به بالا می‌افتد؛ صفر یعنی بی‌وزنی. جاذبه‌ی معمولی ۲۴۰۰ است.',
     make: () => ({ type: 'setGravity', amount: -2400 }),
     fields: [{ key: 'amount', label: 'جاذبه', kind: 'number' }],
-  },
-  showRewardedAd: {
-    title: 'پیشنهاد تبلیغ جایزه‌ای',
-    about: 'اگر بازیکن تبلیغ را تا آخر ببیند، اتفاق «بازیکن تبلیغ جایزه‌ای را تا آخر دید» رخ می‌دهد.',
-    make: () => ({ type: 'showRewardedAd' }),
-    fields: [],
   },
   say: {
     title: 'حرف زدن (گفت‌وگو)',
@@ -1005,12 +915,6 @@ const ACTIONS_HERE: { [K in Exclude<Action['type'], BlockActionType>]: Block<Ext
       { key: 'aimTag', label: 'هدف از این گروه', kind: 'tag', fallback: '', showIf: (v) => v.pattern === 'aimed' },
     ],
   },
-  showAd: {
-    title: 'نمایش تبلیغ تمام‌صفحه',
-    about: 'فقط وقتی تبلیغات در بخش «بازی» روشن باشد.',
-    make: () => ({ type: 'showAd' }),
-    fields: [],
-  },
   moveBy: {
     title: 'جابه‌جا کردن شیء به یک اندازه',
     about: 'از همان جایی که هست حرکتش می‌دهد. منفی یعنی به چپ یا بالا.',
@@ -1029,30 +933,6 @@ const ACTIONS_HERE: { [K in Exclude<Action['type'], BlockActionType>]: Block<Ext
     make: () => ({ type: 'wait', seconds: 1 }),
     fields: [{ key: 'seconds', label: 'چند ثانیه', kind: 'number' }],
   },
-  setColor: {
-    title: 'عوض کردن رنگ',
-    about: 'رنگ شکل یا متن را عوض می‌کند. روی عکس، عکس را به آن رنگ درمی‌آورد؛ سفید یعنی رنگ خود عکس.',
-    make: (ctx) => ({ type: 'setColor', target: firstRef(ctx), color: '#ff5a5f' }),
-    fields: [TARGET, { key: 'color', label: 'رنگ تازه', kind: 'color' }],
-  },
-  setImage: {
-    title: 'عوض کردن عکس',
-    about: 'شیء عکس دیگری نشان می‌دهد؛ مثل دری که باز می‌شود یا دشمنی که زخمی شده. انیمیشنش می‌ایستد.',
-    make: (ctx) => ({ type: 'setImage', target: firstRef(ctx), asset: Object.keys(ctx.project.assets).find((id) => ctx.project.assets[id].type === 'image') ?? '' }),
-    fields: [TARGET, { key: 'asset', label: 'عکس تازه', kind: 'image' }],
-  },
-  setText: {
-    title: 'عوض کردن متن',
-    about: 'آنچه یک متن می‌نویسد را عوض می‌کند. مقدارها را مثل همیشه با {نام} نشان بده.',
-    make: (ctx) => ({ type: 'setText', target: firstRef(ctx), text: 'You win!' }),
-    fields: [TARGET, { key: 'text', label: 'متن تازه', kind: 'text' }],
-  },
-  resize: {
-    title: 'عوض کردن اندازه',
-    about: 'شیء بزرگ یا کوچک می‌شود و وسطش سر جایش می‌ماند. برخوردش هم با اندازه‌ی تازه حساب می‌شود؛ مثل قارچی که بازیکن را بزرگ می‌کند.',
-    make: (ctx) => ({ type: 'resize', target: firstRef(ctx), width: 160, height: 160 }),
-    fields: [TARGET, { key: 'width', label: 'پهنای تازه', kind: 'number' }, { key: 'height', label: 'بلندی تازه', kind: 'number' }],
-  },
   turn: {
     title: 'چرخاندن شیء',
     make: (ctx) => ({ type: 'turn', target: firstRef(ctx), op: 'add', degrees: 90 }),
@@ -1061,36 +941,6 @@ const ACTIONS_HERE: { [K in Exclude<Action['type'], BlockActionType>]: Block<Ext
       { key: 'op', label: 'چه کار', kind: 'choice', options: [{ value: 'add', label: 'این‌قدر بیشتر بچرخد' }, { value: 'set', label: 'دقیقاً به این زاویه برود' }] },
       slider('degrees', 'زاویه', -360, 360, 5, 'منفی یعنی خلاف جهت عقربه‌های ساعت', 'درجه'),
     ],
-  },
-  setOpacity: {
-    title: 'عوض کردن پررنگی',
-    about: 'صفر یعنی نامرئی، ولی هنوز سر جایش هست و به چیزها می‌خورد. برای پنهان کردن واقعی، «پنهان کردن شیء» را بزن.',
-    make: (ctx) => ({ type: 'setOpacity', target: firstRef(ctx), opacity: 0.5 }),
-    fields: [TARGET, slider('opacity', 'پررنگی', 0, 1, 0.05)],
-  },
-  flash: {
-    title: 'درخشیدن یک لحظه‌ای',
-    about: 'شیء یک لحظه به رنگی درمی‌آید و آرام به رنگ خودش برمی‌گردد؛ مثل وقتی دشمن ضربه می‌خورد. سفید از همه بهتر دیده می‌شود.',
-    make: (ctx) => ({ type: 'flash', target: firstRef(ctx), color: '#ffffff', seconds: 0.25 }),
-    fields: [TARGET, { key: 'color', label: 'رنگ', kind: 'color' }, slider('seconds', 'چقدر طول بکشد', 0.05, 2, 0.05, undefined, 'ثانیه')],
-  },
-  layer: {
-    title: 'جلو یا عقب بردن شیء',
-    about: 'شیء روی همه یا پشت همه کشیده می‌شود.',
-    make: (ctx) => ({ type: 'layer', target: firstRef(ctx), to: 'front' }),
-    fields: [TARGET, { key: 'to', label: 'کجا', kind: 'choice', options: [{ value: 'front', label: 'جلوی همه' }, { value: 'back', label: 'پشت همه' }] }],
-  },
-  setLook: {
-    title: 'عوض کردن حال و هوای تصویر',
-    about: 'رنگ کل تصویر را عوض می‌کند، مثل فیلتر عکس: گرم، سرد، سیاه‌وسفید، قدیمی، شب، رؤیایی یا پررنگ. مثلاً وقتی بازیکن می‌بازد، تصویر سیاه‌وسفید شود.',
-    make: () => ({ type: 'setLook', look: 'gray' }),
-    fields: [{ key: 'look', label: 'چه حال و هوایی', kind: 'choice', options: LOOK_OPTIONS }],
-  },
-  setDarkness: {
-    title: 'تاریک و روشن کردن صحنه',
-    about: 'صحنه را آرام تاریک یا روشن می‌کند؛ مثل شب شدن. فقط اشیایی که رفتار «نور» دارند در تاریکی روشن می‌مانند.',
-    make: () => ({ type: 'setDarkness', amount: 0.8, seconds: 2 }),
-    fields: [slider('amount', 'چقدر تاریک', 0, 1, 0.05, 'صفر یعنی روشن، یک یعنی سیاه.'), slider('seconds', 'در چند ثانیه', 0, 10, 0.5, 'صفر یعنی یک‌دفعه.', 'ثانیه')],
   },
   send: {
     title: 'فرستادن پیام',

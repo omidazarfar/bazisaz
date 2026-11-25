@@ -11,6 +11,23 @@ import { shockwave } from './actions/shockwave';
 import { slowMotion } from './actions/slowMotion';
 import { vibrate } from './actions/vibrate';
 import { zoomPunch } from './actions/zoomPunch';
+import { setColor } from './actions/setColor';
+import { setImage } from './actions/setImage';
+import { setText } from './actions/setText';
+import { resize } from './actions/resize';
+import { setOpacity } from './actions/setOpacity';
+import { flash } from './actions/flash';
+import { layer } from './actions/layer';
+import { setLook } from './actions/setLook';
+import { setDarkness } from './actions/setDarkness';
+import { showAd } from './actions/showAd';
+import { showRewardedAd } from './actions/showRewardedAd';
+import { setValue } from './actions/setValue';
+import { shuffle } from './actions/shuffle';
+import { swap } from './actions/swap';
+import { settle } from './actions/settle';
+import { slideAll } from './actions/slideAll';
+import { step } from './actions/step';
 import type { ActionBlock } from './types';
 
 /**
@@ -21,6 +38,12 @@ import type { ActionBlock } from './types';
 const blocks = [
   // Sound and effects.
   playSound, playMusic, effect, burst, floatText, shake, focus, zoomPunch, shockwave, slowMotion, vibrate, setSound,
+  // Looks.
+  setColor, setImage, setText, resize, setOpacity, flash, layer, setLook, setDarkness,
+  // Ads.
+  showAd, showRewardedAd,
+  // Puzzles and logic.
+  setValue, shuffle, swap, settle, slideAll, step,
 ] as const;
 export const ACTION_BLOCKS = blocks as unknown as readonly ActionBlock[];
 

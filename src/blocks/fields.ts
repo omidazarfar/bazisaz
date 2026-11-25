@@ -105,3 +105,17 @@ const faNumber = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2, useG
 export function fa(value: number): string {
   return faNumber.format(value);
 }
+
+/** The colour treatments of a scene's picture, in words. */
+export const LOOK_OPTIONS: Option[] = [
+  { value: 'none', label: 'معمولی' },
+  { value: 'warm', label: 'گرم (غروب)' },
+  { value: 'cold', label: 'سرد (زمستان)' },
+  { value: 'gray', label: 'سیاه‌وسفید' },
+  { value: 'old', label: 'قدیمی (قهوه‌ای)' },
+  { value: 'night', label: 'شب (آبی و کم‌رنگ)' },
+  { value: 'dream', label: 'رؤیایی (روشن و ملایم)' },
+  { value: 'vivid', label: 'پررنگ و شاد' },
+];
+
+export const hasPrefabs = ({ scene }: Context) => scene.prefabs.length > 0;
