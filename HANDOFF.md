@@ -110,13 +110,19 @@ step that passes. One phase per session, in this order.
   `return`), then `npx tsc --noEmit` and read every new file. It refuses shared cases and odd checks: move
   those by hand. A block file must not import labels.ts or sentences.ts (they import the registry): move the
   helper it needs to fields.ts or say.ts first, as it is.
-- Moved (29 of 68 actions): sound and effects (12), looks (9), ads (2), puzzles and logic (6).
-  Still in Game.ts: values and score, dialogue (say: runActions), bag (give/take share a case), objects,
-  movement, real physics, scene and flow (wait: runActions; goToScene/loadGame share a check). Then the
-  triggers (`fired`), then the behaviors (the switch in `update`), with the same steps.
+- **All 68 actions are blocks** (steps 1–3). `Game.perform` and `runActions`, the editor's `ACTIONS` and
+  `actionSentence` are now only the registry; `validateProject` keeps the checks common to every action (a
+  missing target). A compile-time check in registry.ts (`everyActionIsABlock`) names any action with no block.
+  `CheckKit` has the common checks (checkRef, needVariable, needItem, checkText, hasPrefab, hasScene; messages
+  word for word as before). `takesRest` (wait, say): the block gets the rest of the rule's actions to run later.
+  give and take share one file (giveTake.ts), as they shared their code. Every moved action's run code was
+  compared line by line with the code before Phase 1 (no difference). Game.ts: 5365 → 4821 lines.
+- Next: the triggers (`fired`: a TriggerBlock with `fired(game, trigger, rule, …) → Context[]`), then the
+  behaviors (the switch in `update`), with the same steps and the same line-by-line comparison.
 - Before Phase 1 counts as done: the Action union in src/format/types.ts still has to be edited for a new
   action; make the union include the registry's types (so a new action is truly one file and one line), and
-  rewrite "A new block" under Gotchas.
+  rewrite "A new block" under Gotchas. SHORT_ABOUT (labels.ts, one line of help per block) also belongs in the
+  blocks' own files.
 
 ### Later (small things noticed, not blocking the phase)
 
@@ -409,8 +415,8 @@ say so in the log.
 - A new library picture: add it to `ART_SPRITES` in `art.ts`, with a unique
   `id`. Existing projects keep the PNGs already stored in their assets.
 - A new action (Phase 1 way): its type in the Action union of `types.ts`, one file in `src/blocks/actions/`
-  (copy a moved one: editor description, sentence, check, run), one line in `src/blocks/registry.ts`, the
-  GUIDE block list, a lab test. A new trigger or behavior is still the old way until they are moved:
+  (copy one: editor description, sentence, check, run), one line in `src/blocks/registry.ts`, the GUIDE block
+  list, a lab test. Nothing in Game.ts, labels.ts, sentences.ts or validate.ts. A new trigger or behavior is still the old way until they are moved:
 - A new block (trigger or action), old way:
   1. Add it to `types.ts`.
   2. Implement it in `Game.ts` (`fired` for triggers, `perform` for actions).
@@ -431,7 +437,8 @@ say so in the log.
 
 - The owner's roadmap replaces THE PLAN NOW (five phases; no new features until done). Phase 1 started:
   src/blocks/ (types, registry, fields, say), 29 actions moved as they were in four families, the mover
-  script scripts/blocks-move.mjs. See "Phase 1 progress". Step 1 (registry + sound and effects) on CI: all
+  script scripts/blocks-move.mjs. Then (owner: "go ahead") the other 39: all 68 actions are blocks (step 3).
+  See "Phase 1 progress". Step 1 (registry + sound and effects) on CI: all
   four test suites pass; 12 of 16 bots win; the four that lose (physics, tower-levels, platform-levels,
   bricks-levels) lose the same way without Phase 1 (see Later). Step 2 (looks, ads, puzzles): see the next run.
 
