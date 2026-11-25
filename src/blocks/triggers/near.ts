@@ -1,4 +1,5 @@
-import type { Context } from '../../runtime/Game';
+import type { Context, Entity } from '../../runtime/Game';
+import { isPlainGroup } from '../../runtime/contacts';
 import { fa, firstRef, slider } from '../fields';
 import { describeRef } from '../say';
 import { triggerBlock } from '../types';
@@ -29,13 +30,21 @@ export const near = triggerBlock({
     const now = new Set<string>();
     const hits: Context[] = [];
     const seconds = game.matching(w.b);
-    const wanted = new Set(seconds);
+    let wanted: Set<Entity> | null = null;
+    const want = () => (wanted ??= new Set(seconds));
+    const group = isPlainGroup(w.b) ? w.b.tag : null;
     for (const first of game.matching(w.a)) {
-      // Only what lies within the distance of its middle is looked at (the broadphase, src/runtime/contacts.ts).
+      if (!first.visible) continue;
+      // Only what lies within the distance of its middle is looked at (the broadphase: a grid per group, shared by
+      // every rule this step; src/runtime/contacts.ts), then put in the game's order.
       const [cx, cy] = [first.x + first.width / 2, first.y + first.height / 2];
       const square = { x: cx - w.distance, y: cy - w.distance, width: 2 * w.distance, height: 2 * w.distance };
-      for (const second of game.contacts.around(game.entities, Boolean(first.def.fixed), square, 1)) {
-        if (!wanted.has(second)) continue;
+      const fixed = Boolean(first.def.fixed);
+      const pool = group !== null
+        ? game.contacts.aroundIn(game.entities, group, () => game.tagged(group), fixed, square, 1)
+        : want().size <= 8 ? [...want()] : game.contacts.around(game.entities, fixed, square, 1).filter((o) => want().has(o));
+      if (pool.length > 1) pool.sort((a, b) => game.contacts.orderOf(a) - game.contacts.orderOf(b));
+      for (const second of pool) {
         if (first === second || !first.visible || !second.visible || Boolean(first.def.fixed) !== Boolean(second.def.fixed)) continue;
         const distance = Math.hypot(first.x + first.width / 2 - (second.x + second.width / 2), first.y + first.height / 2 - (second.y + second.height / 2));
         if (distance > w.distance) continue;

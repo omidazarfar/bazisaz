@@ -2,6 +2,7 @@ import { actionBlock } from '../types';
 
 export const resetVariables = actionBlock({
   type: 'resetVariables',
+  still: true,
   editor: {
     title: 'همه‌ی مقدارها از نو',
     about: 'مقدارهایی که «روی گوشی بماند» دارند دست نمی‌خورند.',

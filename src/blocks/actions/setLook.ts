@@ -3,6 +3,7 @@ import { actionBlock } from '../types';
 
 export const setLook = actionBlock({
   type: 'setLook',
+  still: true,
   editor: {
     title: 'عوض کردن حال و هوای تصویر',
     about: 'رنگ کل تصویر را عوض می‌کند، مثل فیلتر عکس: گرم، سرد، سیاه‌وسفید، قدیمی، شب، رؤیایی یا پررنگ. مثلاً وقتی بازیکن می‌بازد، تصویر سیاه‌وسفید شود.',

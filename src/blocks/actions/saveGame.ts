@@ -2,6 +2,7 @@ import { actionBlock } from '../types';
 
 export const saveGame = actionBlock({
   type: 'saveGame',
+  still: true,
   editor: {
     title: 'ذخیره‌ی بازی',
     about: 'صحنه‌ای که بازیکن در آن است و همه‌ی مقدارها (امتیاز، جان، وسیله‌های کوله‌پشتی) روی گوشی نگه داشته می‌شوند، حتی اگر بازی بسته شود. مثلاً وقتی هر مرحله شروع می‌شود.',

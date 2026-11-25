@@ -3,6 +3,7 @@ import { actionBlock } from '../types';
 
 export const send = actionBlock({
   type: 'send',
+  still: true,
   editor: {
     title: 'فرستادن پیام',
     about: 'قانون‌هایی که با «پیامی می‌رسد» منتظر همین پیام‌اند، یک لحظه بعد اجرا می‌شوند. «همان اولی» و «همان دومی» با پیام می‌روند.',

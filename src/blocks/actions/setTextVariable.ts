@@ -3,6 +3,7 @@ import { actionBlock } from '../types';
 
 export const setTextVariable = actionBlock({
   type: 'setTextVariable',
+  still: true,
   editor: {
     title: 'تغییر مقدار متنی',
     available: hasTexts,

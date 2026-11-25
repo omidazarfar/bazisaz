@@ -3,6 +3,7 @@ import { actionBlock } from '../types';
 
 export const vibrate = actionBlock({
   type: 'vibrate',
+  still: true,
   editor: {
     title: 'لرزش گوشی',
     about: 'گوشی یک لحظه می‌لرزد؛ برای ضربه یا باخت. روی کامپیوتر اثری ندارد.',

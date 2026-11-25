@@ -2,6 +2,7 @@ import { actionBlock } from '../types';
 
 export const showRewardedAd = actionBlock({
   type: 'showRewardedAd',
+  still: true,
   editor: {
     title: 'پیشنهاد تبلیغ جایزه‌ای',
     about: 'اگر بازیکن تبلیغ را تا آخر ببیند، اتفاق «بازیکن تبلیغ جایزه‌ای را تا آخر دید» رخ می‌دهد.',

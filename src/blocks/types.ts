@@ -51,6 +51,11 @@ export interface ActionBlock<T extends Action['type'] = Action['type']> {
    * passed to `run` as `rest` and are not run now.
    */
   takesRest?: boolean;
+  /**
+   * Never moves, makes, removes, hides, resizes or reorders an object (a value, a sound, a message, the screen):
+   * contact questions and the groups of objects need not be gathered again after it (the performance budget).
+   */
+  still?: boolean;
   /** What it does in a running game. `context` holds the objects the rule's trigger was about. */
   run: (game: Game, action: Extract<Action, { type: T }>, context: RuleContext, rest: Action[]) => void;
 }

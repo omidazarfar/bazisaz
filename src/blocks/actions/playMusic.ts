@@ -3,6 +3,7 @@ import { actionBlock } from '../types';
 
 export const playMusic = actionBlock({
   type: 'playMusic',
+  still: true,
   editor: {
     title: 'عوض کردن موسیقی',
     about: 'به‌جای موسیقی صحنه، یکی از صداهایی را که اضافه کرده‌ای پشت‌سرهم پخش می‌کند؛ مثل موسیقی تند برای غول آخر. «هیچ» موسیقی را قطع می‌کند.',

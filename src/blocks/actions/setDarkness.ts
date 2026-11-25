@@ -4,6 +4,7 @@ import { actionBlock } from '../types';
 
 export const setDarkness = actionBlock({
   type: 'setDarkness',
+  still: true,
   editor: {
     title: 'تاریک و روشن کردن صحنه',
     about: 'صحنه را آرام تاریک یا روشن می‌کند؛ مثل شب شدن. فقط اشیایی که رفتار «نور» دارند در تاریکی روشن می‌مانند.',

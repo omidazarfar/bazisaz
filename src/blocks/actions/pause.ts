@@ -2,6 +2,7 @@ import { actionBlock } from '../types';
 
 export const pause = actionBlock({
   type: 'pause',
+  still: true,
   editor: {
     title: 'مکث بازی', about: 'همه‌چیز می‌ایستد. فقط قانون‌های «لمس» کار می‌کنند تا بتوانی بازی را ادامه بدهی.', make: () => ({ type: 'pause' }), fields: [],
   },

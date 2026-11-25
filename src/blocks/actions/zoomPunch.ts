@@ -4,6 +4,7 @@ import { actionBlock } from '../types';
 
 export const zoomPunch = actionBlock({
   type: 'zoomPunch',
+  still: true,
   editor: {
     title: 'ضربه‌ی دوربین',
     about: 'دوربین یک لحظه جلو می‌پرد و برمی‌گردد؛ ضربه و انفجار را سنگین‌تر نشان می‌دهد. با «لرزش صفحه» و «زمان آهسته» عالی است.',

@@ -4,6 +4,7 @@ import { actionBlock } from '../types';
 
 export const shake = actionBlock({
   type: 'shake',
+  still: true,
   editor: {
     title: 'لرزش صفحه',
     about: 'کل صفحه یک لحظه می‌لرزد؛ برای ضربه و باخت.',

@@ -1,4 +1,4 @@
-import type { Context } from '../../runtime/Game';
+import type { Context, Entity } from '../../runtime/Game';
 import { touching } from '../../runtime/contacts';
 import { firstRef } from '../fields';
 import { describeRef } from '../say';
@@ -29,12 +29,17 @@ export const touch = triggerBlock({
     const before = game.touching.get(rule.id) ?? new Set<string>();
     const now = new Set<string>();
     const hits: Context[] = [];
-    const seconds = new Set(game.matching(w.b));
+    let seconds: Set<Entity> | null = null;
+    const wanted = () => (seconds ??= new Set(game.matching(w.b)));
+    const members = (tag: string) => game.tagged(tag);
     for (const first of game.matching(w.a)) {
-      // Only what is near it is looked at (the broadphase), in the game's order; one definition of touching
-      // for every kind of object (src/runtime/contacts.ts, docs/contact-report.md).
-      for (const second of game.contacts.near(game.entities, first)) {
-        if (!seconds.has(second) || !touching(first, second, game.physics)) continue;
+      if (!first.visible) continue;
+      // Only what is near it is looked at (the broadphase, a grid per group, shared by every rule this step); one
+      // definition of touching for every kind of object (src/runtime/contacts.ts, docs/contact-report.md).
+      const found = game.contacts.candidates(game.entities, w.b, members, first, wanted).filter((second) => touching(first, second, game.physics));
+      // In the game's order, as a search of every object would find them.
+      if (found.length > 1) found.sort((a, b) => game.contacts.orderOf(a) - game.contacts.orderOf(b));
+      for (const second of found) {
         const key = `${game.uids.get(first)}|${game.uids.get(second)}`;
         now.add(key);
         if (before.has(key)) continue;

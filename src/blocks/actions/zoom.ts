@@ -4,6 +4,7 @@ import { actionBlock } from '../types';
 
 export const zoom = actionBlock({
   type: 'zoom',
+  still: true,
   editor: {
     title: 'نزدیک و دور کردن دوربین',
     about: '۱ اندازه‌ی معمولی است. ۲ همه‌چیز را دو برابر بزرگ نشان می‌دهد؛ ۰٫۵ دو برابر بیشتر از دنیا را. چیزهایی که به صفحه چسبیده‌اند عوض نمی‌شوند.',

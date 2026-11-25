@@ -2,6 +2,7 @@ import { actionBlock } from '../types';
 
 export const resume = actionBlock({
   type: 'resume',
+  still: true,
   editor: {
     title: 'ادامه‌ی بازی بعد از مکث', make: () => ({ type: 'resume' }), fields: [],
     short: 'بازیِ نگه‌داشته‌شده را ادامه می‌دهد.',

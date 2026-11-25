@@ -2,6 +2,7 @@ import { actionBlock } from '../types';
 
 export const showAd = actionBlock({
   type: 'showAd',
+  still: true,
   editor: {
     title: 'نمایش تبلیغ تمام‌صفحه',
     about: 'فقط وقتی تبلیغات در بخش «بازی» روشن باشد.',

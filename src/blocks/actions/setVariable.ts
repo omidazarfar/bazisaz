@@ -4,6 +4,7 @@ import { actionBlock } from '../types';
 
 export const setVariable = actionBlock({
   type: 'setVariable',
+  still: true,
   editor: {
     title: 'تغییر یک مقدار',
     short: 'امتیاز، جان یا هر مقدار دیگری را زیاد، کم یا عوض می‌کند.',

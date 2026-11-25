@@ -206,6 +206,8 @@ export interface Entity extends Box {
   ground: Entity | null;
   /** The solid object it walked into this step, if any (it counts as touching it, Phase 2). */
   against: Entity | null;
+  /** Marks it as already given in a contact question (src/runtime/contacts.ts). */
+  contactStamp: number;
   /** Seconds since it last stood on something. */
   airTime: number;
   /** A jump was asked for this long ago and has not happened yet; it still happens if the ground arrives in time. */
@@ -363,6 +365,17 @@ type EditDrag =
   | { kind: 'marquee'; from: Point; to: Point; add: boolean }
   /** Cells of a tile map being painted; the map's rows as they are now, sent to the editor when the stroke ends. */
   | { kind: 'paint'; entity: Entity; rows: string[]; changed: boolean };
+
+/** What the performance budget measures (Game.startProfile / readProfile). */
+export interface Profile {
+  steps: number;
+  frames: number;
+  /** All the steps' time together, and the slowest one, in milliseconds. */
+  stepMs: number;
+  worst: number;
+  /** Milliseconds per part, summed over the steps (or frames, for "frame: …"). */
+  ms: Record<string, number>;
+}
 
 export interface GameState {
   mode: GameMode['kind'];
@@ -565,6 +578,8 @@ export class Game {
   readonly textVariables = new Map<string, string>();
   /** The game's lists of numbers or text (Phase 4); they start again with the game, never kept on the device. */
   readonly lists = new Map<string, (number | string)[]>();
+  /** What is being measured, when the performance budget asks (Phase 5). */
+  private profile: Profile | null = null;
   /** How deep functions and questions are calling each other now; a call past 32 deep is not made. */
   private callDepth = 0;
   readonly variables = new Map<string, number>();
@@ -743,13 +758,49 @@ export class Game {
       }
     }
     const steps = Math.max(1, Math.ceil(total / MAX_STEP));
-    for (let i = 0; i < steps; i++) this.update(total / steps);
+    const profile = this.profile;
+    for (let i = 0; i < steps; i++) {
+      if (!profile) {
+        this.update(total / steps);
+        continue;
+      }
+      const start = performance.now();
+      this.update(total / steps);
+      const took = performance.now() - start;
+      profile.steps += 1;
+      profile.stepMs += took;
+      profile.worst = Math.max(profile.worst, took);
+    }
+    let t = profile ? performance.now() : 0;
     if (this.physics) this.drawPhysics();
     this.drawHealthBars();
+    if (profile) t = this.lap('frame: joints and health bars', t);
     this.skyView?.update(this.camera, this.z, this.scene.height, this.paused ? 0 : total);
     this.weather.update(this.paused ? 0 : total, this.camera, this.z);
+    if (profile) t = this.lap('frame: sky and weather', t);
     this.drawShade();
+    if (profile) t = this.lap('frame: darkness and lights', t);
     this.drawDebug();
+    if (profile) profile.frames += 1;
+  }
+
+  /**
+   * Starts measuring how long each part of a step takes (the performance budget, Phase 5; scripts/stress.smoke.mjs).
+   * Measuring costs a little time itself, so it is off unless asked for.
+   */
+  startProfile(): void {
+    this.profile = { steps: 0, frames: 0, stepMs: 0, worst: 0, ms: {} };
+  }
+
+  /** What was measured since startProfile: milliseconds per part (summed), and per step on average and at worst. */
+  readProfile(): Profile | null {
+    return this.profile && { ...this.profile, ms: { ...this.profile.ms } };
+  }
+
+  private lap(part: string, since: number): number {
+    const now = performance.now();
+    this.profile!.ms[part] = (this.profile!.ms[part] ?? 0) + (now - since);
+    return now;
   }
 
   /** Edit mode: lets every particle stream run, and moves the particles along. */
@@ -1546,6 +1597,7 @@ export class Game {
       prevY: y,
       ground: null,
       against: null,
+      contactStamp: 0,
       airTime: 0,
       jumpAsked: 0,
       rising: false,
@@ -1917,6 +1969,7 @@ export class Game {
     if (this.paused) return this.updatePaused();
     this.time += dt;
     this.listChanged();
+    let t = this.profile ? performance.now() : 0;
     const { width: W, height: H } = this.view;
     const tapsOnScreen = this.time > TAP_GRACE ? this.taps.filter((t) => !this.onControl(t)) : [];
     const screenTapped = this.time > TAP_GRACE && (tapsOnScreen.length > 0 || this.keyTap);
@@ -2053,10 +2106,13 @@ export class Game {
       e.lastY = e.y;
     }
 
+    if (this.profile) t = this.lap('behaviors and bodies', t);
     this.separateBodies();
     // New objects draw just above the spawner that made them.
     for (const { entity, above } of spawned) this.insertAbove(entity, above);
+    if (this.profile) t = this.lap('bump separation', t);
     if (this.physics) this.stepPhysics(dt);
+    if (this.profile) t = this.lap('real physics', t);
     const cameraBefore = { ...this.camera };
     this.followCameraTarget(false, dt);
     this.cameraTravel = Math.hypot(this.camera.x - cameraBefore.x, this.camera.y - cameraBefore.y);
@@ -2080,12 +2136,15 @@ export class Game {
       }
     }
 
+    if (this.profile) t = this.lap('camera and leaving the view', t);
     this.runRules(dt, screenTapped, left);
     this.physics?.endStep();
     const due = this.waiting.filter((w) => w.at <= this.time);
     this.waiting = this.waiting.filter((w) => w.at > this.time);
     for (const w of due) this.runActions(w.actions, w.context);
+    if (this.profile) t = this.lap('rules', t);
     this.stepEffects(dt);
+    if (this.profile) t = this.lap('effects and particles', t);
 
     for (const e of left) {
       const mover = e.def.behaviors.find((b) => b.type === 'mover');
@@ -2114,6 +2173,7 @@ export class Game {
     this.listChanged();
     this.refreshTexts(spawned.length > 0 || this.valuesChanged);
     this.valuesChanged = false;
+    if (this.profile) t = this.lap('pictures and texts', t);
 
     if (this.hasStick) {
       const finger = [...this.pointers.values()].find((p) => !p.drag && !this.onControl({ x: p.startX, y: p.startY }));
@@ -2689,7 +2749,12 @@ export class Game {
   /** Performs actions in order. A "wait" sets the rest aside until its time has passed. */
   private runActions(actions: Action[], context: Context): void {
     // An action may move, make, remove or reorder objects: the groups and the next contact question look again.
-    if (actions.length) this.listChanged();
+    // Not after actions that never touch an object ("still": a value, a sound, a message), the most common ones.
+    for (const action of actions) {
+      if (actionBlocks.get(action.type)?.still) continue;
+      this.listChanged();
+      break;
+    }
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i];
       // A wait, or words to read: the rest of the rule runs later.

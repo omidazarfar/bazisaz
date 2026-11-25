@@ -4,6 +4,7 @@ import { actionBlock } from '../types';
 
 export const playSound = actionBlock({
   type: 'playSound',
+  still: true,
   editor: {
     title: 'پخش صدا',
     short: 'یکی از صداهای آماده یا صدای خودت را پخش می‌کند.',

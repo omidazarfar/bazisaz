@@ -2,6 +2,7 @@ import { actionBlock } from '../types';
 
 export const achieve = actionBlock({
   type: 'achieve',
+  still: true,
   editor: {
     title: 'دستاورد',
     about: 'بار اولی که این کار انجام شود، یک نوار طلایی بالای صفحه می‌گوید «دستاورد: …» و روی گوشی می‌ماند؛ دفعه‌های بعد چیزی نشان نمی‌دهد. مثل «اولین سکه» یا «غول‌کش».',

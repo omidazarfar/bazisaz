@@ -4,6 +4,7 @@ import { actionBlock } from '../types';
 
 export const slowMotion = actionBlock({
   type: 'slowMotion',
+  still: true,
   editor: {
     title: 'زمان آهسته',
     about: 'بازی برای چند لحظه آهسته می‌شود، مثل فیلم‌ها؛ برای ضربه‌ی آخر، انفجار بزرگ یا پرش دیدنی. صفر یعنی یک لحظه کاملاً می‌ایستد («ایست ضربه») تا ضربه محکم حس شود.',

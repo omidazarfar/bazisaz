@@ -10,6 +10,7 @@ declare module '../../format/types' {
 
 export const call = actionBlock({
   type: 'call',
+  still: true,
   editor: {
     title: 'اجرای تابع',
     short: 'کارهای یک «تابع» خودت را همین حالا انجام می‌دهد؛ با ورودی‌هایی که این‌جا می‌دهی.',

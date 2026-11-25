@@ -25,6 +25,7 @@ const INTO: Field = { key: 'into', label: 'در کدام مقدار بگذارد
 
 export const listAdd = actionBlock({
   type: 'listAdd',
+  still: true,
   editor: {
     title: 'گذاشتن در فهرست',
     short: 'یک عدد یا متن به آخر (یا اول) یک فهرست اضافه می‌کند.',
@@ -53,6 +54,7 @@ export const listAdd = actionBlock({
 
 export const listRemove = actionBlock({
   type: 'listRemove',
+  still: true,
   editor: {
     title: 'برداشتن از فهرست',
     short: 'اولین، آخرین، یکی به شماره، یا همه‌ی چیزهای یک فهرست را برمی‌دارد.',
@@ -89,6 +91,7 @@ export const listRemove = actionBlock({
 
 export const listGet = actionBlock({
   type: 'listGet',
+  still: true,
   editor: {
     title: 'خواندن از فهرست',
     short: 'چیز شماره‌ی چندمِ یک فهرست را در یک مقدار می‌گذارد؛ مثلاً اولین کارت دسته.',
@@ -109,6 +112,7 @@ export const listGet = actionBlock({
 
 export const listCount = actionBlock({
   type: 'listCount',
+  still: true,
   editor: {
     title: 'شمردن فهرست',
     short: 'تعداد چیزهای یک فهرست را در یک مقدار عددی می‌گذارد.',
@@ -128,6 +132,7 @@ export const listCount = actionBlock({
 
 export const forEach = actionBlock({
   type: 'forEach',
+  still: true,
   editor: {
     title: 'برای هر چیزِ فهرست',
     short: 'برای هر چیزِ یک فهرست، آن را در یک مقدار می‌گذارد و یک «تابع» خودت را اجرا می‌کند.',

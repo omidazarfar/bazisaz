@@ -253,6 +253,24 @@ how to see it, what to try or film, the next phase).
   sentences, the game checks clean). Passed locally (lab 30 and the new editor block alone).
 - GUIDE-fa §۵: block counts (28 triggers, 74 actions) and «تابع‌های خودت / پرسش‌ها / فهرست‌ها».
 
+### Phase 5 progress (a performance budget)
+
+- `Game.startProfile()` / `readProfile()`: milliseconds per part of a step (behaviors and bodies, bump
+  separation, real physics, camera and leaving the view, rules, effects and particles, pictures and texts) and per
+  frame (joints and health bars, sky and weather, darkness and lights), steps, average and worst step. Off unless
+  asked (no cost then).
+- scripts/stress.smoke.mjs (CI suite, in npm test): 500 objects (50 real-physics crates on a still floor, 50
+  arcade walkers, 300 turning or pulsing coins, 96 wrapping drones, 2 torches with light and fire particles, a
+  camera), 100 rules (40 touch, 30 near, 20 every, 10 value), darkness 0.7; 1 s warm-up, 3 s measured; the
+  average step must be under 8 ms (STEP_BUDGET_MS); prints the parts and writes test-output/stress-profile.txt.
+- Measured locally: **24.7 ms → 3.3 ms a step**. The rules were 97% of it. Fixes: (1) a grid per group,
+  built once per step and shared by every touch/near rule about that group (Contacts.aroundIn / candidates), and
+  only the hits sorted into the game's order, not every candidate; (2) a quick test of the boxes the two can
+  reach before the exact shapes (turned coins were tested as polygons, with arrays made each time); (3) actions
+  marked `still` (values, sounds, messages, lists, the screen: 27 of them) no longer make the groups and grids be
+  gathered again; (4) a stamp on each object instead of a Set to give each candidate once.
+- Not done (not the biggest costs now, measured): object pools; the per-step order sort in update.
+
 ### Later (small things noticed, not blocking the phase)
 
 - GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale
