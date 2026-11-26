@@ -100,6 +100,11 @@ you think is ok". So phases 2–5 and then the flagship roadmap below run back t
 owner" or "wait for the owner's choice", the agent takes its own recommendation, writes the choice and why in the
 phase's progress notes, and builds it so that it can be changed; the owner may reverse any of them.
 
+**Status, 2026-11-26:** the five foundations phases are DONE (1–5; progress notes below). The flagship roadmap
+A–G is DONE as far as the agent can take it (notes per phase below). Waiting on the owner: confirm or change the
+choices (contact direction, Sky Quest as the flagship, the reference games, our own bones), choose a feel preset
+after trying them, and the real playtests (watch 3–5 people, fix the top three, repeat once).
+
 ## THEN: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
 
 Why: the games and their graphics are not yet at the level of a good Google Play game. (1) All 95 library
@@ -768,6 +773,22 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-25 night → 11-26 — Claude, foundations 2–5 and the flagship roadmap A–G (owner: "do all … until morning … don't ask")
+
+- Foundations: 2 one contact model (contacts.ts, sweep, contact lab), 3 format migrations (migrate.ts,
+  fixtures), 4 functions, questions and lists (format 3), 5 performance budget (24.7 → 3.3 ms locally, 5.9 on
+  CI). Flagship: A Sky Quest and the quality bar; B Kenney CC0 art, atlas import, nine-slice, autotile; C our
+  own bones and animation blending; D UI kit (anchors, entrances, slider, layout, Kenney Future) and Sky Quest's
+  menus; E Tiled import, material joins, five levels and a levels screen; F camera dead zone, look-ahead,
+  settle, feel panel with presets; G playtest marks from try-outs and phones, shown on the level, and a Persian
+  checklist. Every choice the owner would have made is written in its phase's notes.
+- New CI suites: contact.smoke, fixtures.smoke, stress.smoke, art.smoke (all in npm test).
+- CI: every push's suites passed through Phase D (runs 62, 64, 68, 75); Phases E and F were running at the end
+  of the session (run 77 suites; run 78 bots: platform, the new five-level Sky Quest, won). Bots that lose on
+  CI are the known flaky ones (platform-levels, tower-levels, bricks-levels; adventure-levels 3/4 vs 2/4 before
+  and after Phase 5).
+- Lessons (Gotchas): CI runs cancel each other (use CI_REF for bots); backticks in `node -e` in bash.
 
 ### 2026-11-25 — Claude, Phase 1 steps 5–6: the behaviors, and a new block is one file (owner: "go ahead")
 
