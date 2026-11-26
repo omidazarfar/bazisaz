@@ -1517,7 +1517,7 @@ export class Game {
         };
         // An autotile set: each cell shows the picture for the neighbours it has (drawn in viewOf).
         if (kind.autotile && !kind.slope) {
-          this.tilePictures.set(block, { cell, assets: Array.from({ length: run }, (_, i) => autotileAsset(kind, tileSides(tiles, r, c + i)) ?? '') });
+          this.tilePictures.set(block, { cell, assets: Array.from({ length: run }, (_, i) => autotileAsset(kind, joinSides(tiles, r, c + i)) ?? '') });
         }
         // A material (and no picture of the user's own) is drawn cell by cell, each knowing which of its sides are open.
         if (kind.style && kind.style !== 'flat' && !(kind.asset && this.textures.has(kind.asset)) && !kind.slope) {
@@ -1833,7 +1833,7 @@ export class Game {
         const kind = v.kinds[row[c]];
         if (row[c] === EMPTY_TILE || !kind) continue;
         const [x, y] = [c * cell, r * cell];
-        const picture = kind.autotile && !kind.slope ? autotileAsset(kind, tileSides(v, r, c)) : kind.asset;
+        const picture = kind.autotile && !kind.slope ? autotileAsset(kind, joinSides(v, r, c)) : kind.asset;
         const texture = picture ? this.textures.get(picture)?.texture : undefined;
         const material = kind.style && kind.style !== 'flat' && !kind.slope ? kind.style : null;
         if ((texture || material) && !kind.slope) {
@@ -4601,6 +4601,18 @@ const ANCHORS: Record<NonNullable<GameObject['anchor']>, [number, number]> = {
   'top-left': [0, 0], top: [0.5, 0], 'top-right': [1, 0], left: [0, 0.5], center: [0.5, 0.5], right: [1, 0.5],
   'bottom-left': [0, 1], bottom: [0.5, 1], 'bottom-right': [1, 1],
 };
+
+/** Open sides for an autotile set: a neighbour closes a side if it is filled and joins this kind (TileKind.joins; any, if not said). */
+function joinSides(tiles: TilesVisual, r: number, c: number): OpenSides {
+  const key = tiles.rows[r]?.[c];
+  const joins = key !== undefined ? tiles.kinds[key]?.joins : undefined;
+  const filled = (row: number, col: number) => {
+    const k = tiles.rows[row]?.[col];
+    if (k === undefined || k === EMPTY_TILE || tiles.kinds[k] === undefined) return false;
+    return !joins || k === key || joins.includes(k);
+  };
+  return { top: !filled(r - 1, c), bottom: !filled(r + 1, c), left: !filled(r, c - 1), right: !filled(r, c + 1) };
+}
 
 function tileSides(tiles: TilesVisual, r: number, c: number): OpenSides {
   const filled = (row: number, col: number) => {

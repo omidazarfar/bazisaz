@@ -10,6 +10,7 @@ import type { Editor } from './editor';
 import { pickFile, pickFiles, readDataUrl, readImage } from './images';
 import { isListUsed, isVariableUsed, keepVersion, listVersions, makeObject, newId, removeScene, updateScene, type Version } from './state';
 import { animatedVisual, importAtlas } from './atlas';
+import { placeTiled } from './tiled';
 import { SfxMaker } from './SfxMaker';
 import { MusicMaker } from './MusicMaker';
 import { SceneMap } from './SceneMap';
@@ -117,6 +118,22 @@ export function GamePanel({ editor }: { editor: Editor }) {
       setSheetNote(`${made.keys.size.toLocaleString('fa-IR')} عکس اضافه شد.${roles.length ? ` انیمیشن‌ها: ${roles.map((r) => words[r]).join('، ')}؛ یک شیء با همین انیمیشن‌ها در صحنه گذاشته شد.` : ''}`);
     } catch (error) {
       setSheetNote(`این ورق خوانده نشد: ${(error as Error).message}`);
+    }
+  };
+
+  // A level made in Tiled: its .tmj, and the pictures of its tilesets if they are to be used (flagship Phase E).
+  const importLevel = async () => {
+    const files = await pickFiles('.tmj,.json,.png,application/json,image/png');
+    const map = files.find((f) => /\.(tmj|json)$/i.test(f.name));
+    if (!map) return setSheetNote('فایل نقشه‌ی Tiled را انتخاب کن (با پسوند .tmj)، و اگر می‌خواهی عکس‌های خانه‌ها هم بیایند، عکس tileset را هم همراهش.');
+    try {
+      const images = new Map<string, string>();
+      for (const f of files) if (f.type.startsWith('image/')) images.set(f.name, await readDataUrl(f));
+      const made = await placeTiled(project, scene.id, await map.text(), images);
+      change(made.project, 'scene.importTiled');
+      setSheetNote(`از Tiled: ${made.maps.toLocaleString('fa-IR')} نقشه و ${made.things.toLocaleString('fa-IR')} شیء به همین صحنه آمد. هر شیء در گروهی به نام class خودش است.`);
+    } catch (error) {
+      setSheetNote(`این نقشه خوانده نشد: ${(error as Error).message}`);
     }
   };
 
@@ -337,6 +354,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
               {images.length === 0 && <p className="hint">هنوز عکسی در بازی نیست.</p>}
               <div className="adders">
                 <button type="button" className="chip" data-import-atlas onClick={() => void importSheet()}>+ ورق عکس (PNG با JSON یا XML)</button>
+                <button type="button" className="chip" data-import-tiled onClick={() => void importLevel()}>+ مرحله از Tiled (.tmj)</button>
               </div>
               {sheetNote && <p className="hint" data-atlas-note>{sheetNote}</p>}
               {unused.length > 0 && (

@@ -5,6 +5,12 @@ import { packAnimation, packCharacter, packPicture, packTerrain, packTrimmed, ty
 import { addAll, addClockwork, addRescueRig, badge, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
 import { SPRITES, useSprite } from './sprites';
 import { makeObject, newId, updateScene } from './state';
+import { importTiled } from './tiled';
+import skyQuest1 from './levels/sky-quest-1.tmj?raw';
+import skyQuest2 from './levels/sky-quest-2.tmj?raw';
+import skyQuest3 from './levels/sky-quest-3.tmj?raw';
+import skyQuest4 from './levels/sky-quest-4.tmj?raw';
+import skyQuest5 from './levels/sky-quest-5.tmj?raw';
 
 /**
  * The genre helper's games. Each builds a whole small game into the scene
@@ -203,200 +209,185 @@ const prizeRule = (tag: string, points: number, sound: 'coin' | 'powerup', color
     { type: 'playSound', sound },
   ]);
 
-// ── Platformer: "Sky Quest" ─────────────────────────────────────────────────
+// ── Platformer: "Sky Quest", the flagship ───────────────────────────────────
 
-/** A painted level a few screens long, drawn cell by cell: "a" grass, "c" stone, "b" coins. */
-function platformLevel(cols: number, rows: number, coinAsset: string): { tiles: TilesVisual; surface: number; pits: [number, number][] } {
-  const grid = Array.from({ length: rows }, () => [...'.'.repeat(cols)]);
-  const surface = rows - 4;
-  const put = (c0: number, c1: number, r0: number, r1: number, ch: string) => {
-    for (let r = Math.max(0, r0); r <= Math.min(rows - 1, r1); r++) for (let c = Math.max(0, c0); c <= Math.min(cols - 1, c1); c++) grid[r][c] = ch;
-  };
-  const at = (share: number) => Math.round(share * cols);
-  put(0, cols - 1, surface, rows - 1, 'a');
-  // Gaps to jump, the widest crossed on a moving platform.
-  const pits: [number, number][] = [[at(0.25), at(0.25) + 1], [at(0.47), at(0.47) + 3], [at(0.75), at(0.75) + 1]];
-  for (const [c0, c1] of pits) put(c0, c1, surface, rows - 1, '.');
-  // Stone steps and ledges, and the stairs up to the goal.
-  put(at(0.17), at(0.17) + 1, surface - 1, surface - 1, 'c');
-  put(at(0.33), at(0.33) + 2, surface - 3, surface - 3, 'c');
-  put(at(0.63), at(0.63), surface - 1, surface - 1, 'c');
-  put(at(0.66), at(0.66) + 1, surface - 2, surface - 1, 'c');
-  // Stairs up to a podium that runs to the end of the world: the trophy stands on it, so it cannot be jumped over.
-  put(at(0.86), at(0.86), surface - 1, surface - 1, 'c');
-  put(at(0.88), at(0.88), surface - 2, surface - 1, 'c');
-  put(at(0.9), cols - 1, surface - 3, surface - 1, 'c');
-  // Coins: a line to start with, arcs over the gaps, a row on the high ledge.
-  put(at(0.06), at(0.06) + 3, surface - 2, surface - 2, 'b');
-  for (const [c0, c1] of pits) for (let c = c0 - 1; c <= c1 + 1; c++) grid[surface - (c === c0 - 1 || c === c1 + 1 ? 2 : 3)][c] = 'b';
-  put(at(0.33), at(0.33) + 2, surface - 4, surface - 4, 'b');
-  put(at(0.55), at(0.55) + 3, surface - 2, surface - 2, 'b');
-  put(at(0.66), at(0.66) + 1, surface - 3, surface - 3, 'b');
-  return {
-    surface,
-    pits,
-    tiles: {
-      kind: 'tiles',
-      cell: 80,
-      rows: grid.map((r) => r.join('')),
-      kinds: {
-        a: { name: 'زمین چمنی', color: '#6d4c41', tags: [GROUND], style: 'grass' },
-        c: { name: 'سنگ', color: '#8a96a3', tags: [GROUND], style: 'stone' },
-        b: { name: 'سکه', color: '#ffd54a', tags: [COIN], separate: true, asset: coinAsset },
-      },
-    },
-  };
-}
+/** The five levels, made as Tiled maps (scripts/flagship-levels.mjs writes them; Tiled can open and change them). */
+const SKY_QUEST_LEVELS = [skyQuest1, skyQuest2, skyQuest3, skyQuest4, skyQuest5];
+const KEY_TAG = 'کلید';
+const DOOR_TAG = 'دروازه';
 
-export async function buildPlatformer(project: GameProject, sceneId: string): Promise<GameResult> {
+/** One level of Sky Quest, imported from its Tiled map into a scene, with its rules, HUD and controls. */
+async function skyQuestLevel(project: GameProject, sceneId: string, n: number, screen: { win: string; over: string }): Promise<{ project: GameProject; player: GameObject }> {
   const { width: W, height: H } = project.meta;
   const CELL = 80;
-  const cols = Math.ceil((W * 5) / CELL);
-  const rows = Math.max(8, Math.floor(H / CELL));
-  let p = withNumber(withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0), 'points', 0);
-  // The flagship's art is one CC0 pack, Kenney's New Platformer Pack (CREDITS.md): sky colour and hills behind,
-  // terrain fitted to its neighbours (autotile), its characters, enemies and sounds.
-  p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(s.width, cols * CELL), height: Math.max(s.height, rows * CELL), sky: 'none', background: '#c8e6f5', music: 'music:adventure', gravity: 2400 }));
-  const coin = await kenney(p, 'tiles', 'coin_gold');
-  p = coin.project;
-  const level = platformLevel(cols, rows, coin.asset);
-  const grass = await packTerrain(p, 'grass', level.tiles.kinds.a);
-  const stone = await packTerrain(grass.project, 'stone', level.tiles.kinds.c);
-  p = stone.project;
-  const { style: _grassStyle, ...grassKind } = grass.kind;
-  const { style: _stoneStyle, ...stoneKind } = stone.kind;
-  level.tiles.kinds = { ...level.tiles.kinds, a: grassKind, c: stoneKind };
-  const top = level.surface * CELL;
-  const x = (share: number) => Math.round(share * cols) * CELL;
+  // The looks of the map's tiles: Kenney's grass and stone as autotile sets, the gold coin. Stone joins only stone,
+  // so a stone block set into the grass shows its own edges (joins between two materials, flagship Phase E).
+  const coin = await kenney(project, 'tiles', 'coin_gold');
+  const grass = await packTerrain(coin.project, 'grass', { name: 'زمین چمنی', color: '#6d4c41', tags: [GROUND] });
+  const stone = await packTerrain(grass.project, 'stone', { name: 'سنگ', color: '#8a96a3', tags: [GROUND] });
+  let p = stone.project;
+  const level = importTiled(SKY_QUEST_LEVELS[n - 1], (tile) =>
+    tile.className === 'grass' ? grass.kind
+    : tile.className === 'stone' ? { ...stone.kind, joins: [] }
+    : tile.className === 'coin' ? { name: 'سکه', color: '#ffd54a', tags: [COIN], separate: true, asset: coin.asset }
+    : null);
+  const title = String(level.properties.title ?? `Level ${n}`);
+  const map = level.maps[0];
+  const rows = map.tiles.rows.length;
+  const top = 12 * CELL;
+  p = updateScene(p, sceneId, (s) => ({ ...s, width: Math.max(W, level.width), height: Math.max(H, level.height), sky: 'none', background: '#c8e6f5', music: 'music:adventure', gravity: 2400 }));
   const objects: GameObject[] = [];
+  const worldW = level.width;
 
   // Behind the action: clouds far off, hills nearer, both sliding slower than the level as the camera moves.
   const clouds = await kenney(p, 'backgrounds', 'background_clouds');
   const hills = await kenney(clouds.project, 'backgrounds', 'background_color_hills');
-  const bush = await kenney(hills.project, 'tiles', 'bush', true);
-  const mushroom = await kenney(bush.project, 'tiles', 'mushroom_red', true);
-  const sign = await kenney(mushroom.project, 'tiles', 'sign_right', true);
-  p = sign.project;
-  const worldW = cols * CELL;
+  p = hills.project;
   objects.push(makeObject('تپه‌های دور', { kind: 'image', asset: hills.asset, repeat: 'x' }, worldW, 768, { x: worldW / 2, y: top - 300 }, { parallax: 0.35, locked: true }));
   objects.push(makeObject('ابرهای دور', { kind: 'image', asset: clouds.asset, repeat: 'x' }, worldW, 512, { x: worldW / 2, y: 300 }, { parallax: 0.15, locked: true, opacity: 0.95 }));
-  for (const [i, share] of [0.03, 0.29, 0.36, 0.86, 0.93].entries()) {
-    objects.push(makeObject(`بوته ${i + 1}`, { kind: 'image', asset: bush.asset }, 90, 90, { x: x(share) + 40, y: top - 45 }, { locked: true }));
+  if (n === 1) {
+    // A lantern swinging under a floating island, on two lengths of rope: three bones, each turning with the one
+    // above it and swinging a little more on its own (attach "with its turn", flagship Phase C).
+    const island = await kenney(p, 'tiles', 'terrain_grass_cloud', true);
+    const rope = await kenney(island.project, 'tiles', 'rope', true);
+    const lantern = await packAnimation(rope.project, 'tiles', ['torch_on_a', 'torch_on_b'], 6);
+    p = lantern.project;
+    const [RIG0, RIG1, RIG2] = ['فانوس: جزیره', 'فانوس: ریسمان ۱', 'فانوس: ریسمان ۲'];
+    const swing = (degrees: number, seconds: number) => ({
+      type: 'animate' as const, repeat: 'bounce' as const, ease: 'smooth' as const, pivot: { x: 0.5, y: 0 },
+      keys: [{ t: 0, x: 0, y: 0, angle: -degrees, scale: 1, opacity: 1 }, { t: seconds, x: 0, y: 0, angle: degrees, scale: 1, opacity: 1 }],
+    });
+    const islandX = 7.5 * CELL;
+    const islandY = top - 6.4 * CELL;
+    objects.push(makeObject('جزیره‌ی معلق', { kind: 'image', asset: island.asset }, 200, 90, { x: islandX, y: islandY }, { tags: [RIG0], locked: true }));
+    objects.push(makeObject('ریسمان ۱', { kind: 'image', asset: rope.asset }, 24, 70, { x: islandX, y: islandY + 80 }, { tags: [RIG1], locked: true, behaviors: [{ type: 'attach', targetTag: RIG0, offsetX: 88, offsetY: 90 }, swing(22, 1.6)] }));
+    objects.push(makeObject('ریسمان ۲', { kind: 'image', asset: rope.asset }, 24, 70, { x: islandX, y: islandY + 150 }, { tags: [RIG2], locked: true, behaviors: [{ type: 'attach', targetTag: RIG1, offsetX: 0, offsetY: 70, followAngle: true }, swing(10, 0.8)] }));
+    objects.push(makeObject('فانوس', lantern.visual, 48, 64, { x: islandX, y: islandY + 217 }, { locked: true, glow: '#ffcf6b', behaviors: [{ type: 'attach', targetTag: RIG2, offsetX: -12, offsetY: 70, followAngle: true }] }));
   }
-  objects.push(makeObject('قارچ', { kind: 'image', asset: mushroom.asset }, 70, 70, { x: x(0.58) + 40, y: top - 35 }, { locked: true }));
-  objects.push(makeObject('تابلوی شروع', { kind: 'image', asset: sign.asset }, 80, 80, { x: 4 * CELL, y: top - 40 }, { locked: true }));
-  // A lantern swinging under a floating island, on two lengths of rope: three bones, each turning with the one
-  // above it and swinging a little more on its own (attach "with its turn", flagship Phase C).
-  const island = await kenney(p, 'tiles', 'terrain_grass_cloud', true);
-  const rope = await kenney(island.project, 'tiles', 'rope', true);
-  const lantern = await packAnimation(rope.project, 'tiles', ['torch_on_a', 'torch_on_b'], 6);
-  p = lantern.project;
-  const [RIG0, RIG1, RIG2] = ['فانوس: جزیره', 'فانوس: ریسمان ۱', 'فانوس: ریسمان ۲'];
-  const swing = (degrees: number, seconds: number) => ({
-    type: 'animate' as const, repeat: 'bounce' as const, ease: 'smooth' as const, pivot: { x: 0.5, y: 0 },
-    keys: [{ t: 0, x: 0, y: 0, angle: -degrees, scale: 1, opacity: 1 }, { t: seconds, x: 0, y: 0, angle: degrees, scale: 1, opacity: 1 }],
-  });
-  const islandX = x(0.15) + 40;
-  const islandY = top - 6.4 * CELL;
-  objects.push(makeObject('جزیره‌ی معلق', { kind: 'image', asset: island.asset }, 200, 90, { x: islandX, y: islandY }, { tags: [RIG0], locked: true }));
-  objects.push(makeObject('ریسمان ۱', { kind: 'image', asset: rope.asset }, 24, 70, { x: islandX, y: islandY + 45 + 35 }, {
-    tags: [RIG1], locked: true, behaviors: [{ type: 'attach', targetTag: RIG0, offsetX: 88, offsetY: 90 }, swing(22, 1.6)],
-  }));
-  objects.push(makeObject('ریسمان ۲', { kind: 'image', asset: rope.asset }, 24, 70, { x: islandX, y: islandY + 45 + 105 }, {
-    tags: [RIG2], locked: true, behaviors: [{ type: 'attach', targetTag: RIG1, offsetX: 0, offsetY: 70, followAngle: true }, swing(10, 0.8)],
-  }));
-  objects.push(makeObject('فانوس', lantern.visual, 48, 64, { x: islandX, y: islandY + 45 + 172 }, {
-    locked: true, glow: '#ffcf6b', behaviors: [{ type: 'attach', targetTag: RIG2, offsetX: -12, offsetY: 70, followAngle: true }],
-  }));
-  objects.push(makeObject('مرحله', level.tiles, cols * CELL, rows * CELL, { x: (cols * CELL) / 2, y: (rows * CELL) / 2 }, { locked: true }));
-
-  // Where falling into a gap is caught: hidden strips along the bottom of each gap.
-  for (const [i, [c0, c1]] of level.pits.entries()) {
-    objects.push(makeObject(`چاله ${i + 1}`, { kind: 'rect', color: '#000000' }, (c1 - c0 + 1) * CELL, 50, { x: ((c0 + c1 + 1) / 2) * CELL, y: rows * CELL - 25 }, { opacity: 0, tags: [PIT] }));
+  // The map itself (only the first level's is named "مرحله": the level maker and its checks go by that name).
+  objects.push(makeObject(n === 1 ? 'مرحله' : `مرحله ${n}`, map.tiles, level.width, rows * CELL, { x: level.width / 2, y: (rows * CELL) / 2 }, { locked: true }));
+  // Where falling into a gap is caught: hidden strips along the bottom of each gap (columns with no ground at the bottom).
+  const bottom = map.tiles.rows[rows - 1] ?? '';
+  let pits = 0;
+  for (let c = 0; c < level.width / CELL; ) {
+    if ((bottom[c] ?? '.') !== '.') { c += 1; continue; }
+    let end = c;
+    while (end + 1 < level.width / CELL && (bottom[end + 1] ?? '.') === '.') end += 1;
+    pits += 1;
+    objects.push(makeObject(`چاله ${pits}`, { kind: 'rect', color: '#000000' }, (end - c + 1) * CELL, 50, { x: ((c + end + 1) / 2) * CELL, y: rows * CELL - 25 }, { opacity: 0, tags: [PIT] }));
+    c = end + 1;
   }
-  // A platform that carries the player over the widest gap.
-  const raft = await kenney(p, 'tiles', 'block_planks');
-  p = raft.project;
-  const [w0, w1] = level.pits[1];
-  objects.push(makeObject('سکوی متحرک', { kind: 'image', asset: raft.asset, repeat: 'x' }, 200, 50, { x: (w0 + 1) * CELL, y: top - 40 }, {
-    tags: [GROUND], behaviors: [{ type: 'patrol', axis: 'x', distance: (w1 - w0 - 1) * CELL, speed: 110 }],
-  }));
 
-  // Enemies to jump on, spikes to jump over, gems up high.
-  // The slime walks all the time (its walking frames are its resting ones too); the fly beats its wings.
+  // The things of the map's object layer, by class.
   const slime = await packCharacter(p, 'enemies', 'slime_normal', 6);
-  const bat = await packAnimation(slime.project, 'enemies', ['fly_a', 'fly_b'], 10);
-  const spikes = await kenney(bat.project, 'tiles', 'spikes', true);
+  const fly = await packAnimation(slime.project, 'enemies', ['fly_a', 'fly_b'], 10);
+  const spikes = await kenney(fly.project, 'tiles', 'spikes', true);
   const gem = await kenney(spikes.project, 'tiles', 'gem_blue', true);
-  p = gem.project;
-  const crawl = slime.visual.moveFrames ?? [slime.visual.asset];
-  for (const [i, [share, reach]] of ([[0.38, 200], [0.73, 140], [0.83, 110]] as const).entries()) {
-    objects.push(makeObject(`لجن ${i + 1}`, { kind: 'image', asset: crawl[0], frames: crawl.slice(1), fps: 6, flip: true }, 100, 72, { x: x(share), y: top - 36 }, {
-      tags: [ENEMY, DANGER], hitboxInset: 6, behaviors: [{ type: 'patrol', axis: 'x', distance: reach, speed: 90 }],
-    }));
-  }
-  for (const [i, share] of [0.5, 0.71].entries()) {
-    objects.push(makeObject(`مگس ${i + 1}`, bat.visual, 100, 80, { x: x(share), y: top - 230 }, {
-      tags: [ENEMY, DANGER], hitboxInset: 10, behaviors: [{ type: 'patrol', axis: 'y', distance: 150, speed: 80 }],
-    }));
-  }
-  for (const [i, share] of [0.13, 0.645].entries()) {
-    objects.push(makeObject(`تیغ ${i + 1}`, { kind: 'image', asset: spikes.asset, repeat: 'x' }, 160, 40, { x: x(share), y: top - 20 }, { tags: [SPIKES], hitboxInset: 8 }));
-  }
-  for (const [i, [share, up]] of ([[0.34, 5.6], [0.68, 4.4], [0.9, 5]] as const).entries()) {
-    objects.push(makeObject(`الماس ${i + 1}`, { kind: 'image', asset: gem.asset }, 70, 70, { x: x(share) + 40, y: top - up * CELL }, {
-      tags: [GEM], glow: '#7fe8ff', behaviors: [{ type: 'pulse', amount: 0.1, seconds: 0.9 }, { type: 'particles', preset: 'sparkle', color: '#bff6ff', rate: 4, size: 1, speed: 1 }],
-    }));
-  }
-
-  // Checkpoint flags, and the trophy at the end.
-  const flag = await packAnimation(p, 'tiles', ['flag_green_a', 'flag_green_b'], 5);
-  const trophy = await kenney(flag.project, 'tiles', 'star', true);
-  p = trophy.project;
-  for (const [i, share] of [0.44, 0.8].entries()) {
-    objects.push(makeObject(`ایست بازرسی ${i + 1}`, flag.visual, 90, 100, { x: x(share), y: top - 50 }, { tags: [CHECK] }));
-  }
-  objects.push(makeObject('جام پایان', { kind: 'image', asset: trophy.asset }, 130, 130, { x: x(0.96), y: top - 3 * CELL - 65 }, {
-    tags: [GOAL], glow: '#ffd23f', behaviors: [{ type: 'pulse', amount: 0.08, seconds: 1 }, { type: 'particles', preset: 'sparkle', color: '#fff3a8', rate: 8, size: 1.2, speed: 1 }],
-  }));
-
-  // The hero: runs, jumps twice, the camera follows.
-  const hero = await packCharacter(p, 'characters', 'character_beige');
+  const flag = await packAnimation(gem.project, 'tiles', ['flag_green_a', 'flag_green_b'], 5);
+  const star = await kenney(flag.project, 'tiles', 'star', true);
+  const planks = await kenney(star.project, 'tiles', 'block_planks');
+  const key = await kenney(planks.project, 'tiles', 'key_yellow', true);
+  const lock = await kenney(key.project, 'tiles', 'lock_yellow');
+  const bush = await kenney(lock.project, 'tiles', 'bush', true);
+  const sign = await kenney(bush.project, 'tiles', 'sign_right', true);
+  const hero = await packCharacter(sign.project, 'characters', 'character_beige');
   p = hero.project;
-  // Its animations fade one into the next (resting, walking, jumping) rather than cutting (flagship Phase C).
-  const player = makeObject('قهرمان', { ...hero.visual, blend: 0.08 }, 90, 100, { x: 2 * CELL, y: top - 50 }, {
-    tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
-    behaviors: [
-      { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
-      { type: 'jumper', jumpSpeed: 1150, maxJumps: 2, on: 'tap', buttonTag: '' },
-      { type: 'camera', lock: 'free', smooth: 0.25 },
-    ],
-  });
+  const crawl = slime.visual.moveFrames ?? [slime.visual.asset];
+  const count: Record<string, number> = {};
+  const nth = (cls: string) => (count[cls] = (count[cls] ?? 0) + 1);
+  let player: GameObject | null = null;
+  for (const t of level.things) {
+    const cx = t.x + t.width / 2;
+    const foot = t.y + t.height;
+    const distance = Number(t.properties.distance ?? 160);
+    switch (t.className) {
+      case 'player':
+        // Its animations fade one into the next (resting, walking, jumping) rather than cutting (flagship Phase C).
+        player = makeObject('قهرمان', { ...hero.visual, blend: 0.08 }, 90, 100, { x: cx, y: foot - 50 }, {
+          tags: [PLAYER], shadow: true, health: 1000, invincible: 1.3,
+          behaviors: [
+            { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
+            { type: 'jumper', jumpSpeed: 1150, maxJumps: 2, on: 'tap', buttonTag: '' },
+            { type: 'camera', lock: 'free', smooth: 0.25 },
+          ],
+        });
+        break;
+      case 'slime':
+        objects.push(makeObject(`لجن ${nth('slime')}`, { kind: 'image', asset: crawl[0], frames: crawl.slice(1), fps: 6, flip: true }, 100, 72, { x: cx, y: foot - 36 }, {
+          tags: [ENEMY, DANGER], hitboxInset: 6, behaviors: [{ type: 'patrol', axis: 'x', distance, speed: 90 }],
+        }));
+        break;
+      case 'fly':
+        objects.push(makeObject(`مگس ${nth('fly')}`, fly.visual, 100, 80, { x: cx, y: foot - 40 }, { tags: [ENEMY, DANGER], hitboxInset: 10, behaviors: [{ type: 'patrol', axis: 'y', distance, speed: 80 }] }));
+        break;
+      case 'spikes':
+        objects.push(makeObject(`تیغ ${nth('spikes')}`, { kind: 'image', asset: spikes.asset, repeat: 'x' }, t.width, 40, { x: cx, y: foot - 20 }, { tags: [SPIKES], hitboxInset: 8 }));
+        break;
+      case 'gem':
+        objects.push(makeObject(`الماس ${nth('gem')}`, { kind: 'image', asset: gem.asset }, 70, 70, { x: cx, y: t.y + t.height / 2 }, {
+          tags: [GEM], glow: '#7fe8ff', behaviors: [{ type: 'pulse', amount: 0.1, seconds: 0.9 }, { type: 'particles', preset: 'sparkle', color: '#bff6ff', rate: 4, size: 1, speed: 1 }],
+        }));
+        break;
+      case 'checkpoint':
+        objects.push(makeObject(`ایست بازرسی ${nth('checkpoint')}`, flag.visual, 90, 100, { x: cx, y: foot - 50 }, { tags: [CHECK] }));
+        break;
+      case 'goal':
+        objects.push(makeObject('ستاره‌ی پایان', { kind: 'image', asset: star.asset }, 130, 130, { x: cx, y: t.y + t.height / 2 }, {
+          tags: [GOAL], glow: '#ffd23f', behaviors: [{ type: 'pulse', amount: 0.08, seconds: 1 }, { type: 'particles', preset: 'sparkle', color: '#fff3a8', rate: 8, size: 1.2, speed: 1 }],
+        }));
+        break;
+      case 'platform':
+        objects.push(makeObject(`سکوی متحرک ${nth('platform')}`, { kind: 'image', asset: planks.asset, repeat: 'x' }, t.width, 50, { x: cx, y: t.y + 25 }, {
+          tags: [GROUND], behaviors: [{ type: 'patrol', axis: 'x', distance, speed: 110 }],
+        }));
+        break;
+      case 'key':
+        objects.push(makeObject('کلید', { kind: 'image', asset: key.asset }, 70, 70, { x: cx, y: t.y + t.height / 2 }, { tags: [KEY_TAG], glow: '#ffe066', behaviors: [{ type: 'wave', axis: 'y', distance: 10, seconds: 1.4 }] }));
+        break;
+      case 'door':
+        objects.push(makeObject('دروازه‌ی قفل', { kind: 'image', asset: lock.asset, repeat: 'y' }, t.width, t.height, { x: cx, y: t.y + t.height / 2 }, { tags: [GROUND, DOOR_TAG] }));
+        break;
+      case 'bush':
+        objects.push(makeObject(`بوته ${nth('bush')}`, { kind: 'image', asset: bush.asset }, 90, 90, { x: cx, y: foot - 45 }, { locked: true }));
+        break;
+      case 'sign':
+        objects.push(makeObject('تابلوی شروع', { kind: 'image', asset: sign.asset }, 80, 80, { x: cx, y: foot - 40 }, { locked: true }));
+        break;
+    }
+  }
+  if (!player) throw new Error(`Sky Quest level ${n} has no player.`);
   objects.push(player);
   p = addAll(p, sceneId, objects);
 
-  // The flagship's own screens, made of Kenney's UI kit (src/editor/flagship.ts, flagship Phase D).
-  const screen = await flagshipScreens(p, sceneId, 'Sky Quest');
-  p = screen.project;
   // Every prize does the same few things with a different number of points: one function, "reward", with
-  // the points as its input (Phase 4), called by the coin, the gem, the squashed enemy and the trophy.
+  // the points as its input (Phase 4), called by the coin, the gem, the squashed enemy and the star.
   const REWARD = 'جایزه';
   const reward = (points: number): Action => ({ type: 'call', name: REWARD, a1: points });
-  const prize = (tag: string, points: number, sound: 'coin' | 'powerup', color: string) => rule({ type: 'touch', a: byTag(PLAYER), b: byTag(tag) }, [
+  // Rules only for what this level has (no rule about spikes in a level without spikes).
+  const has = new Set(level.things.map((t) => t.className));
+  const only = (cls: string[], ...made: Rule[]) => (cls.some((c) => has.has(c)) ? made : []);
+  const prize = (tag: string, points: number, sound: 'coin' | 'powerup', color: string, more: Action[] = []) => rule({ type: 'touch', a: byTag(PLAYER), b: byTag(tag) }, [
     { type: 'burst', target: 'second', color, count: points > 1 ? 22 : 10 },
     reward(points),
     { type: 'destroy', target: 'second' },
     { type: 'playSound', sound },
+    ...more,
   ]);
   p = withRules(p, sceneId,
+    rule({ type: 'start' }, [
+      { type: 'setVariable', name: 'level', op: 'set', amount: n },
+      { type: 'setVariable', name: 'gemsNow', op: 'set', amount: 0 },
+      { type: 'setVariable', name: 'hasKey', op: 'set', amount: 0 },
+    ]),
     rule({ type: 'called', name: REWARD, in1: 'points' }, [
       { type: 'floatText', target: 'second', text: '+{points}', color: '#ffe066', size: 42 },
       { type: 'setVariable', name: 'score', op: 'add', amount: { variable: 'points' } },
     ]),
     prize(COIN, 1, 'coin', '#ffd23f'),
-    prize(GEM, 10, 'powerup', '#7fe8ff'),
+    // A gem is one of the level's three stars.
+    prize(GEM, 10, 'powerup', '#7fe8ff', [{ type: 'setVariable', name: 'gemsNow', op: 'add', amount: 1 }]),
     // Jumping on an enemy squashes it and bounces the hero up; running into it hurts.
-    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'above' }, [
+    ...only(['slime', 'fly'], rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'above' }, [
       { type: 'burst', target: 'second', color: '#8be04e', count: 18 },
       { type: 'effect', target: 'second', kind: 'shrink', seconds: 0.2 },
       { type: 'jump', target: 'first' },
@@ -405,8 +396,8 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
       { type: 'playSound', sound: 'pop' },
       { type: 'shake', strength: 6, axis: 'up' },
     ]),
-    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'side' }, [{ type: 'send', name: HURT }]),
-    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(SPIKES) }, [{ type: 'jump', target: 'first' }, { type: 'send', name: HURT }]),
+    rule({ type: 'touch', a: byTag(PLAYER), b: byTag(ENEMY), from: 'side' }, [{ type: 'send', name: HURT }])),
+    ...only(['spikes'], rule({ type: 'touch', a: byTag(PLAYER), b: byTag(SPIKES) }, [{ type: 'jump', target: 'first' }, { type: 'send', name: HURT }])),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(PIT) }, [{ type: 'send', name: HURT }, { type: 'respawn', target: 'first' }]),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(CHECK) }, [
       { type: 'checkpoint', target: 'first' },
@@ -414,16 +405,40 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
       { type: 'burst', target: 'second', color: '#ffd23f', count: 12 },
       { type: 'playSound', sound: 'powerup' },
     ]),
+    // The key opens the gate; without it, the gate only shakes its head.
+    ...only(['key'], rule({ type: 'touch', a: byTag(PLAYER), b: byTag(KEY_TAG) }, [
+      { type: 'setVariable', name: 'hasKey', op: 'set', amount: 1 },
+      { type: 'burst', target: 'second', color: '#ffe066', count: 20 },
+      { type: 'floatText', target: 'second', text: 'Key!', color: '#ffe066', size: 46 },
+      { type: 'destroy', target: 'second' },
+      { type: 'playSound', sound: 'powerup' },
+    ])),
+    ...only(['door'], {
+      ...rule({ type: 'touch', a: byTag(PLAYER), b: byTag(DOOR_TAG) }, [
+        { type: 'burst', target: 'second', color: '#ffd23f', count: 30 },
+        { type: 'effect', target: 'second', kind: 'shrink', seconds: 0.25 },
+        { type: 'playSound', sound: 'win', volume: 60 },
+      ]),
+      condition: { name: 'hasKey', op: '>=', value: 1 },
+      otherwise: [
+        { type: 'flash', target: 'second', color: '#ff3b47', seconds: 0.3 },
+        { type: 'floatText', target: 'second', text: 'Find the key!', color: '#ffffff', size: 38 },
+        { type: 'playSound', sound: 'hit' },
+      ],
+    }),
     rule({ type: 'touch', a: byTag(PLAYER), b: byTag(GOAL) }, [
       { type: 'burst', target: 'second', color: '#ffd23f', count: 40 },
       { type: 'playSound', sound: 'win' },
       reward(25),
+      // This level's stars (the most gems found in one run), and the next level opens; both kept on the phone.
+      { type: 'setVariable', name: `stars${n}`, op: 'max', amount: { variable: 'gemsNow' } },
+      { type: 'setVariable', name: 'unlocked', op: 'max', amount: n + 1 },
       { type: 'wait', seconds: 1.2 },
       { type: 'goToScene', scene: screen.win },
     ]),
     ...lifeRules(screen.over),
   );
-  p = await banner(p, sceneId, 'Reach the star!');
+  p = await banner(p, sceneId, `${n}. ${title}`);
   // The screen furniture: score, hearts, a pause menu, and the left, right and jump buttons.
   p = await part(p, sceneId, 'score');
   p = await hearts(p, sceneId);
@@ -433,15 +448,36 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   const dash = await picture(p, 'btn-dash', DASH, 120, 120, { x: W - 255, y: H - 110 }, { fixed: true, opacity: 0.85, tags: [DASH] });
   const down = await picture(dash.project, 'btn-down', DOWN, 120, 120, { x: W - 100, y: H - 265 }, { fixed: true, opacity: 0.85, tags: [DOWN] });
   p = addAll(down.project, sceneId, [dash.object, down.object]);
-  p = updateScene(p, sceneId, (sc) => ({ ...sc, objects: sc.objects.map((o) => (o.id === player.id
+  const heroId = player.id;
+  p = updateScene(p, sceneId, (sc) => ({ ...sc, objects: sc.objects.map((o) => (o.id === heroId
     ? { ...o, behaviors: [...o.behaviors, { type: 'moves', wallJump: true, dash: true, dashTag: DASH, climbTag: '', pound: true, poundTag: DOWN }] }
     : o)) }));
   // The HUD and pause menu redrawn in the UI kit, anchored and coming in (flagship Phase D).
   p = await flagshipHud(p, sceneId);
+  return { project: p, player };
+}
+
+export async function buildPlatformer(project: GameProject, sceneId: string): Promise<GameResult> {
+  const { width: W, height: H } = project.meta;
+  let p = withNumber(withNumber(withNumber(withVariable(project, 'score'), 'lives', 3), 'hurt', 0), 'points', 0);
+  p = withNumber(p, 'hasKey', 0);
+  // Five levels: the scene being edited is the first; four more scenes follow it.
+  const more = [2, 3, 4, 5].map((k) => scene(`Level ${k}`, W, H, 'none', 'music:adventure', { background: '#c8e6f5' }));
+  p = { ...p, scenes: [...p.scenes, ...more] };
+  const ids = [sceneId, ...more.map((s) => s.id)];
+  // The flagship's own screens (start, levels, win, game over), made of Kenney's UI kit (src/editor/flagship.ts).
+  const screen = await flagshipScreens(p, ids, 'Sky Quest');
+  p = screen.project;
+  let first: GameObject | null = null;
+  for (const [i, id] of ids.entries()) {
+    const made = await skyQuestLevel(p, id, i + 1, screen);
+    p = made.project;
+    first ??= made.player;
+  }
   return {
     project: p,
-    select: player.id,
-    note: 'بازی سکویی کامل ساخته شد: صفحه‌ی شروع، یک مرحله‌ی چندصفحه‌ای با سکه، الماس، لجن و خفاش (روی سرشان بپر!)، تیغ، چاله، سکوی متحرک، دو پرچم ایست بازرسی و جام پایان، و صفحه‌ی برد و باخت. همه‌چیز را می‌شود جابه‌جا یا عوض کرد؛ مرحله با قلم نقشه نقاشی می‌شود.',
+    select: first!.id,
+    note: 'بازی سکویی کامل ساخته شد، با عکس‌های Kenney: صفحه‌ی شروع با اسلایدر صدا و موسیقی، صفحه‌ی انتخاب مرحله، پنج مرحله (دویدن و پریدن؛ پریدن روی دشمن؛ سوار شدن بر سکوی متحرک؛ تیغ، کلید و دروازه؛ قله) که هر کدام از یک نقشه‌ی Tiled ساخته شده، و صفحه‌ی برد (با ستاره‌ها) و باخت. همه‌چیز را می‌شود جابه‌جا یا عوض کرد.',
   };
 }
 

@@ -65,5 +65,18 @@ await key('keyup', 'ArrowRight');
 await page.evaluate(() => window.__game.app.ticker.start());
 await shot('5-further');
 console.log(JSON.stringify(await page.evaluate(() => { const s = window.__game.getState(); return { scene: s.scene, time: s.time, variables: s.variables }; })));
+// The levels screen, and the start of every level.
+const go = async (id, name) => {
+  await page.evaluate((id) => { window.__game.nextScene = id; window.__game.app.ticker.stop(); }, id);
+  await steps(70);
+  await page.evaluate(() => window.__game.app.ticker.start());
+  await shot(name);
+};
+const levelsScene = project.scenes.find((s) => s.name === 'Levels');
+if (levelsScene) await go(levelsScene.id, '6-levels');
+const levelScenes = [project.scenes[0], ...project.scenes.filter((s) => /^Level [2-9]/.test(s.name))];
+for (const [i, s] of levelScenes.entries()) await go(s.id, `7-level-${i + 1}`);
+const winScene = project.scenes.find((s) => s.name === 'You win');
+if (winScene) await go(winScene.id, '8-win');
 console.log(errors.length ? `errors: ${errors.join(' | ')}` : 'no errors');
 await browser.close();

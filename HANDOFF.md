@@ -374,6 +374,41 @@ how to see it, what to try or film, the next phase).
   left, a text in Kenney Future, a slider dragged to 100 and to about half. Passed locally.
 - Not done: the level select (with the five levels, Phase E).
 
+### Flagship Phase E progress (level tools)
+
+- src/editor/tiled.ts: `importTiled(text, kindOf?)` reads Tiled JSON maps (.tmj): tile layers (CSV arrays, CSV
+  strings, uncompressed Base64; flip bits masked; groups flattened; hidden layers skipped) → `TilesVisual` per
+  layer, kinds keyed by gid, named by tile class, tags from a "tags" property (comma list) or the class,
+  `separate` from a property; object layers → things (class or type, name, box, properties; a tile object
+  stands on its bottom-left corner). Refuses compressed layers, infinite maps and external tilesets with what
+  to do in Tiled. `placeTiled(project, scene, text, images)` puts a level into a scene, cutting tile pictures
+  from the tileset's image when given. Editor: Game tab «عکس‌ها» → «+ مرحله از Tiled (.tmj)»; agent API
+  `importTiled`.
+- `TileKind.joins` (keys it joins with; empty = only itself): autotile neighbours (`joinSides`), so a material
+  keeps its own edges against another. Sky Quest's stone has `joins: []` (a stone podium on grass shows its
+  edges).
+- **Sky Quest has five levels**, each a Tiled map in src/editor/levels/sky-quest-1..5.tmj, written by
+  scripts/flagship-levels.mjs (tile classes grass, stone, coin; thing classes player, slime, fly, spikes, gem,
+  checkpoint, goal, platform, key, door, bush, sign; distance properties): 1 Run and Jump (gaps, steps, one
+  slime at the end), 2 Stomp! (slimes, flies), 3 Ride the Planks (gaps too wide to jump, moving planks), 4 Key
+  to the Gate (spikes, two checkpoints, a key on a ledge, a locked gate), 5 Sky Summit (all of them), 50 → 74
+  cells wide; three gems each. `skyQuestLevel` (games.ts) imports a level with `importTiled`, mapping classes
+  to Kenney art, behaviors and groups, adds only the rules a level needs (no spike rule without spikes), pits
+  under every gap, the HUD and controls; `buildPlatformer` makes the first level in the scene being edited and
+  four more scenes. Values: level, gemsNow, hasKey; saved: unlocked, stars1–5, best.
+- Screens (flagship.ts): Start has Play (level 1) and Levels; the **Levels** screen has five round buttons in
+  two rows (layout), dim and shaking until unlocked, each with three stars lit by its best gem count, and Back;
+  You win ("LEVEL CLEAR!") lights a star per gem found, Next level (by `level`) or Menu, and after level 5 says
+  "You reached the summit!"; Game over's retry restarts the same level.
+- Only level 1's map is named «مرحله» (the level maker and its checks go by it). editor.smoke's platformer
+  check now looks across the five levels.
+- Tests (art.smoke): a Tiled map with a tileset picture, a flipped tile, classes and tags, a box and a tile
+  object; joins (stone keeps its edges, grass joins it); the flagship has five levels getting longer, three
+  gems each, enemies from level 2, planks in 3, spikes, key and gate in 4, the levels screen, no warnings.
+  Passed locally. `node scripts/look/flagship.mjs` photographs the levels screen, each level and the win.
+- Not done: LDtk import; 47-tile sets; the .tmj tileset has no picture (Tiled shows the tiles blank; the game
+  draws them with Kenney's art by class).
+
 ### Later (small things noticed, not blocking the phase)
 
 - GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale

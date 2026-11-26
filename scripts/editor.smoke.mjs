@@ -1359,9 +1359,13 @@ ed = await editor();
 check('the platformer is a whole game: a start screen, a win and a game-over screen, opening on the start',
   ['Start', 'You win', 'Game over'].every((n) => ed.project.scenes.some((x) => x.name === n)) && ed.project.scenes.find((x) => x.id === ed.project.startScene)?.name === 'Start' && (await page.$('.problem')) === null);
 sc = await scene();
-check('its level has a painted map, enemies, gems, checkpoints, a goal and a moving platform',
-  sc.objects.some((o) => o.visual.kind === 'tiles') && sc.objects.filter((o) => o.tags.includes('دشمن')).length >= 4 && sc.objects.some((o) => o.tags.includes('الماس')) &&
-  sc.objects.filter((o) => o.tags.includes('ایست بازرسی')).length === 2 && sc.objects.some((o) => o.tags.includes('پایان')) && sc.objects.some((o) => o.behaviors.some((b) => b.type === 'patrol') && o.tags.includes('زمین')));
+// The flagship (Sky Quest) has five levels made from Tiled maps; together they have all of these.
+const skyLevels = ed.project.scenes.filter((x) => x.objects.some((o) => o.tags.includes('بازیکن') && !o.fixed) && x.objects.some((o) => o.visual.kind === 'tiles'));
+const across = (test) => skyLevels.flatMap((x) => x.objects.filter(test)).length;
+check('its five levels have painted maps, enemies, gems, checkpoints, goals and moving platforms',
+  skyLevels.length === 5 && sc.objects.some((o) => o.visual.kind === 'tiles') && across((o) => o.tags.includes('دشمن')) >= 4 && across((o) => o.tags.includes('الماس')) === 15 &&
+  sc.objects.filter((o) => o.tags.includes('ایست بازرسی')).length === 2 && skyLevels.every((x) => x.objects.some((o) => o.tags.includes('پایان'))) && across((o) => o.behaviors.some((b) => b.type === 'patrol') && o.tags.includes('زمین')) >= 3,
+  `${skyLevels.length} levels`);
 await click('امتحان کن');
 await until(page, () => window.__game.getState().time > 0.8, null, 60000);
 const playButton = (await gameState(page)).entities.find((e) => e.width === 220 && e.height === 220);

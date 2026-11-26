@@ -6,6 +6,7 @@
 import type { GameProject, Visual } from '../format/types';
 import { validateProject } from '../format/validate';
 import { animatedVisual, importAtlas, type Animations } from './atlas';
+import { placeTiled } from './tiled';
 import { migrate } from '../format/migrate';
 import { blank } from '../templates';
 import { character } from './games';
@@ -27,6 +28,7 @@ export interface AgentApi {
   picture: (project: GameProject, id: string) => Promise<{ project: GameProject; visual: Visual; width: number; height: number }>;
   /** Adds a ready-made part (score, hearts, pause menu, on-screen buttons, ...) to a scene, around a point. */
   part: (project: GameProject, sceneId: string, id: string, at?: { x: number; y: number }) => Promise<{ project: GameProject; note: string }>;
+  importTiled: (project: GameProject, sceneId: string, text: string, images?: Record<string, string>) => Promise<{ project: GameProject; maps: number; things: number }>;
   importAtlas: (project: GameProject, sheetSrc: string, atlasText: string, prefix: string) => Promise<{ project: GameProject; keys: Record<string, string>; animations: Animations; visual: Visual }>;
   /** `count` harder levels made after a scene, as the editor's level maker makes them. */
   levels: (project: GameProject, sceneId: string, count: number, seed?: number) => { project: GameProject; changes: string[] };
@@ -42,6 +44,8 @@ export const agentApi: AgentApi = {
     const warnings = problems.length ? [] : findIssues(project).map((i) => ({ scene: sceneName(project, i), text: i.text }));
     return { problems, warnings };
   },
+  /** A Tiled level put into a scene (the editor's "+ مرحله از Tiled"); `images`: tileset pictures by file name. */
+  importTiled: async (project, sceneId, text, images = {}) => placeTiled(project, sceneId, text, new Map(Object.entries(images))),
   /** A sprite sheet's pictures and animations put into a project (the editor's "+ ورق عکس"). */
   importAtlas: async (project, sheetSrc, atlasText, prefix) => {
     const made = await importAtlas(project, sheetSrc, atlasText, prefix);

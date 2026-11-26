@@ -314,6 +314,11 @@ export interface TileKind {
    * A missing one uses `asset`. Like Kenney's terrain sets (block, top, top_left, center, …).
    */
   autotile?: string[];
+  /**
+   * The kinds (their keys in this map) an autotile set joins up with, as if they were its own; others give it an
+   * edge, so stone set into grass shows its own border. Not said: every filled cell joins (flagship Phase E).
+   */
+  joins?: string[];
   /** Shown in the editor only. */
   name: string;
   color: string;

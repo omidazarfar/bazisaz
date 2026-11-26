@@ -21,6 +21,24 @@ const solid = (r, g, b) => {
   for (let i = 0; i < 16; i++) Buffer.from(px).copy(data, i * 4);
   return `data:image/bmp;base64,${Buffer.concat([header, data]).toString('base64')}`;
 };
+/** A picture `w` × `h` coloured by `colour(x, y)` → [r, g, b], as a BMP data URL (rows from the bottom, as BMP keeps them). */
+const painted = (w, h, colour) => {
+  const header = Buffer.alloc(54);
+  header.write('BM');
+  header.writeUInt32LE(54 + w * h * 4, 2);
+  header.writeUInt32LE(54, 10);
+  header.writeUInt32LE(40, 14);
+  header.writeInt32LE(w, 18);
+  header.writeInt32LE(h, 22);
+  header.writeUInt16LE(1, 26);
+  header.writeUInt16LE(32, 28);
+  const data = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const [r, g, b] = colour(x, h - 1 - y);
+    Buffer.from([b, g, r, 255]).copy(data, (y * w + x) * 4);
+  }
+  return `data:image/bmp;base64,${Buffer.concat([header, data]).toString('base64')}`;
+};
 
 const browser = await launch();
 const editorUrl = pathToFileURL(resolve(root, 'dist-editor/editor.html')).href;
@@ -105,7 +123,8 @@ const map = level.objects.find((o) => o.visual.kind === 'tiles');
 const kenney = Object.keys(flagship.assets).filter((k) => k.startsWith('kenney-'));
 check('the flagship is drawn with Kenney\'s pack (pictures and sounds)', kenney.length >= 40, `${kenney.length} pictures`);
 check('its hero rests, walks, jumps and gets hurt in Kenney\'s frames', hero?.visual.asset.startsWith('kenney-character-beige') && hero.visual.moveFrames?.length === 2 && hero.visual.airFrames?.length === 1 && hero.visual.hurtFrames?.length === 1, JSON.stringify(hero?.visual));
-check('its ground and stone are autotile sets of 16', map?.visual.kinds.a.autotile?.length === 16 && map?.visual.kinds.c.autotile?.length === 16, JSON.stringify(Object.keys(map?.visual.kinds ?? {})));
+const kindNamed = (name) => Object.values(map?.visual.kinds ?? {}).find((k) => k.name === name);
+check('its ground and stone are autotile sets of 16', kindNamed('زمین چمنی')?.autotile?.length === 16 && kindNamed('سنگ')?.autotile?.length === 16, JSON.stringify(Object.values(map?.visual.kinds ?? {}).map((k) => k.name)));
 const problems = await page.evaluate((p) => window.__editor.agent.check(p).problems, flagship);
 check('the flagship checks clean', problems.length === 0, problems.join(' | '));
 await page.close();
@@ -314,6 +333,118 @@ await page.close();
     check('slider: no errors in the page', errors.length === 0, errors.join(' | '));
     await page.close();
   }
+}
+
+// ── Level tools (flagship Phase E): a Tiled map imported, materials that keep their edges, five levels ──
+{
+  // A Tiled map 4×3 cells of 16 px: a row of ground (tile 1, red) under a block of stone (tile 2, blue), one tile
+  // flipped (Tiled's top bits), and an object layer with a box of class "coin" and a tile object (stone).
+  const FLIP = 0x80000000;
+  const tmj = JSON.stringify({
+    type: 'map', width: 4, height: 3, tilewidth: 16, tileheight: 16, infinite: false, orientation: 'orthogonal',
+    properties: [{ name: 'title', type: 'string', value: 'Test' }],
+    tilesets: [{ firstgid: 1, name: 'test', image: 'test-tiles.png', imagewidth: 32, imageheight: 16, columns: 2, tilewidth: 16, tileheight: 16, margin: 0, spacing: 0, tilecount: 2,
+      tiles: [{ id: 0, class: 'ground' }, { id: 1, class: 'stone', properties: [{ name: 'tags', type: 'string', value: 'rock,hard' }] }] }],
+    layers: [
+      { type: 'tilelayer', name: 'land', width: 4, height: 3, visible: true, data: [0, 0, 2, 0, 0, 0, 2, 0, 1, 1, 1 | FLIP, 1] },
+      { type: 'objectgroup', name: 'things', visible: true, objects: [
+        { id: 1, name: 'c', class: 'coin', x: 8, y: 4, width: 12, height: 12, properties: [{ name: 'value', type: 'int', value: 5 }] },
+        { id: 2, name: 'rock', gid: 2, x: 32, y: 48, width: 16, height: 16 },
+      ] },
+    ],
+  });
+  const sheet = painted(32, 16, (x) => (x < 16 ? [255, 0, 0] : [0, 0, 255]));
+  const { page, errors } = await openPage(browser, editorUrl, { viewport: { width: 1440, height: 900 } });
+  await page.waitForFunction(() => window.__game && window.__editor, { timeout: 60000 });
+  const r = await page.evaluate(async ({ tmj, sheet }) => {
+    const state = window.__editor.getState();
+    const made = await window.__editor.agent.importTiled(state.project, state.sceneId, tmj, { 'test-tiles.png': sheet });
+    const scene = made.project.scenes.find((s) => s.id === state.sceneId);
+    const map = scene.objects.find((o) => o.visual.kind === 'tiles' && o.name === 'land');
+    const coin = scene.objects.find((o) => o.tags.includes('coin'));
+    const rock = scene.objects.find((o) => o.name === 'rock');
+    const colour = async (src) => {
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = c.height = 4;
+      c.getContext('2d').drawImage(img, 8, 8, 1, 1, 0, 0, 1, 1);
+      return [...c.getContext('2d').getImageData(0, 0, 1, 1).data].slice(0, 3).join(',');
+    };
+    const kinds = Object.values(map.visual.kinds);
+    return {
+      maps: made.maps, things: made.things, rows: map.visual.rows, names: kinds.map((k) => k.name), tags: kinds.map((k) => k.tags.join('/')),
+      groundColour: await colour(made.project.assets[kinds.find((k) => k.name === 'ground').asset].src),
+      stoneColour: await colour(made.project.assets[kinds.find((k) => k.name === 'stone').asset].src),
+      coin: coin && [coin.x, coin.y, coin.width, coin.height], rock: rock && [rock.x, rock.y, rock.visual.kind],
+      problems: window.__editor.agent.check(made.project).problems,
+    };
+  }, { tmj, sheet });
+  check('Tiled: a tile layer becomes a tile map, rows as in the map, the flipped tile the same kind', r.maps === 1 && r.rows.join('|') === '..a|..a|bbbb', JSON.stringify(r.rows));
+  check('Tiled: tiles are told apart by class, their tags from their properties', r.names.join() === 'stone,ground' && r.tags.join() === 'rock/hard,ground', JSON.stringify(r));
+  check('Tiled: each tile\'s picture is cut from the tileset\'s (red ground, blue stone)', r.groundColour === '255,0,0' && r.stoneColour === '0,0,255', JSON.stringify(r));
+  check('Tiled: objects come in their class\'s group at their place; a tile object stands on its bottom-left corner', r.things === 2 && r.coin.join() === '8,4,12,12' && r.rock.join() === '32,32,image', JSON.stringify(r));
+  check('Tiled: the imported level checks clean', r.problems.length === 0, r.problems.join(' | '));
+  check('Tiled import: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+{
+  // Materials that keep their edges: a stone cell (joins only stone) inside grass (joins everything).
+  const assets = {};
+  for (let i = 0; i < 16; i++) assets[`t${i}`] = { type: 'image', src: solid(i * 16, 100, 100) };
+  const list = Object.keys(assets);
+  const project = {
+    formatVersion: 3, lists: [],
+    meta: { name: 'Joins', orientation: 'portrait', width: 720, height: 1280, background: '#202833', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.joins', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets, variables: [], startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      objects: [{ id: 'map', name: 'map', x: 0, y: 0, width: 240, height: 240, tags: [], visible: true, behaviors: [],
+        visual: { kind: 'tiles', cell: 80, rows: ['ggg', 'gsg', 'ggg'], kinds: { g: { name: 'g', color: '#0f0', tags: [], separate: true, autotile: list }, s: { name: 's', color: '#00f', tags: [], separate: true, autotile: list, joins: [] } } } }],
+    }],
+  };
+  const { page, errors } = await openPage(browser, playerUrl, { project });
+  await until(page, () => window.__game, null, 30000);
+  const r = await page.evaluate(() => {
+    const g = window.__game;
+    const pictureOf = (x, y) => {
+      const e = g.entities.find((e) => e.def.id === 'map' && Math.abs(e.x - x) < 1 && Math.abs(e.y - y) < 1);
+      const texture = e?.view.children?.[0]?.texture;
+      return [...g.textures.entries()].find(([, t]) => t.texture === texture)?.[0] ?? null;
+    };
+    return { stone: pictureOf(80, 80), grassAboveIt: pictureOf(80, 0) };
+  });
+  check('joins: stone inside grass keeps all its edges (picture 0), the grass around it joins it (top middle: 14)', r.stone === 't0' && r.grassAboveIt === 't14', JSON.stringify(r));
+  check('joins: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+{
+  // The flagship's five levels, from their Tiled maps, in a new empty game.
+  const { page, errors } = await openPage(browser, editorUrl, { viewport: { width: 1440, height: 900 } });
+  await page.waitForFunction(() => window.__game && window.__editor, { timeout: 60000 });
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('بازی جدید'))?.click());
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.includes('بله، بازی خالی'))?.click());
+  await new Promise((r) => setTimeout(r, 300));
+  await page.click('[data-library="objects"]');
+  await page.click('[data-library-tab="genre"]');
+  await page.click('[data-genre="platform"]');
+  await page.waitForFunction(() => !document.querySelector('.modal'), { timeout: 180000 });
+  const project = await page.evaluate(() => window.__editor.getState().project);
+  const levels = project.scenes.filter((s) => s.objects.some((o) => o.tags.includes('بازیکن') && !o.fixed));
+  const names = project.scenes.map((s) => s.name);
+  const has = (s, tag) => s.objects.some((o) => o.tags.includes(tag));
+  check('the flagship has five levels, a start, a levels screen, a win and a game-over screen', levels.length === 5 && ['Start', 'Levels', 'You win', 'Game over'].every((n) => names.includes(n)), names.join(', '));
+  check('each level is longer than the one before, and has three gems and a star at the end', levels.every((s, i) => (i === 0 || s.width > levels[i - 1].width) && s.objects.filter((o) => o.tags.includes('الماس')).length === 3 && has(s, 'پایان')), levels.map((s) => s.width).join(','));
+  check('level 2 brings enemies, level 3 moving planks, level 4 spikes, a key and a gate', has(levels[1], 'دشمن') && levels[2].objects.some((o) => o.name.startsWith('سکوی متحرک')) && has(levels[3], 'تیغ') && has(levels[3], 'کلید') && has(levels[3], 'دروازه'));
+  const ls = project.scenes.find((s) => s.name === 'Levels');
+  check('the levels screen has a button for each level, laid out in rows, locked until earned', ls.objects.filter((o) => o.name.startsWith('دکمه‌ی مرحله ')).length === 5 && ls.objects.some((o) => o.behaviors.some((b) => b.type === 'layout')) && ls.rules.some((r) => r.condition?.name === 'unlocked'));
+  const problems = await page.evaluate((p) => window.__editor.agent.check(p), project);
+  check('the flagship checks clean, with no warnings', problems.problems.length === 0 && problems.warnings.length === 0, [...problems.problems, ...problems.warnings.map((w) => w.text)].join(' | '));
+  check('flagship levels: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
 }
 
 await browser.close();
