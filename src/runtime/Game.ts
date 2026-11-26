@@ -383,6 +383,16 @@ export interface Profile {
   ms: Record<string, number>;
 }
 
+/** A place in a level where a player lost a life, got stuck or left (flagship Phase G). */
+export interface PlaytestMark {
+  scene: string;
+  kind: 'hurt' | 'stuck' | 'quit';
+  x: number;
+  y: number;
+  /** Seconds into the scene. */
+  t: number;
+}
+
 export interface GameState {
   mode: GameMode['kind'];
   scene: string;
@@ -589,6 +599,14 @@ export class Game {
   /** The middle the camera aims at (inside its dead zone), and how far it looks ahead now (flagship Phase F). */
   private cameraAim: Point | null = null;
   private lookAhead = 0;
+  /**
+   * Playtest marks (flagship Phase G): where, in which scene, the player lost a life, got stuck (no headway for
+   * eight seconds) or left the game. Kept while playing; the player saves them on the phone and sends them to the
+   * computer when testing on a phone; the editor shows them on the level.
+   */
+  readonly playtest: PlaytestMark[] = [];
+  private stuck: { x: number; y: number; since: number; marked: boolean; scene: string } | null = null;
+  private markView: Graphics | null = null;
   /** What is being measured, when the performance budget asks (Phase 5). */
   private profile: Profile | null = null;
   /** How deep functions and questions are calling each other now; a call past 32 deep is not made. */
@@ -1950,6 +1968,59 @@ export class Game {
     }
   }
 
+  /** The thing the camera follows: in a level, the player. */
+  private hero(): Entity | undefined {
+    return this.entities.find((e) => e.alive && !e.def.fixed && e.def.behaviors.some((b) => b.type === 'camera'));
+  }
+
+  /** Notes a playtest mark where the player is now (only while playing, only in a scene with a player). */
+  markPlaytest(kind: PlaytestMark['kind']): void {
+    const hero = this.mode.kind === 'play' ? this.hero() : undefined;
+    if (!hero) return;
+    this.playtest.push({ scene: this.scene.id, kind, x: Math.round(hero.x + hero.width / 2), y: Math.round(hero.y + hero.height), t: Math.round(this.time * 10) / 10 });
+    if (this.playtest.length > 300) this.playtest.shift();
+  }
+
+  /** Stuck: no more than 100 px of headway in eight seconds of a level marks the spot, once. */
+  private watchStuck(): void {
+    const hero = this.hero();
+    if (!hero) return;
+    const [x, y] = [hero.x + hero.width / 2, hero.y + hero.height];
+    const s = this.stuck;
+    if (!s || s.scene !== this.scene.id || Math.hypot(x - s.x, y - s.y) > 100) {
+      this.stuck = { x, y, since: this.time, marked: false, scene: this.scene.id };
+      return;
+    }
+    if (!s.marked && this.time - s.since > 8) {
+      s.marked = true;
+      this.markPlaytest('stuck');
+    }
+  }
+
+  /** Editor: shows playtest marks on the scene being edited: red where lives were lost, orange stuck, grey left. */
+  showMarks(marks: PlaytestMark[]): void {
+    this.markView?.destroy();
+    this.markView = null;
+    const here = marks.filter((m) => m.scene === this.scene.id);
+    if (!here.length) return;
+    const g = new Graphics();
+    for (const m of here) {
+      const [x, y] = [m.x, m.y - 30];
+      if (m.kind === 'hurt') {
+        g.circle(x, y, 22).fill({ color: '#ff3b47', alpha: 0.85 }).stroke({ width: 4, color: '#ffffff' });
+        g.moveTo(x - 9, y - 9).lineTo(x + 9, y + 9).moveTo(x + 9, y - 9).lineTo(x - 9, y + 9).stroke({ width: 5, color: '#ffffff' });
+      } else if (m.kind === 'stuck') {
+        g.circle(x, y, 22).fill({ color: '#ff9f1c', alpha: 0.85 }).stroke({ width: 4, color: '#ffffff' });
+        g.rect(x - 3, y - 12, 6, 14).fill('#ffffff').circle(x, y + 9, 3.5).fill('#ffffff');
+      } else {
+        g.roundRect(x - 20, y - 20, 40, 40, 8).fill({ color: '#5c6b7a', alpha: 0.85 }).stroke({ width: 4, color: '#ffffff' });
+        g.moveTo(x - 8, y).lineTo(x + 10, y).stroke({ width: 5, color: '#ffffff' });
+      }
+    }
+    this.world.addChild(g);
+    this.markView = g;
+  }
+
   /** Keeps the picture an object shows now, to fade out under the new animation that replaces it (ImageVisual.blend). */
   private fadeFrom(e: Entity, seconds: number): void {
     const view = e.view;
@@ -2321,6 +2392,7 @@ export class Game {
     this.refreshTexts(spawned.length > 0 || this.valuesChanged);
     this.valuesChanged = false;
     if (this.profile) t = this.lap('pictures and texts', t);
+    this.watchStuck();
 
     if (this.hasStick) {
       const finger = [...this.pointers.values()].find((p) => !p.drag && !this.onControl({ x: p.startX, y: p.startY }));
@@ -3604,6 +3676,8 @@ export class Game {
   }
 
   setValueOf(name: string, value: number): void {
+    // A life lost: where it happened, for the playtest marks (every genre game counts lives in "lives").
+    if (name === 'lives' && value < (this.variables.get(name) ?? 0)) this.markPlaytest('hurt');
     this.variables.set(name, value);
     if (this.project.variables.find((v) => v.name === name)?.saved) this.writeSaved(name, value);
   }

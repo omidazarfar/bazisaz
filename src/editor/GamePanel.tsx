@@ -12,6 +12,7 @@ import { isListUsed, isVariableUsed, keepVersion, listVersions, makeObject, newI
 import { animatedVisual, importAtlas } from './atlas';
 import { placeTiled } from './tiled';
 import { FeelPanel } from './FeelPanel';
+import { PlaytestPanel } from './PlaytestPanel';
 import { SfxMaker } from './SfxMaker';
 import { MusicMaker } from './MusicMaker';
 import { SceneMap } from './SceneMap';
@@ -542,6 +543,8 @@ export function GamePanel({ editor }: { editor: Editor }) {
       </Section>
 
       <FeelPanel editor={editor} />
+
+      <PlaytestPanel editor={editor} />
 
       <Section title="اپ اندروید" about="این‌ها برای ساختن فایل نصب و گذاشتن بازی در Google Play لازم‌اند.">
         <TextField

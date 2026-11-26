@@ -267,7 +267,7 @@ function startExport(project, icons) {
 // only when the user first asks to try a game on a phone.
 
 const PHONE_PORT = Number(process.env.PHONE_PORT ?? 5181);
-const phone = { project: null, version: 0, server: null, reports: new Map() };
+const phone = { project: null, version: 0, server: null, reports: new Map(), marks: [] };
 
 /** This computer's addresses on its local networks, where a phone can reach it. */
 function lanAddresses() {
@@ -289,9 +289,10 @@ const RELOAD = (version) =>
   `var id;try{id=sessionStorage.getItem('phone-id')||Math.random().toString(36).slice(2,10);sessionStorage.setItem('phone-id',id)}catch(e){id=Math.random().toString(36).slice(2,10)}` +
   `var errors=[];function note(m){errors.push(String(m).slice(0,160));if(errors.length>3)errors.shift()}` +
   `addEventListener('error',function(e){note(e.message)});var ce=console.error;console.error=function(){note([].join.call(arguments,' '));return ce.apply(console,arguments)};` +
-  `var frames=0,since=performance.now();(function count(){frames++;requestAnimationFrame(count)})();` +
+  `var frames=0,since=performance.now(),sent=0;(function count(){frames++;requestAnimationFrame(count)})();` +
   `setInterval(function(){var now=performance.now(),fps=Math.round(frames*1000/(now-since));frames=0;since=now;var s=null;try{s=window.__game&&window.__game.getState()}catch(e){}` +
-  `var q='id='+id+'&fps='+fps+'&v='+v+'&scene='+encodeURIComponent(s?s.scene:'')+'&light='+(s&&s.light?1:0)+'&ua='+encodeURIComponent(navigator.userAgent.slice(0,200))+'&errors='+encodeURIComponent(JSON.stringify(errors));` +
+  `var m=(window.__game&&window.__game.playtest)||[];if(m.length<sent)sent=0;var fresh=m.slice(sent).slice(-20);sent=m.length;` +
+  `var q='id='+id+'&fps='+fps+'&v='+v+'&scene='+encodeURIComponent(s?s.scene:'')+'&light='+(s&&s.light?1:0)+'&ua='+encodeURIComponent(navigator.userAgent.slice(0,200))+'&errors='+encodeURIComponent(JSON.stringify(errors))+'&marks='+encodeURIComponent(JSON.stringify(fresh));` +
   `fetch('/report?'+q,{cache:'no-store'}).catch(function(){})},2000)})()`;
 
 /** A phone's model, as far as its browser says: the part of the user agent in brackets, without the noise. */
@@ -320,6 +321,15 @@ function startPhoneServer() {
         });
         // Only a handful of phones are ever looked at; forget the oldest beyond that.
         if (phone.reports.size > 8) phone.reports.delete(phone.reports.keys().next().value);
+        // Playtest marks (flagship Phase G): where testers lost a life, got stuck or left, for the editor to show.
+        try {
+          const marks = JSON.parse(q.get('marks') ?? '[]');
+          for (const m of Array.isArray(marks) ? marks.slice(0, 20) : []) {
+            if (!m || !['hurt', 'stuck', 'quit'].includes(m.kind) || !Number.isFinite(m.x) || !Number.isFinite(m.y)) continue;
+            phone.marks.push({ scene: String(m.scene ?? '').slice(0, 60), kind: m.kind, x: Math.round(m.x), y: Math.round(m.y), t: Number(m.t) || 0, phone: id, version: Number(q.get('v')) || 0 });
+          }
+          if (phone.marks.length > 2000) phone.marks.splice(0, phone.marks.length - 2000);
+        } catch { /* A broken report keeps its numbers. */ }
         return send(res, 200, { ok: true });
       }
       if (url.pathname === '/' && phone.project) return send(res, 200, await playerWith(phone.project, RELOAD(phone.version)));
@@ -406,6 +416,12 @@ const server = createServer(async (req, res) => {
       const devices = [...phone.reports.values()].filter((r) => now - r.at < 10000).sort((a, b) => b.at - a.at)
         .map((r) => ({ ...r, current: r.version === phone.version, seen: now - r.at }));
       return send(res, 200, { on: Boolean(phone.server), version: phone.version, devices });
+    }
+    // Playtest marks from testers' phones (flagship Phase G); cleared to start a new round of tests.
+    if (route === 'GET /api/phone/playtest') return send(res, 200, { marks: phone.marks });
+    if (route === 'POST /api/phone/playtest/clear') {
+      phone.marks = [];
+      return send(res, 200, { ok: true });
     }
     if (route === 'POST /api/phone/stop') {
       stopPhoneServer();

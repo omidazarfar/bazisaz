@@ -424,6 +424,26 @@ how to see it, what to try or film, the next phase).
 - Tests (art.smoke): a step inside the dead zone leaves the view still, a big one moves it by what is past the
   zone; running right, the view looks ~150 px ahead; the "tight" preset sets all five levels at once.
 
+### Flagship Phase G progress (playtests)
+
+- Sharing: "امتحان روی گوشی" (the phone server, QR code) is the way to put the game in a tester's hands on the
+  same Wi-Fi; nothing new was needed for it.
+- Runtime: `Game.playtest` marks (`PlaytestMark`: scene, kind hurt|stuck|quit, x, y at the player's feet, t):
+  a life lost (the variable `lives` going down, the convention of every genre game), eight seconds with under
+  100 px of headway (once per spot), and leaving (the player's `pagehide`, which also keeps them in
+  localStorage `playtest:<appId>`). The player is the object the camera follows.
+- Phone server: each report carries up to 20 new marks (`marks=`); the local server keeps up to 2000;
+  `GET /api/phone/playtest`, `POST /api/phone/playtest/clear`.
+- Editor: Game tab «امتحان با دیگران» (src/editor/PlaytestPanel.tsx): shows the try-outs' and the phones' marks
+  on the scene being edited (`Game.showMarks`: red circle with a cross, orange with "!", grey square), counts
+  per kind, and clears for a new round.
+- GUIDE-fa «امتحان با دیگران»: how to share, what the marks mean, a Persian checklist for watching 3–5 people
+  play (no help, what to note, three questions, film it), then fix the top three and test again.
+- Tests: art.smoke (hurt, stuck and quit marked at the player's place; the editor draws a scene's marks and
+  takes them away), server.smoke (marks come with a report, a bad one is left out, cleared). Passed locally.
+- **Owner's part, not doable by the agent:** watching real people play, fixing the top problems they find, and
+  a second round.
+
 ### Later (small things noticed, not blocking the phase)
 
 - GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale

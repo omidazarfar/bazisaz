@@ -508,6 +508,39 @@ await page.close();
     return { ahead: g.camera.x + view / 2 - (hero.x + hero.width / 2) };
   });
   check('camera: running right, the view looks about 150 px ahead', ahead.ahead > 130 && ahead.ahead <= 151, JSON.stringify(ahead));
+
+  // Playtest marks (flagship Phase G): a life lost marks the spot, eight seconds without headway marks "stuck".
+  const marks = await run({}, () => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    const hero = g.entities.find((e) => e.def.id === 'hero');
+    g.setValueOf('lives', 3);
+    g.advance(1 / 60);
+    g.setValueOf('lives', 2);
+    for (let i = 0; i < 9 * 60; i++) g.advance(1 / 60);
+    g.markPlaytest('quit');
+    g.app.ticker.start();
+    return { marks: g.playtest, hero: [Math.round(hero.x + hero.width / 2), Math.round(hero.y + hero.height)] };
+  });
+  check('playtest: a life lost, stuck for eight seconds and leaving are marked where the player was',
+    marks.marks.map((m) => m.kind).join() === 'hurt,stuck,quit' && marks.marks.every((m) => m.x === marks.hero[0] && m.y === marks.hero[1] && m.scene === 's'), JSON.stringify(marks));
+}
+{
+  // The editor shows marks on the scene being edited.
+  const { page, errors } = await openPage(browser, editorUrl, { viewport: { width: 1440, height: 900 } });
+  await page.waitForFunction(() => window.__game && window.__editor, { timeout: 60000 });
+  const shown = await page.evaluate(() => {
+    const g = window.__game;
+    const scene = window.__editor.getState().sceneId;
+    const before = g.world.children.length;
+    g.showMarks([{ scene, kind: 'hurt', x: 200, y: 400, t: 1 }, { scene, kind: 'stuck', x: 300, y: 400, t: 2 }, { scene: 'elsewhere', kind: 'quit', x: 0, y: 0, t: 3 }]);
+    const after = g.world.children.length;
+    g.showMarks([]);
+    return { before, after, cleared: g.world.children.length };
+  });
+  check('playtest: the editor draws the marks of this scene on it, and takes them away', shown.after === shown.before + 1 && shown.cleared === shown.before, JSON.stringify(shown));
+  check('playtest marks in the editor: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
 }
 
 await browser.close();

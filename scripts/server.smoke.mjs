@@ -117,6 +117,13 @@ try {
   await report('abc123', 41);
   const later = await (await fetch(`${base}/api/phone/status`)).json();
   check('a phone that reports again is updated, not listed twice', later.devices.length === 1 && later.devices[0].fps === 41);
+  // Playtest marks (flagship Phase G) come with the reports, for the editor to show on the level; a bad one is left out.
+  const marks = [{ scene: 's1', kind: 'hurt', x: 400, y: 900, t: 3.2 }, { scene: 's1', kind: 'stuck', x: 900, y: 960, t: 12 }, { scene: 's1', kind: 'nonsense', x: 1, y: 1 }];
+  await report('abc123', 40, `&marks=${encodeURIComponent(JSON.stringify(marks))}`);
+  const tested = await (await fetch(`${base}/api/phone/playtest`)).json();
+  check('playtest marks from a phone reach the editor (two good ones of three)', tested.marks.length === 2 && tested.marks[0].kind === 'hurt' && tested.marks[1].x === 900, JSON.stringify(tested));
+  await fetch(`${base}/api/phone/playtest/clear`, { method: 'POST' });
+  check('and are cleared for a new round', (await (await fetch(`${base}/api/phone/playtest`)).json()).marks.length === 0);
   // A real browser the size of a phone opens the game, plays it, and its own report reaches the editor.
   const browser = await launch();
   try {

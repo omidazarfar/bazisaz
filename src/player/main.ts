@@ -45,6 +45,16 @@ async function main(): Promise<void> {
       onShowRewardedAd: () => ads.showRewarded(),
     });
     void startAds(project.ads).then((started) => (ads = started));
+    // Playtest marks (flagship Phase G): leaving the game is one; they are kept on the phone when it goes.
+    const game = window.__game;
+    addEventListener('pagehide', () => {
+      game.markPlaytest('quit');
+      try {
+        localStorage.setItem(`playtest:${project.app.appId}`, JSON.stringify(game.playtest.slice(-300)));
+      } catch {
+        // No storage here; the marks were for this visit only.
+      }
+    });
 
     if (window.__GAME_PROJECT__ && window.__WATERMARK__ !== false) showWatermark();
   } catch (error) {
