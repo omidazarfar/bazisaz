@@ -126,6 +126,7 @@ export const BEHAVIOR_GROUPS = withRest<Behavior['type']>([
   { title: 'فیزیک و دوربین', types: ['body', 'physics', 'joint', 'field', 'camera'] },
   { title: 'ساختن و از بین رفتن', types: ['spawner', 'lifetime'] },
   { title: 'جلوه‌ی ظاهری', types: ['animate', 'particles', 'light', 'rotate', 'pulse', 'blink', 'trail', 'scrollImage'] },
+  { title: 'منو و دکمه', types: ['slider', 'layout'] },
 ], BEHAVIOR_BLOCKS);
 
 export const TRIGGER_GROUPS = withRest<Trigger['type']>([

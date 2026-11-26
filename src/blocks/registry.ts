@@ -124,6 +124,8 @@ import { call } from './actions/call';
 import { forEach, listAdd, listCount, listGet, listRemove } from './actions/lists';
 import { asked } from './triggers/asked';
 import { called } from './triggers/called';
+import { layout } from './behaviors/layout';
+import { slider } from './behaviors/slider';
 import type { ActionBlock, BehaviorBlock, TriggerBlock } from './types';
 
 /**
@@ -218,6 +220,8 @@ const behaviors = [
   spawner, lifetime,
   // Looks.
   animate, particles, light, rotate, pulse, blink, trail, scrollImage,
+  // Menus (flagship Phase D).
+  slider, layout,
 ] as const;
 export const BEHAVIOR_BLOCKS = behaviors as unknown as readonly BehaviorBlock[];
 

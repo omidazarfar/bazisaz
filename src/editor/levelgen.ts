@@ -173,8 +173,17 @@ const NATURAL: readonly string[] = ['grass', 'dirt', 'sand', 'snow', 'stone'];
 
 /** Another place and weather: the backdrop, what falls from the sky, and ground of another material. Dark scenes stay dark. */
 function newLook(scene: Scene, n: number, rnd: () => number): Scene {
-  if ((scene.darkness ?? 0) > 0.3 || !scene.sky || scene.sky === 'none' || scene.sky === 'space' || scene.sky === 'cave') return scene;
+  if ((scene.darkness ?? 0) > 0.3 || !scene.sky || scene.sky === 'space' || scene.sky === 'cave') return scene;
   const theme = THEMES[(n + Math.floor(rnd() * THEMES.length)) % THEMES.length];
+  // A scene with a backdrop of its own pictures (no painted sky, like the flagship's): its pictures stay, only the
+  // weather changes, never to none.
+  if (scene.sky === 'none') {
+    // Only an outdoor backdrop of pictures (one repeating sideways, further off); a dark dungeon floor is not a sky.
+    const backdrop = scene.objects.some((o) => o.visual.kind === 'image' && o.visual.repeat === 'x' && (o.parallax ?? 1) < 1);
+    if (!backdrop) return scene;
+    const weathers = THEMES.map((t) => t.weather).filter((w) => w !== 'none');
+    return { ...scene, weather: weathers[(n + Math.floor(rnd() * weathers.length)) % weathers.length] };
+  }
   const objects = scene.objects.map((o): GameObject => {
     if (o.visual.kind !== 'tiles') return o;
     const kinds = Object.fromEntries(Object.entries(o.visual.kinds).map(([k, kind]) => [k, kind.style && NATURAL.includes(kind.style) && !kind.asset ? { ...kind, style: theme.tiles } : kind]));
@@ -338,7 +347,7 @@ export function generateLevels(project: GameProject, sceneId: string, options: L
       options.faster && hasFoes ? `دشمن‌ها ${Math.round((f - 1) * 100).toLocaleString('fa-IR')}٪ تندتر` : '',
       options.fewerTries && tries ? 'حرکت یا تیر کمتر' : '',
       options.fewerTries && scoreGoal ? 'امتیاز بیشتری برای برد' : '',
-      options.newLook && scene.sky !== source.sky ? 'منظره‌ی تازه' : '',
+      options.newLook && (scene.sky !== source.sky || scene.weather !== source.weather) ? 'منظره‌ی تازه' : '',
     ].filter(Boolean).join('، ');
     changes.push(`مرحله‌ی ${(n + 1).toLocaleString('fa-IR')}: ${said || 'مثل قبلی'}`);
     p = { ...p, scenes: p.scenes.map((s) => (s.id === copy.id ? scene : s)) };

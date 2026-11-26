@@ -218,6 +218,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
             { value: FONTS[0], label: 'Fredoka — گرد و دوستانه' },
             { value: FONTS[1], label: 'Bangers — کمیک و پرانرژی' },
             { value: FONTS[2], label: 'Press Start 2P — پیکسلی، قدیمی' },
+            { value: FONTS[3], label: 'Kenney Future — گرد و مرتب، برای منو' },
           ]}
           onChange={(fontFamily) => setMeta({ fontFamily }, 'font')}
         />

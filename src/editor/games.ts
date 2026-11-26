@@ -1,5 +1,6 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TilesVisual, Visual } from '../format/types';
 import { CRATE, DANGER, GROUND, physics, PLAYER, THROWN, withVariable } from './presets';
+import { flagshipHud, flagshipScreens } from './flagship';
 import { packAnimation, packCharacter, packPicture, packTerrain, packTrimmed, type Sheet } from './packs/kenney';
 import { addAll, addClockwork, addRescueRig, badge, byId, byTag, label, picture, RECIPES, rule, title, withItem, withRules } from './recipes';
 import { SPRITES, useSprite } from './sprites';
@@ -374,7 +375,8 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   objects.push(player);
   p = addAll(p, sceneId, objects);
 
-  const screen = await screens(p, sceneId, { name: 'SKY QUEST', hero: 'hero', sky: 'sunset', music: 'music:happy' });
+  // The flagship's own screens, made of Kenney's UI kit (src/editor/flagship.ts, flagship Phase D).
+  const screen = await flagshipScreens(p, sceneId, 'Sky Quest');
   p = screen.project;
   // Every prize does the same few things with a different number of points: one function, "reward", with
   // the points as its input (Phase 4), called by the coin, the gem, the squashed enemy and the trophy.
@@ -434,6 +436,8 @@ export async function buildPlatformer(project: GameProject, sceneId: string): Pr
   p = updateScene(p, sceneId, (sc) => ({ ...sc, objects: sc.objects.map((o) => (o.id === player.id
     ? { ...o, behaviors: [...o.behaviors, { type: 'moves', wallJump: true, dash: true, dashTag: DASH, climbTag: '', pound: true, poundTag: DOWN }] }
     : o)) }));
+  // The HUD and pause menu redrawn in the UI kit, anchored and coming in (flagship Phase D).
+  p = await flagshipHud(p, sceneId);
   return {
     project: p,
     select: player.id,

@@ -1402,6 +1402,8 @@ export class Game {
     this.flights = [];
     this.bagDrag = null;
     this.tweens = [];
+    // Entrances (pop, slide, fade) start now that the old scene's tweens are gone.
+    if (this.mode.kind === 'play') this.enterAll();
     this.died = [];
     this.rewards = 0;
     this.paused = false;
@@ -1803,7 +1805,7 @@ export class Game {
         const text = new Text({
           text: '',
           style: {
-            fontFamily: [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'],
+            fontFamily: [v.font ?? this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'],
             fontSize: v.size,
             fontWeight: v.weight ?? 'normal',
             fill: color,
@@ -1914,6 +1916,34 @@ export class Game {
       ghost.rotation = view.rotation;
       ghost.visible = view.visible;
       ghost.alpha = view.alpha * (e.fading!.left / e.fading!.span);
+    }
+  }
+
+  /** Things with an entrance come in as their scene starts: pop, fade, or slide in from an edge (flagship Phase D). */
+  private enterAll(): void {
+    const { width: W, height: H } = this.view;
+    // Rows and columns are laid out first, so that what slides in slides to its place in them.
+    for (const e of this.entities) for (const b of e.def.behaviors) if (b.type === 'layout') behaviorBlocks.get('layout')?.step?.(this, e, b as never, {} as BehaviorStep);
+    for (const e of this.entities) {
+      const enter = e.def.enter;
+      if (!enter) continue;
+      const seconds = Math.max(0.05, enter.seconds ?? 0.45);
+      // Waiting its turn: the tween starts this far back, and holds its first pose until then.
+      const elapsed = -Math.max(0, enter.delay ?? 0);
+      if (enter.kind === 'pop') {
+        e.scale = 0;
+        this.tweens.push({ entity: e, kind: 'grow', elapsed, seconds, from: { x: 0, y: 0 }, to: { x: 0, y: 0 }, ease: 'back' });
+      } else if (enter.kind === 'fade') {
+        e.fade = 0;
+        this.tweens.push({ entity: e, kind: 'fadeIn', elapsed, seconds, from: { x: 0, y: 0 }, to: { x: 0, y: 0 } });
+      } else {
+        const to = { x: e.x, y: e.y };
+        // From just beyond that edge of the screen (or of the view, for things in the world).
+        const far = { 'from-top': { x: to.x, y: -e.height - 20 }, 'from-bottom': { x: to.x, y: H + 20 }, 'from-left': { x: -e.width - 20, y: to.y }, 'from-right': { x: W + 20, y: to.y } }[enter.kind];
+        const from = e.def.fixed ? far : { x: far.x + this.camera.x, y: far.y + this.camera.y };
+        this.place(e, from.x, from.y);
+        this.tweens.push({ entity: e, kind: 'glide', elapsed, seconds, from, to, ease: 'back' });
+      }
     }
   }
 
@@ -2905,7 +2935,7 @@ export class Game {
     for (const t of this.tweens) {
       const e = t.entity;
       t.elapsed = Math.min(t.seconds, t.elapsed + dt);
-      const part = t.elapsed / t.seconds;
+      const part = Math.max(0, t.elapsed) / t.seconds;
       const done = part >= 1;
       switch (t.kind) {
         case 'pop':
@@ -4507,10 +4537,19 @@ export class Game {
       // The outermost other fixed thing it sits inside decides where it goes (never a whole-screen cover), so a
       // word on a button on a menu moves with the menu, as the button does: going by the button, a word on a
       // button low on the menu went to the bottom while its button stayed with the menu.
-      const holder = fixed
+      const outer = fixed
         .map((o) => ({ o, b: this.hudBase.get(o)! }))
         .filter(({ o, b }) => o !== e && !cover(b) && b.width * b.height > base.width * base.height && contains(b, centre))
-        .sort((a, b) => b.b.width * b.b.height - a.b.width * a.b.height)[0]?.b ?? base;
+        .sort((a, b) => b.b.width * b.b.height - a.b.width * a.b.height)[0];
+      const holder = outer?.b ?? base;
+      // An anchor, its own or its holder's, says outright which edge it keeps to (flagship Phase D).
+      const anchor = (outer?.o ?? e).def.anchor ?? e.def.anchor;
+      if (anchor) {
+        const [sx, sy] = ANCHORS[anchor];
+        e.x = base.x + moreW * sx;
+        e.y = base.y + moreH * sy;
+        continue;
+      }
       const at = { x: holder.x + holder.width / 2, y: holder.y + holder.height / 2 };
       e.x = base.x + moreW * share(at.x, W);
       e.y = base.y + moreH * share(at.y, H);
@@ -4556,6 +4595,12 @@ function autotileAsset(kind: TileKind, open: OpenSides): string | undefined {
   const mask = (open.top ? 0 : 1) | (open.right ? 0 : 2) | (open.bottom ? 0 : 4) | (open.left ? 0 : 8);
   return kind.autotile?.[mask] || kind.asset;
 }
+
+/** Where each anchor keeps a thing: the share of the screen's extra width and height it moves by. */
+const ANCHORS: Record<NonNullable<GameObject['anchor']>, [number, number]> = {
+  'top-left': [0, 0], top: [0.5, 0], 'top-right': [1, 0], left: [0, 0.5], center: [0.5, 0.5], right: [1, 0.5],
+  'bottom-left': [0, 1], bottom: [0.5, 1], 'bottom-right': [1, 1],
+};
 
 function tileSides(tiles: TilesVisual, r: number, c: number): OpenSides {
   const filled = (row: number, col: number) => {

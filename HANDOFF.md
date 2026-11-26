@@ -348,6 +348,31 @@ how to see it, what to try or film, the next phase).
 - Tests (art.smoke): arm and hand follow a turning body with no lag (listed child first), within 0.5 px; the
   old picture fades out over the blend time and goes. Passed locally.
 - Phase 5 on CI (run 68): the stress step was 5.86 ms on average (budget 8).
+- CI for Phases A–C (run 73, all bots at 29b40ad): 13 of 16 win; platform (the new Sky Quest) wins; lost:
+  platform-levels, tower-levels, bricks-levels, the three known ones. adventure-levels before/after Phase 5
+  (runs 70, 71): 3 of 4 and 2 of 4, luck.
+
+### Flagship Phase D progress (a real UI kit)
+
+- Kenney UI Pack 2.0 (CC0) pieces in src/editor/packs/kenney-ui/ and the Kenney Future font
+  (src/runtime/kenney-future.ttf, in FONTS); CREDITS.md lists both. sound.ts `setVolumes(effects, music)`.
+- Engine: `GameObject.anchor` (9 edges/corners; placeOnScreen uses it instead of the thirds guess; a holder's
+  anchor wins for what sits on it); `GameObject.enter` (pop, fade, from-top/bottom/left/right, delay, seconds;
+  `Game.enterAll` runs after loadScene's tween reset; tweens with a negative elapsed wait); `TextVisual.font`;
+  behaviors `slider` (a knob on a track group sets a value, or the effects or music volume) and `layout` (a
+  group in a row or column, centred in this object, with a gap, what sits on each moved along; laid out before
+  entrances). Inspector: anchor, entrance and its delay, a text's font; Game tab font list has Kenney Future.
+- src/editor/flagship.ts: `flagshipScreens` (Start: title, hero, green Play 220×220 as the bots expect, a
+  settings panel with Sound and Music sliders; You win: panel, three stars popping in turn, score, Play again
+  and Menu; Game over: panel, score, round retry) and `flagshipHud` (score in a nine-slice panel with Kenney's
+  coin, Kenney hearts, a yellow round pause button, the pause menu as a nine-slice panel with green and yellow
+  buttons, round grey control buttons with yellow arrows; all anchored and entering). Other genres unchanged.
+- The level maker, for a scene with its own picture backdrop (sky none and a far picture repeating sideways:
+  the flagship), changes only the weather (never to none), not the backdrop. This fixes editor.smoke's "the
+  place and weather change", which failed on CI after Phase B (run 74).
+- Tests (art.smoke): anchors on a tall phone, a row laid out, a pop that waits its delay, a slide from the
+  left, a text in Kenney Future, a slider dragged to 100 and to about half. Passed locally.
+- Not done: the level select (with the five levels, Phase E).
 
 ### Later (small things noticed, not blocking the phase)
 
@@ -941,14 +966,3 @@ say so in the log.
 - Tests: 442 PASS, 0 FAIL.
 - Left open: phone testing (owner), AI helper (hosting).
 
-### Flagship Phase D: STARTED, not finished (2026-11-26 night, usage limit)
-
-- In the repo: Kenney UI Pack 2.0 pieces (CC0) in src/editor/packs/kenney-ui/ (buttons, sliders, stars, icons,
-  three sounds, License.txt) and the Kenney Future font (src/runtime/kenney-future.ttf); setVolumes() in
-  src/runtime/sound.ts (effects and music volume, 0 to 1). Nothing uses them yet; add them to CREDITS.md.
-- Planned next (a script for it failed to apply, nothing written): FONTS gains Kenney Future (+ fonts.ts),
-  TextVisual.font, GameObject.anchor (9 edges/corners, used by placeOnScreen; holder anchor wins),
-  GameObject.enter (pop, fade, from-top/bottom/left/right, delay; tweens with negative elapsed), a slider
-  behavior (knob on a track: a value, or effects/music volume), a layout behavior (row/column/centre), then
-  the flagship menus rebuilt with them. Then Phases E, F, G.
-- CI: bots for 29b40ad (Phases A-C) were started (CI_REF run); adventure-levels x4 before/after Phase 5 too.

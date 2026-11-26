@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { TerrainEditor } from './TerrainEditor';
-import { ruleActions, type Behavior, type GameObject, type Rule, type Trigger, type Visual } from '../format/types';
+import { FONTS, ruleActions, type Behavior, type GameObject, type Rule, type Trigger, type Visual } from '../format/types';
 import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextField } from './controls';
 import type { Editor } from './editor';
 import { Fields } from './Fields';
@@ -316,6 +316,8 @@ export function Inspector({ editor }: { editor: Editor }) {
         )}
         {visual.kind === 'text' && (
           <>
+            <Select label="فونت همین متن" value={visual.font ?? ''} options={[{ value: '', label: 'فونت بازی' }, ...FONTS.map((f) => ({ value: f, label: f }))]}
+              onChange={(font) => update('visual.font', (o) => { const { font: _old, ...rest } = visual; return { ...o, visual: font ? { ...rest, font: font as (typeof FONTS)[number] } : rest }; })} />
             <Check label="دور حرف‌ها خط داشته باشد" hint="متن روی هر پس‌زمینه‌ای خوانا می‌ماند." value={Boolean(visual.outline)} // The line starts in a colour that contrasts with the letters, or it would swallow them.
               onChange={(on) => setVisual('outline.on', { outline: !on ? null : visual.color.toLowerCase() === '#ffffff' ? '#1b3a4b' : '#ffffff' })} />
             {visual.outline && <ColorField label="رنگ خط دور" value={visual.outline} onChange={(outline) => setVisual('outline', { outline })} />}
@@ -449,6 +451,39 @@ export function Inspector({ editor }: { editor: Editor }) {
           value={object.fixed ?? false}
           onChange={(fixed) => update('fixed', (o) => ({ ...o, fixed }))}
         />
+        {object.fixed && (
+          <Select
+            label="روی گوشی‌های بلندتر یا پهن‌تر، کنار کدام لبه بماند"
+            hint="مثلاً دکمه‌ی مکث «بالا راست»، منو «وسط»، دکمه‌های حرکت «پایین چپ». «خودکار» یعنی بسته به اینکه در کدام یک‌سوم صفحه است. چیزهایی که روی آن‌اند (نوشته‌ی روی دکمه) با آن می‌روند."
+            value={object.anchor ?? ''}
+            options={[
+              { value: '', label: 'خودکار' }, { value: 'top-left', label: 'بالا چپ' }, { value: 'top', label: 'بالا' }, { value: 'top-right', label: 'بالا راست' },
+              { value: 'left', label: 'چپ' }, { value: 'center', label: 'وسط' }, { value: 'right', label: 'راست' },
+              { value: 'bottom-left', label: 'پایین چپ' }, { value: 'bottom', label: 'پایین' }, { value: 'bottom-right', label: 'پایین راست' },
+            ]}
+            onChange={(anchor) => update('anchor', (o) => {
+              const { anchor: _old, ...rest } = o;
+              return anchor ? { ...rest, anchor: anchor as NonNullable<typeof o.anchor> } : rest;
+            })}
+          />
+        )}
+        <Select
+          label="وقتی صحنه شروع می‌شود، چطور بیاید"
+          hint="برای منو و دکمه‌ها: پایین بیاید، بالا بیاید، از کنار سُر بخورد، بپرد بیرون یا آرام پیدا شود."
+          value={object.enter?.kind ?? ''}
+          options={[
+            { value: '', label: 'همان‌جا باشد' }, { value: 'pop', label: 'بپرد بیرون' }, { value: 'fade', label: 'آرام پیدا شود' },
+            { value: 'from-top', label: 'از بالا بیاید' }, { value: 'from-bottom', label: 'از پایین بیاید' }, { value: 'from-left', label: 'از چپ بیاید' }, { value: 'from-right', label: 'از راست بیاید' },
+          ]}
+          onChange={(kind) => update('enter', (o) => {
+            const { enter: old, ...rest } = o;
+            return kind ? { ...rest, enter: { ...old, kind: kind as NonNullable<typeof o.enter>['kind'] } } : rest;
+          })}
+        />
+        {object.enter && (
+          <Slider label="کمی دیرتر بیاید" unit="ثانیه" min={0} max={2} step={0.05} value={object.enter.delay ?? 0}
+            onChange={(delay) => update('enter.delay', (o) => ({ ...o, enter: { ...o.enter!, delay } }))} />
+        )}
         {!object.fixed && (
           <Slider
             label="عمق"

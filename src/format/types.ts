@@ -96,7 +96,7 @@ export interface SoundAsset {
 }
 
 /** Fonts a game's texts can be drawn in. All are bundled with the player. */
-export const FONTS = ['Fredoka', 'Bangers', 'Press Start 2P'] as const;
+export const FONTS = ['Fredoka', 'Bangers', 'Press Start 2P', 'Kenney Future'] as const;
 
 /** A number the game keeps track of. Texts show it by writing {name}. */
 /** A list the game keeps: numbers or text, in order. Its items are numbered from 1. */
@@ -242,6 +242,14 @@ export interface GameObject {
    * on-screen button. Its x and y are screen positions, not world positions.
    */
   fixed?: boolean;
+  /**
+   * For something fixed to the screen (flagship Phase D): which edge or corner it keeps its distance to when the
+   * phone's screen is taller or wider than the game's design, e.g. a pause button "top-right", a menu "center".
+   * Without it, it goes by which third of the screen it is in. Things inside it move with it.
+   */
+  anchor?: 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right';
+  /** How it comes in when its scene starts: pops up, slides in from a side, or fades in; after `delay` seconds. */
+  enter?: { kind: 'pop' | 'fade' | 'from-top' | 'from-bottom' | 'from-left' | 'from-right'; delay?: number; seconds?: number };
   /**
    * Scenery depth, for objects that are not fixed: 1 moves with the world, 0.5
    * drifts at half the camera's speed like distant hills. Looks only; what the
@@ -392,6 +400,8 @@ export interface TextVisual {
   color: string;
   size: number;
   weight?: 'normal' | 'bold';
+  /** One of FONTS instead of the game's own font, e.g. a title in Kenney Future. */
+  font?: (typeof FONTS)[number];
   /** Which point of the text sits at the object's x: its start, middle or end. */
   align?: 'left' | 'center' | 'right';
   /** Color of a line drawn around the letters, so text stays readable over any background; null for none. */

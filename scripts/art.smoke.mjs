@@ -224,5 +224,97 @@ await page.close();
   await page.close();
 }
 
+// ── The UI kit (flagship Phase D): anchors, entrances, a row laid out, a font, a slider ──
+{
+  const fixedRect = (id, x, y, w, h, ext = {}) => ({ id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#ffffff' }, tags: [], visible: true, behaviors: [], fixed: true, ...ext });
+  const project = {
+    formatVersion: 3, lists: [],
+    meta: { name: 'UiKit', orientation: 'portrait', width: 720, height: 1280, background: '#202833', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.uikit', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [{ name: 'v', initial: 0, saved: false }], startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      objects: [
+        fixedRect('pause', 620, 20, 90, 90, { anchor: 'top-right' }),
+        fixedRect('bar', 0, 1180, 720, 100, { anchor: 'bottom' }),
+        fixedRect('high', 300, 1000, 60, 60, { anchor: 'top' }),
+        fixedRect('panel', 160, 400, 400, 300, { behaviors: [{ type: 'layout', tag: 'item', direction: 'row', gap: 20 }] }),
+        fixedRect('i1', 10, 10, 80, 80, { tags: ['item'] }),
+        fixedRect('i2', 600, 700, 80, 80, { tags: ['item'] }),
+        fixedRect('i3', 300, 1100, 80, 80, { tags: ['item'] }),
+        fixedRect('popper', 320, 800, 80, 80, { enter: { kind: 'pop', delay: 0.3, seconds: 0.3 } }),
+        fixedRect('slider', 100, 300, 80, 40, { enter: { kind: 'from-left', seconds: 0.4 } }),
+        { ...fixedRect('title', 0, 0, 0, 0), x: 360, y: 200, visual: { kind: 'text', text: 'HELLO', color: '#ffffff', size: 60, font: 'Kenney Future' } },
+        fixedRect('track', 200, 900, 300, 20, { tags: ['track'] }),
+        fixedRect('knob', 200, 890, 40, 40, { behaviors: [{ type: 'slider', trackTag: 'track', sets: 'value', variable: 'v', min: 0, max: 100 }] }),
+      ],
+    }],
+  };
+  // A tall phone, filled to its edges.
+  {
+    const { page, errors } = await openPage(browser, playerUrl, { project, viewport: { width: 400, height: 866, deviceScaleFactor: 1 }, fill: true });
+    await until(page, () => window.__game, null, 30000);
+    const r = await page.evaluate(() => {
+      const g = window.__game;
+      g.app.ticker.stop();
+      const find = (id) => g.entities.find((e) => e.def.id === id);
+      const early = [];
+      for (let i = 0; i < 6; i++) {
+        g.advance(1 / 60);
+        early.push({ popper: Math.round(find('popper').scale * 100) / 100, slider: Math.round(find('slider').x) });
+      }
+      for (let i = 0; i < 60; i++) g.advance(1 / 60);
+      const items = ['i1', 'i2', 'i3'].map(find);
+      const panel = find('panel');
+      const left = Math.min(...items.map((e) => e.x));
+      const right = Math.max(...items.map((e) => e.x + e.width));
+      const title = find('title');
+      g.app.ticker.start();
+      return {
+        view: { w: g.view.width, h: g.view.height },
+        pause: [find('pause').x, find('pause').y], bar: find('bar').y, high: find('high').y,
+        rowCentre: (left + right) / 2, panelCentre: panel.x + panel.width / 2, rowY: items.map((e) => Math.round(e.y + e.height / 2)), panelY: Math.round(panel.y + panel.height / 2),
+        gaps: [items[1].x - (items[0].x + items[0].width), items[2].x - (items[1].x + items[1].width)].map(Math.round),
+        early, popper: find('popper').scale, slider: find('slider').x,
+        font: String(title.view.style?.fontFamily ?? ''),
+      };
+    });
+    const moreH = r.view.h - 1280;
+    check('the tall phone gives the game more height to lay out', moreH > 100, JSON.stringify(r.view));
+    check('anchors: "top-right" stays at the top, "bottom" moves to the bottom, "top" stays up although low on the screen',
+      r.pause[1] === 20 && Math.abs(r.bar - (1180 + moreH)) < 1 && r.high === 1000, JSON.stringify(r));
+    check('layout: the row is centred in the panel, at its middle height, 20 px apart', Math.abs(r.rowCentre - r.panelCentre) < 1 && r.rowY.every((y) => Math.abs(y - r.panelY) <= 1) && r.gaps.every((g) => g === 20), JSON.stringify(r));
+    check('entrances: a pop waits its delay at nothing, then grows to full size', r.early.slice(0, 4).every((e) => e.popper === 0) && Math.abs(r.popper - 1) < 0.01, JSON.stringify(r.early));
+    check('entrances: a slide from the left starts off the screen and ends in its place', r.early[0].slider < 0 && Math.abs(r.slider - 100) < 0.5, JSON.stringify(r.early));
+    check('a text can have its own font (Kenney Future)', r.font.includes('Kenney Future'), r.font);
+    await page.screenshot({ path: resolve(shots, 'ui-kit.png') });
+    check('UI kit: no errors in the page', errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+  // The design shape, for dragging the slider with a finger.
+  {
+    const { page, errors } = await openPage(browser, playerUrl, { project });
+    await until(page, () => window.__game && window.__game.getState().time > 0.5, null, 30000);
+    const { toPage } = await import('./lib.mjs');
+    const drag = async (x) => {
+      await page.mouse.move(...(await toPage(page, 220, 910)));
+      await page.mouse.down();
+      await page.mouse.move(...(await toPage(page, x, 910)), { steps: 6 });
+      await until(page, () => true);
+      await new Promise((r) => setTimeout(r, 300));
+      const v = await page.evaluate(() => window.__game.getState().variables.v);
+      await page.mouse.up();
+      return v;
+    };
+    const full = await drag(560);
+    const half = await drag(370);
+    check('a slider dragged to its right end sets its value to the most (100)', full === 100, `v ${full}`);
+    check('…and dragged to the middle, about half (40–60)', half >= 40 && half <= 60, `v ${half}`);
+    check('slider: no errors in the page', errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+}
+
 await browser.close();
 finish();
