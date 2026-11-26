@@ -69,6 +69,8 @@ const levels = [
     l.coins(5, 8, SURFACE - 2);
     for (const [a, b] of [[11, 12], [21, 23], [34, 35]]) { l.gap(a, b); l.arc(a, b); }
     l.put(16, 16, SURFACE - 1, SURFACE - 1, 'stone');
+    // One short row of spikes to hop over, on open ground.
+    l.thing('spikes', 18, SURFACE - 1, 1, 0.5);
     l.put(27, 28, SURFACE - 2, SURFACE - 1, 'stone');
     l.coins(27, 28, SURFACE - 4);
     l.put(40, 41, SURFACE - 1, SURFACE - 1, 'stone');

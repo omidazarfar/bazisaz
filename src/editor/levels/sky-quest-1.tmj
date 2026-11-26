@@ -10,7 +10,7 @@
  "tileheight": 80,
  "infinite": false,
  "nextlayerid": 3,
- "nextobjectid": 12,
+ "nextobjectid": 13,
  "properties": [
   {
    "name": "title",
@@ -940,13 +940,13 @@
     },
     {
      "id": 4,
-     "name": "gem 4",
-     "class": "gem",
-     "type": "gem",
-     "x": 1760,
-     "y": 480,
+     "name": "spikes 4",
+     "class": "spikes",
+     "type": "spikes",
+     "x": 1440,
+     "y": 920,
      "width": 80,
-     "height": 80,
+     "height": 40,
      "rotation": 0,
      "visible": true,
      "properties": []
@@ -956,7 +956,7 @@
      "name": "gem 5",
      "class": "gem",
      "type": "gem",
-     "x": 2240,
+     "x": 1760,
      "y": 480,
      "width": 80,
      "height": 80,
@@ -969,6 +969,19 @@
      "name": "gem 6",
      "class": "gem",
      "type": "gem",
+     "x": 2240,
+     "y": 480,
+     "width": 80,
+     "height": 80,
+     "rotation": 0,
+     "visible": true,
+     "properties": []
+    },
+    {
+     "id": 7,
+     "name": "gem 7",
+     "class": "gem",
+     "type": "gem",
      "x": 3040,
      "y": 640,
      "width": 80,
@@ -978,8 +991,8 @@
      "properties": []
     },
     {
-     "id": 7,
-     "name": "checkpoint 7",
+     "id": 8,
+     "name": "checkpoint 8",
      "class": "checkpoint",
      "type": "checkpoint",
      "x": 2000,
@@ -991,8 +1004,8 @@
      "properties": []
     },
     {
-     "id": 8,
-     "name": "bush 8",
+     "id": 9,
+     "name": "bush 9",
      "class": "bush",
      "type": "bush",
      "x": 2480,
@@ -1004,8 +1017,8 @@
      "properties": []
     },
     {
-     "id": 9,
-     "name": "checkpoint 9",
+     "id": 10,
+     "name": "checkpoint 10",
      "class": "checkpoint",
      "type": "checkpoint",
      "x": 2960,
@@ -1017,8 +1030,8 @@
      "properties": []
     },
     {
-     "id": 10,
-     "name": "slime 10",
+     "id": 11,
+     "name": "slime 11",
      "class": "slime",
      "type": "slime",
      "x": 3360,
@@ -1036,8 +1049,8 @@
      ]
     },
     {
-     "id": 11,
-     "name": "goal 11",
+     "id": 12,
+     "name": "goal 12",
      "class": "goal",
      "type": "goal",
      "x": 3760,
