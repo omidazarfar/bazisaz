@@ -586,6 +586,9 @@ export class Game {
   readonly textVariables = new Map<string, string>();
   /** The game's lists of numbers or text (Phase 4); they start again with the game, never kept on the device. */
   readonly lists = new Map<string, (number | string)[]>();
+  /** The middle the camera aims at (inside its dead zone), and how far it looks ahead now (flagship Phase F). */
+  private cameraAim: Point | null = null;
+  private lookAhead = 0;
   /** What is being measured, when the performance budget asks (Phase 5). */
   private profile: Profile | null = null;
   /** How deep functions and questions are calling each other now; a call past 32 deep is not made. */
@@ -2015,6 +2018,26 @@ export class Game {
     const [vw, vh] = [width / this.z, height / this.z];
     let wantX = target.x + target.width / 2 - vw / 2;
     let wantY = target.y + target.height / 2 - vh / 2;
+    // Game feel (flagship Phase F): a dead zone, looking ahead, and up and down only when standing.
+    if (camera?.type === 'camera' && !focus && !fresh) {
+      const [tx, ty] = [target.x + target.width / 2, target.y + target.height / 2];
+      const dead = Math.max(0, camera.deadZone ?? 0);
+      // The middle the camera aims at stays put while the thing is within the dead zone of it.
+      const aim = this.cameraAim ?? { x: tx, y: ty };
+      aim.x = clamp(aim.x, tx - dead, tx + dead);
+      const vertical = !camera.settle || target.grounded || Math.abs(ty - aim.y) > Math.max(dead, vh * 0.3);
+      if (vertical) aim.y = camera.settle && target.grounded ? ty : clamp(aim.y, ty - dead, ty + dead);
+      this.cameraAim = aim;
+      // Ahead of the way it is going, gliding there over about half a second as it turns.
+      const going = Math.abs(target.vx) > 20 ? Math.sign(target.vx) : 0;
+      const ahead = (camera.lookAhead ?? 0) * (going || (this.lookAhead === 0 ? 0 : Math.sign(this.lookAhead)));
+      this.lookAhead += (ahead - this.lookAhead) * (1 - Math.exp(-dt / 0.35));
+      wantX = aim.x + this.lookAhead - vw / 2;
+      wantY = aim.y - vh / 2;
+    } else if (fresh) {
+      this.cameraAim = null;
+      this.lookAhead = 0;
+    }
     // In a room, the view keeps within its walls; a room smaller than the view sits in its middle.
     const roomTag = camera?.type === 'camera' ? camera.roomTag : undefined;
     if (roomTag) {

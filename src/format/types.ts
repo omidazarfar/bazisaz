@@ -882,6 +882,15 @@ export interface CameraBehavior {
    * next room when it goes there. Empty or absent: the whole world.
    */
   roomTag?: string;
+  /**
+   * A box around the middle of the view, this many pixels each way, in which the followed thing moves without the
+   * camera moving: small steps and hops do not shake the view (flagship Phase F).
+   */
+  deadZone?: number;
+  /** How far the view looks ahead of the way it is going, in pixels, gliding there as it turns. */
+  lookAhead?: number;
+  /** A platformer camera: up and down it follows only when the thing stands on something (or leaves the dead zone). */
+  settle?: boolean;
 }
 
 /** Grows and shrinks gently, to draw the eye to a button or a prize. */

@@ -308,7 +308,8 @@ async function skyQuestLevel(project: GameProject, sceneId: string, n: number, s
           behaviors: [
             { type: 'body', gravity: true, solidTag: GROUND, bounce: 0, edges: 'stop', oneWay: false },
             { type: 'jumper', jumpSpeed: 1150, maxJumps: 2, on: 'tap', buttonTag: '' },
-            { type: 'camera', lock: 'free', smooth: 0.25 },
+            // A platformer camera (flagship Phase F): steady through small steps, ahead of the run, up and down on landing.
+            { type: 'camera', lock: 'free', smooth: 0.25, deadZone: 60, lookAhead: 140, settle: true },
           ],
         });
         break;

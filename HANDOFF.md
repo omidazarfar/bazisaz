@@ -409,6 +409,21 @@ how to see it, what to try or film, the next phase).
 - Not done: LDtk import; 47-tile sets; the .tmj tileset has no picture (Tiled shows the tiles blank; the game
   draws them with Kenney's art by class).
 
+### Flagship Phase F progress (camera and game feel)
+
+- `CameraBehavior.deadZone` (px each way the followed thing moves without the camera), `lookAhead` (px ahead of
+  the way it runs, gliding there over ~0.35 s when it turns), `settle` (up and down only when it stands, or when
+  it leaves the dead zone by more than 30% of the view): `Game.followCameraTarget` keeps `cameraAim` and
+  `lookAhead`; a fresh scene resets them. Room limits (roomTag) already existed and still clamp after. Camera
+  block fields (advanced). Sky Quest's hero: deadZone 60, lookAhead 140, settle.
+- src/editor/FeelPanel.tsx, Game tab «حس بازی» (when the scene has a jumping hero): jump height, air time, run
+  speed, time to full speed, camera look-ahead; three presets floaty / tight / heavy. `withFeel` writes them
+  into every scene with a jumping hero: gravity = 8h/T², jumpSpeed = 4h/T, walker speed and ease, camera
+  lookAhead. Sky Quest keeps its own feel (jump 275 px, 0.96 s; the bots are tuned to it) until the owner
+  chooses: the presets are for the owner to try and film.
+- Tests (art.smoke): a step inside the dead zone leaves the view still, a big one moves it by what is past the
+  zone; running right, the view looks ~150 px ahead; the "tight" preset sets all five levels at once.
+
 ### Later (small things noticed, not blocking the phase)
 
 - GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale

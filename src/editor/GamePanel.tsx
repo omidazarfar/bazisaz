@@ -11,6 +11,7 @@ import { pickFile, pickFiles, readDataUrl, readImage } from './images';
 import { isListUsed, isVariableUsed, keepVersion, listVersions, makeObject, newId, removeScene, updateScene, type Version } from './state';
 import { animatedVisual, importAtlas } from './atlas';
 import { placeTiled } from './tiled';
+import { FeelPanel } from './FeelPanel';
 import { SfxMaker } from './SfxMaker';
 import { MusicMaker } from './MusicMaker';
 import { SceneMap } from './SceneMap';
@@ -539,6 +540,8 @@ export function GamePanel({ editor }: { editor: Editor }) {
         </form>
         {variableError && <p className="field-error">{variableError}</p>}
       </Section>
+
+      <FeelPanel editor={editor} />
 
       <Section title="اپ اندروید" about="این‌ها برای ساختن فایل نصب و گذاشتن بازی در Google Play لازم‌اند.">
         <TextField

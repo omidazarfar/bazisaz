@@ -443,8 +443,71 @@ await page.close();
   check('the levels screen has a button for each level, laid out in rows, locked until earned', ls.objects.filter((o) => o.name.startsWith('دکمه‌ی مرحله ')).length === 5 && ls.objects.some((o) => o.behaviors.some((b) => b.type === 'layout')) && ls.rules.some((r) => r.condition?.name === 'unlocked'));
   const problems = await page.evaluate((p) => window.__editor.agent.check(p), project);
   check('the flagship checks clean, with no warnings', problems.problems.length === 0 && problems.warnings.length === 0, [...problems.problems, ...problems.warnings.map((w) => w.text)].join(' | '));
+  // Game feel in one place (flagship Phase F): the "tight" preset sets every level's gravity and the hero's jump,
+  // run and camera, from a jump 260 px high lasting 0.75 s.
+  await page.evaluate(() => [...document.querySelectorAll('.tabs button')].find((b) => b.textContent.trim() === 'بازی')?.click());
+  await page.waitForSelector('[data-feel="tight"]', { timeout: 20000 });
+  await page.click('[data-feel="tight"]');
+  await new Promise((r) => setTimeout(r, 300));
+  const felt = await page.evaluate(() => {
+    const p = window.__editor.getState().project;
+    return p.scenes.filter((s) => s.objects.some((o) => !o.fixed && o.behaviors.some((b) => b.type === 'jumper'))).map((s) => {
+      const hero = s.objects.find((o) => !o.fixed && o.behaviors.some((b) => b.type === 'jumper'));
+      const of = (t) => hero.behaviors.find((b) => b.type === t);
+      return [s.gravity, of('jumper').jumpSpeed, of('walker')?.speed, of('walker')?.ease, of('camera')?.lookAhead].join('/');
+    });
+  });
+  check('the feel presets set every level at once (gravity, jump, run, ease, look-ahead)', felt.length === 5 && felt.every((f) => f === '3698/1387/380/0.08/160'), felt.join(' '));
   check('flagship levels: no errors in the page', errors.length === 0, errors.join(' | '));
   await page.close();
+}
+
+// ── The camera (flagship Phase F): a dead zone, looking ahead, settling on landing ──
+{
+  const project = (camera) => ({
+    formatVersion: 3, lists: [],
+    meta: { name: 'Camera', orientation: 'portrait', width: 720, height: 1280, background: '#202833', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.camera', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [], startScene: 's',
+    scenes: [{ id: 's', name: 's', width: 6000, height: 4000, background: null, music: null, gravity: 0, prefabs: [], rules: [],
+      objects: [{ id: 'hero', name: 'hero', x: 3000, y: 2000, width: 80, height: 100, visual: { kind: 'rect', color: '#fff' }, tags: [], visible: true, behaviors: [{ type: 'camera', lock: 'free', smooth: 0, ...camera }] }] }],
+  });
+  const run = async (camera, script) => {
+    const { page, errors } = await openPage(browser, playerUrl, { project: project(camera) });
+    await until(page, () => window.__game, null, 30000);
+    const r = await page.evaluate(script);
+    check(`camera ${JSON.stringify(camera)}: no errors in the page`, errors.length === 0, errors.join(' | '));
+    await page.close();
+    return r;
+  };
+  const dead = await run({ deadZone: 100 }, () => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    const hero = g.entities.find((e) => e.def.id === 'hero');
+    for (let i = 0; i < 5; i++) g.advance(1 / 60);
+    const before = g.camera.x;
+    hero.x += 60;
+    for (let i = 0; i < 5; i++) g.advance(1 / 60);
+    const small = g.camera.x - before;
+    hero.x += 200;
+    for (let i = 0; i < 5; i++) g.advance(1 / 60);
+    return { small, big: g.camera.x - before };
+  });
+  check('camera: a step inside the dead zone does not move the view; a big one moves it by what is past the zone', dead.small === 0 && Math.abs(dead.big - 160) < 1, JSON.stringify(dead));
+  const ahead = await run({ lookAhead: 150 }, () => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    const hero = g.entities.find((e) => e.def.id === 'hero');
+    for (let i = 0; i < 120; i++) {
+      hero.vx = 300;
+      hero.x += 5;
+      g.advance(1 / 60);
+    }
+    const view = g.view.width / g.z;
+    return { ahead: g.camera.x + view / 2 - (hero.x + hero.width / 2) };
+  });
+  check('camera: running right, the view looks about 150 px ahead', ahead.ahead > 130 && ahead.ahead <= 151, JSON.stringify(ahead));
 }
 
 await browser.close();
