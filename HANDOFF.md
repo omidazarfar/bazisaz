@@ -784,10 +784,13 @@ say so in the log.
   settle, feel panel with presets; G playtest marks from try-outs and phones, shown on the level, and a Persian
   checklist. Every choice the owner would have made is written in its phase's notes.
 - New CI suites: contact.smoke, fixtures.smoke, stress.smoke, art.smoke (all in npm test).
-- CI: every push's suites passed through Phase D (runs 62, 64, 68, 75); Phases E and F were running at the end
-  of the session (run 77 suites; run 78 bots: platform, the new five-level Sky Quest, won). Bots that lose on
-  CI are the known flaky ones (platform-levels, tower-levels, bricks-levels; adventure-levels 3/4 vs 2/4 before
-  and after Phase 5).
+- CI at the end (9c3180b, everything): all nine suites pass (run 79). Bots (run 80): 12 of 16 win, platform
+  (the five-level Sky Quest) among them; lost: platform-levels, tower-levels, bricks-levels (the known flaky
+  ones) and bricks, by **timeout** with 3 lives and score 410 after 41 min (it won in 23–28 min at Phases D and
+  E/F, runs 76 and 78; the slow runner). A rerun of bricks ×2 (run 81) was still going when the session ended:
+  check it with `CI_RUN=81 node scripts/ci.mjs status`. Phase F's suites had failed once (run 77,
+  editor.smoke: the level maker could not add spikes to a level 1 with none); fixed by a row of spikes in
+  level 1 (run 79 green).
 - Lessons (Gotchas): CI runs cancel each other (use CI_REF for bots); backticks in `node -e` in bash.
 
 ### 2026-11-25 — Claude, Phase 1 steps 5–6: the behaviors, and a new block is one file (owner: "go ahead")
