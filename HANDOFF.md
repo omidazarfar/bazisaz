@@ -68,7 +68,7 @@ and the game showing it. Nothing that is not part of the current item. Report in
 to try it in the editor, what was tested. (A screen-framing roadmap tried the same day was reverted at the
 owner's request, a36f448: no visible changes outside the item.)
 
-- [ ] **1. Tween any property:** an action that changes any number of an object over time to a target with an
+- [~] **1. Tween any property** (built 2026-11-27, waiting for the owner's OK; notes below the list): an action that changes any number of an object over time to a target with an
   easing curve (x, y, width, height, angle, opacity, scale, one of its values, or a game variable); by or to,
   repeat, back and forth; a trigger "a tween finished" on that object.
 - [ ] **2. Sub-rules and structured variables:** sub-rules checked only when the parent's trigger happened and
@@ -87,6 +87,25 @@ owner's request, a36f448: no visible changes outside the item.)
   tilt as a steer option and a number in rules.
 - [ ] **7. Export for the web:** a .zip with index.html and everything, next to Android in the export dialog;
   tested from a local web server in headless Chrome.
+
+### Item 1 progress (tween any number, 2026-11-27)
+
+- Action `tween` (src/blocks/actions/tween.ts, «تغییر نرم یک عدد», in "حرکت دادن"): target, property (x, y,
+  width, height, angle in degrees, opacity, scale, value (+ `value` name), variable (+ `variable` name)),
+  mode to|by, amount, seconds, ease (the glide's easings, now `EASE_OPTIONS` in glide.ts), times (0 = for
+  ever), yoyo, label. Trigger `tweenDone` (src/blocks/triggers/tweenDone.ts, «تغییر نرم یک شیء تمام
+  می‌شود»): target Ref, optional label; "first" is the object.
+- Runtime: src/runtime/tweens.ts (`startTween`, `stepTweens`, read/write of each property), called first in
+  Game.stepEffects; `Game.propTweens`, `Game.tweenEnds` (the ends of the last step, read by the rules of the
+  next one); cleared with a scene. A new tween on the same object, property and name replaces the old one.
+  "by" with several rounds goes on from where the last ended; yoyo goes there and back each round; sizes
+  change around the middle; a game value's tween belongs to the first object named (for its trigger). Game's
+  `eased` is now exported.
+- No format version change: two new block types; old files are unchanged and valid.
+- Tests: smoke Lab 31 (each property, by/to, two rounds, yoyo, for ever, a game value, the trigger with and
+  without a name, stepped by hand), editor.smoke (the action's fields, "a game value" shows its picker with
+  the first value ready, the sentence, no problems). GUIDE-fa «تغییر نرم هر عدد», counts 29 triggers, 75
+  actions. Pictures: `node scripts/look/tween.mjs` → scripts/look/out/tween-editor.png, tween-game.png.
 
 ## DONE: foundations, not features (owner's roadmap, 2026-11-25)
 

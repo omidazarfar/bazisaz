@@ -49,6 +49,7 @@ import { applyDirection, fillTemplate } from './text';
 import { clamp } from './math';
 import { contains, cornersOf, terrainTop, test } from './geometry';
 import { Contacts } from './contacts';
+import { stepTweens, type PropTween } from './tweens';
 import { SHAKE_SECONDS, STICK_REACH, TAP_GRACE } from './constants';
 import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
 import type { BehaviorStep, TriggerStep } from '../blocks/types';
@@ -300,7 +301,7 @@ interface Tween {
 }
 
 /** How far along a smooth move is, for a share `t` of its time, by the chosen kind of easing. */
-function eased(kind: Ease | undefined, t: number): number {
+export function eased(kind: Ease | undefined, t: number): number {
   switch (kind ?? 'smooth') {
     case 'linear': return t;
     case 'in': return t * t * t;
@@ -640,6 +641,9 @@ export class Game {
   /** The outline of each light that walls block, as last drawn. */
   private lit: { id: string; points: number[] }[] = [];
   tweens: Tween[] = [];
+  /** Tweens of any number (item 1, tweens.ts), and those that ended last step, for "a tween finished". */
+  propTweens: PropTween[] = [];
+  tweenEnds: { entity: Entity | null; label: string }[] = [];
   paused = false;
   soundOn = true;
   private fade: { phase: 'out' | 'in'; left: number } | null = null;
@@ -1427,6 +1431,8 @@ export class Game {
     this.flights = [];
     this.bagDrag = null;
     this.tweens = [];
+    this.propTweens = [];
+    this.tweenEnds = [];
     // Entrances (pop, slide, fade) start now that the old scene's tweens are gone.
     if (this.mode.kind === 'play') this.enterAll();
     this.died = [];
@@ -3049,6 +3055,7 @@ export class Game {
 
   /** Moves effects, glides, burst pieces and the screen shake along by one frame. */
   private stepEffects(dt: number): void {
+    stepTweens(this, dt);
     for (const t of this.tweens) {
       const e = t.entity;
       t.elapsed = Math.min(t.seconds, t.elapsed + dt);

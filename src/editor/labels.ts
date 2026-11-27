@@ -138,6 +138,7 @@ export const TRIGGER_GROUPS = withRest<Trigger['type']>([
   { title: 'مقدارها و تبلیغ', types: ['variable', 'textEquals', 'reward'] },
   { title: 'کوله‌پشتی', types: ['useItem', 'useItemOn'] },
   { title: 'تابع و پرسش خودت', types: ['called', 'asked'] },
+  { title: 'تغییر نرم', types: ['tweenDone'] },
 ], TRIGGER_BLOCKS);
 
 export const ACTION_GROUPS = withRest<Action['type']>([
@@ -145,7 +146,7 @@ export const ACTION_GROUPS = withRest<Action['type']>([
   { title: 'گفت‌وگو', types: ['say'] },
   { title: 'کوله‌پشتی', types: ['give', 'take'] },
   { title: 'اشیا', types: ['destroy', 'spawn', 'shoot', 'show', 'hide', 'damage'] },
-  { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
+  { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'tween', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
   { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
   { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'floatText', 'shake', 'focus', 'zoomPunch', 'shockwave', 'slowMotion', 'vibrate', 'setSound'] },

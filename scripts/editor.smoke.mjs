@@ -1840,6 +1840,44 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('a value used only as an amount of a list block cannot be removed', !removable);
 }
 
+// ── Tween any number (roadmap item 1) ─────────────────────────────────────
+{
+  await freshGame();
+  await page.evaluate(() => {
+    const p = window.__editor.getState().project;
+    const scenes = p.scenes.map((s, i) => (i ? s : { ...s, objects: [...s.objects, { id: 'door', name: 'door', x: 300, y: 600, width: 100, height: 160, visual: { kind: 'rect', color: '#8d6e63' }, tags: [], visible: true, behaviors: [] }] }));
+    window.__editor.open({ ...p, scenes });
+  });
+  await sleep(200);
+  await click('بازی', '.tabs');
+  await page.type('input[aria-label="نام مقدار تازه"]', 'meter');
+  await page.keyboard.press('Enter');
+  await sleep(200);
+  await click('قانون‌ها', '.tabs');
+  const ruleId = await newRule('start');
+  await addAction(ruleId, 'tween');
+  // Choosing "a game value" (one of the buttons of "which number") shows which one, in place of the object's values.
+  const pickIn = (text) => page.evaluate(([ruleId, text]) => {
+    const rule = document.querySelector(`article.rule[data-rule="${ruleId}"]`);
+    [...rule.querySelectorAll('.segmented button')].find((b) => b.textContent.trim() === text).click();
+  }, [ruleId, text]);
+  const labels = () => page.evaluate((id) => [...document.querySelectorAll(`article.rule[data-rule="${id}"] .control-head`)].map((l) => l.textContent.trim()), ruleId);
+  const before = await labels();
+  await pickIn('یک مقدار بازی');
+  await sleep(150);
+  const after = await labels();
+  check('tween: the action has its settings; "a game value" asks which one', before.includes('کدام عدد') && before.includes('چند بار') && !before.includes('کدام مقدار بازی') && after.includes('کدام مقدار بازی'), after.join(' | '));
+  const action = (await scene()).rules.find((r) => r.id === ruleId).then[0];
+  check('tween: the action is made as the format has it, with the game value ready', action.type === 'tween' && action.property === 'variable' && action.variable === (await editor()).project.variables.find((v) => !v.item).name && action.seconds === 1, JSON.stringify(action));
+  await newRule('tweenDone');
+  // (Opening a new rule may have closed this one already.)
+  if (!(await page.$(`.rule-closed[data-rule="${ruleId}"]`))) await click('بستن', `article.rule[data-rule="${ruleId}"]`);
+  const said = await page.$eval(`.rule-closed[data-rule="${ruleId}"]`, (el) => el.textContent);
+  check('tween: a closed rule reads as a sentence', said.includes('مقدار') && said.includes('نرم') && said.includes('ثانیه'), said);
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('tween: a game with a tween and "a tween finished" has nothing that stops it', problems.length === 0, problems.join(' | '));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

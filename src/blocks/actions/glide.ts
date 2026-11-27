@@ -1,6 +1,17 @@
 import { fa, firstRef, slider, TARGET } from '../fields';
 import { actionBlock } from '../types';
 
+/** The easing curves, in words (shared with the tween of any number). */
+export const EASE_OPTIONS = [
+  { value: 'smooth', label: 'نرم: آرام شروع و آرام تمام' },
+  { value: 'linear', label: 'یکنواخت' },
+  { value: 'in', label: 'آرام شروع، تند تمام' },
+  { value: 'out', label: 'تند شروع، آرام تمام' },
+  { value: 'bounce', label: 'فرود با جهیدن، مثل توپ' },
+  { value: 'elastic', label: 'کشسان، مثل فنر' },
+  { value: 'back', label: 'اول کمی عقب، بعد جلو' },
+];
+
 export const glide = actionBlock({
   type: 'glide',
   editor: {
@@ -12,15 +23,7 @@ export const glide = actionBlock({
       { key: 'x', label: 'فاصله از چپ', kind: 'number' },
       { key: 'y', label: 'فاصله از بالا', kind: 'number' },
       slider('seconds', 'چقدر طول بکشد', 0.1, 5, 0.1, undefined, 'ثانیه'),
-      { key: 'ease', label: 'چطور حرکت کند', kind: 'choice', fallback: 'smooth', options: [
-        { value: 'smooth', label: 'نرم: آرام شروع و آرام تمام' },
-        { value: 'linear', label: 'یکنواخت' },
-        { value: 'in', label: 'آرام شروع، تند تمام' },
-        { value: 'out', label: 'تند شروع، آرام تمام' },
-        { value: 'bounce', label: 'فرود با جهیدن، مثل توپ' },
-        { value: 'elastic', label: 'کشسان، مثل فنر' },
-        { value: 'back', label: 'اول کمی عقب، بعد جلو' },
-      ] },
+      { key: 'ease', label: 'چطور حرکت کند', kind: 'choice', fallback: 'smooth', options: EASE_OPTIONS },
     ],
   },
   sentence: (a, { who }) => `${who(a.target)} را نرم به نقطه‌ی (${fa(a.x)}، ${fa(a.y)}) ببر`,

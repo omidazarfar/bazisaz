@@ -2685,6 +2685,79 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13t. Lab 31: tween any number (roadmap item 1) ──
+{
+  const rule = (id, when, then, extra = {}) => ({ id, when, condition: null, then, ...extra });
+  const box = (id, x, extra = {}) => ({ id, name: id, x, y: 300, width: 100, height: 100, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra });
+  const tw = (target, property, mode, amount, seconds, extra = {}) => ({ type: 'tween', target: { by: 'id', id: target }, property, mode, amount, seconds, ease: 'linear', times: 1, yoyo: false, label: '', ...extra });
+  const add = (name) => ({ type: 'setVariable', name, op: 'add', amount: 1 });
+  const project = {
+    formatVersion: 3,
+    meta: { name: 'Lab31', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirtyone', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {},
+    variables: ['meter', 'done', 'spun', 'other'].map((name) => ({ name, initial: 0, saved: false })),
+    textVariables: [], lists: [],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [],
+      objects: [box('slider', 100), box('spinner', 300, { values: { power: 0 } }), box('fader', 500), box('pulser', 100, { y: 700 }), box('wide', 400, { y: 700 })],
+      rules: [
+        rule('go', { type: 'start' }, [
+          tw('slider', 'x', 'to', 500, 1, { label: 'slide' }),
+          // "by", twice: each round goes on from where the last ended (90 + 90).
+          tw('spinner', 'angle', 'by', 90, 0.5, { times: 2 }),
+          tw('spinner', 'value', 'by', 10, 0.5, { value: 'power' }),
+          // There and back: out and home again in one round.
+          tw('fader', 'opacity', 'to', 0, 1, { yoyo: true }),
+          // For ever, there and back.
+          tw('pulser', 'scale', 'to', 2, 0.4, { times: 0, yoyo: true }),
+          tw('wide', 'width', 'to', 200, 0.5),
+          tw('slider', 'variable', 'to', 100, 1, { variable: 'meter', label: 'meter' }),
+        ]),
+        rule('slid', { type: 'tweenDone', target: { by: 'id', id: 'slider' }, label: 'slide' }, [add('done')]),
+        rule('spun', { type: 'tweenDone', target: { by: 'id', id: 'spinner' } }, [add('spun')]),
+        rule('never', { type: 'tweenDone', target: { by: 'id', id: 'slider' }, label: 'nothing like it' }, [add('other')]),
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  // The game's own clock, stepped by hand: the checks do not depend on how fast the computer is.
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    g.restart?.();
+  });
+  const at = (seconds) => page.evaluate((n) => {
+    const g = window.__game;
+    for (let i = 0; i < n; i++) g.advance(1 / 60);
+    const one = (id) => g.entities.find((e) => e.def.id === id);
+    const [slider, spinner, fader, pulser, wide] = ['slider', 'spinner', 'fader', 'pulser', 'wide'].map(one);
+    return {
+      time: g.time, x: slider.x, angle: (spinner.angle * 180) / Math.PI, power: spinner.values.get('power'), opacity: fader.opacity, scale: pulser.scale,
+      width: wide.width, middle: wide.x + wide.width / 2, running: g.propTweens.length, ...g.getState().variables,
+    };
+  }, Math.round(seconds * 60));
+  const half = await at(0);
+  const t0 = half.time;
+  const mid = await at(0.5 - t0);
+  check('tween: half way, linear, an object is half way to its target', Math.abs(mid.x - 300) < 10 && Math.abs(mid.meter - 50) < 3, `t ${mid.time.toFixed(2)}, x ${mid.x.toFixed(1)}, meter ${mid.meter}`);
+  check('tween: there and back, half way is all the way out', mid.opacity < 0.05, `opacity ${mid.opacity}`);
+  const end = await at(1.6);
+  check('tween: to a target (x 500), and a game value (100)', end.x === 500 && end.meter === 100, `x ${end.x}, meter ${end.meter}`);
+  check('tween: "by" twice goes on from where it ended (90 + 90 = 180 degrees)', Math.abs(end.angle - 180) < 0.01, `angle ${end.angle}`);
+  check('tween: one of an object\'s values, by 10', end.power === 10, `power ${end.power}`);
+  check('tween: there and back ends where it started', end.opacity === 1, `opacity ${end.opacity}`);
+  check('tween: a size changes around the middle', end.width === 200 && Math.abs(end.middle - 450) < 0.01, `width ${end.width}, middle ${end.middle}`);
+  check('tween: for ever keeps going', end.running === 1 && end.scale > 1 && end.scale <= 2, `running ${end.running}, scale ${end.scale}`);
+  // (The spinner has two tweens, its angle over two rounds and a value: with no name asked, each one's end counts.)
+  check('tween finished: once a tween, after its last round, for the name asked', end.done === 1 && end.spun === 2 && end.other === 0, `done ${end.done}, spun ${end.spun}, other ${end.other}`);
+  check('lab 31: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },
