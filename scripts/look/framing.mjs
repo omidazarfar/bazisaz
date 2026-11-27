@@ -40,7 +40,18 @@ for (const genre of GENRES) {
     await steps(70);
     await shot('start');
     await go(level.id);
-    await steps(120);
+    // Past an opening conversation (its words come by the wall clock: shown at once, then tapped away) and an
+    // opening look at the goal, as a player would be a few seconds in.
+    await page.evaluate(() => {
+      const g = window.__game;
+      g.app.ticker.stop();
+      for (let i = 0; i < 3000 && (i < 120 || g.dialogue || (g.focus && g.focus.left > 0)); i++) {
+        if (g.dialogue && i % 20 === 0) { g.dialogue.since = -1e9; g.keyTap = true; }
+        g.advance(1 / 60);
+      }
+      for (let i = 0; i < 90; i++) g.advance(1 / 60);
+      g.app.ticker.start();
+    });
     await shot('level');
     if (win) {
       await go(win.id);

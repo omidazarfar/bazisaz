@@ -71,7 +71,7 @@ outside the current phase (one line under "Later" instead). Drift signs: renamin
 code; a few lines in one file rather than a system; tuning a genre game or a picture. Build, `npm test` and
 the bots pass after every step; commit after every step that passes.
 
-- [ ] **1. Screen framing** (every game, not only Sky Quest): a controls area at the bottom for the on-screen
+- [~] **1. Screen framing** (built 2026-11-27, waiting for the owner's OK; notes below the list): a controls area at the bottom for the on-screen
   buttons, the camera framing the play area above it (ground and what is ahead always visible); on tall
   phones more of the level sideways and an easy-to-see hero instead of empty sky; menus and win/lose screens
   with nothing off the screen or over the title, on 9:16, 9:19.5, 9:21 and a tablet. Check the ten genre
@@ -100,6 +100,31 @@ the bots pass after every step; commit after every step that passes.
 
 At the end of each session: tick what is done here, keep "Later" short, report in Finglish (what changed,
 before and after screenshots, how to try it) and ask for the OK to start the next phase.
+
+### Phase 1 progress (screen framing, 2026-11-27)
+
+- src/runtime/framing.ts: `buttonTags` (the scene's on-screen buttons: jumper button, walker left/right, moves
+  dash/pound, steer roll), `isLevel` (something non-fixed with a camera), `frameOf` → `{ strip, zoom }`. The
+  controls area runs from the highest button in the bottom third (after the buttons keep to their edges) to the
+  bottom, plus 18 px; hidden buttons count (Tower Climb hides them in its opening talk). Zoom: a screen-sized
+  scene is shown whole (smaller if the strip needs room); a larger world is drawn up to 1.25× larger when the
+  play area is taller than the design's height, keeping ≥ 80% of the design's width across (a world no wider
+  than the design, a tower, is never cut at the sides).
+- Game.ts glue: `frame`, `playHeight` (view minus strip while playing), `z` = playZoom × frame zoom,
+  `reframe()` after `placeOnScreen` in loadScene and relayout (also draws the dark panel, `stripView`, under
+  the HUD); setCamera and followCameraTarget frame the play area; with a strip, a falling hero is held 17% of
+  the play area below the middle and the level's deep ground may go under the strip. getState().frame.
+- Also: a backdrop as wide as a screen-sized scene that repeats across (or a rect) reaches the edges of a
+  wider screen (menus on a tablet); slider knobs stay on their tracks when the screen is laid out anew (they
+  went off the screen on a tablet); a one-way camera (lock up/right) comes back to its hero after a focus
+  (`backFromFocus`; Tower Climb's opening look at the bell left the hero out of sight for good).
+- Tests: scripts/framing.smoke.mjs (in npm test and CI): the ten games, made fresh, on 9:16, 9:19.5, 9:21 and
+  a 3:4 tablet: platform, tower and adventure keep a strip with the hero above it; runner and hopper are drawn
+  larger on 9:19.5; nothing enlarged on 9:16; on Start, Levels, You win and Game over nothing fixed is off the
+  screen and nothing covers the title. Bots platform, tower, adventure won locally.
+- Pictures: `node scripts/look/framing.mjs <label>` (after `node scripts/bots/export.mjs` and a build): every
+  game on the four shapes (start, level a few seconds in, win) and a sheet per screen; before and after in
+  scripts/look/out/framing/ (compare-*.png put before and after side by side).
 
 ## DONE: foundations, not features (owner's roadmap, 2026-11-25)
 
@@ -512,6 +537,9 @@ how to see it, what to try or film, the next phase).
   a second round.
 
 ### Later (small things noticed, not blocking the phase)
+
+- A conversation's words come in by the wall clock (`performance.now()` in Game.dialogueShown and stepDialogue),
+  not the game's: tests and bots that step the game by hand must reveal them themselves. For Phase 4.
 
 - DONE 2026-11-27: GUIDE §۵ lists all 31 behaviors (animate, homing, moves, layout, slider were missing).
 - DONE 2026-11-27: `isVariableUsed` reads each block's own fields (variable, textVariable, item, anyValue, an
