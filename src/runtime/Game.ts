@@ -1361,6 +1361,7 @@ export class Game {
 
   private loadScene(id: string, keepView = false): void {
     this.scene = this.project.scenes.find((s) => s.id === id) ?? this.project.scenes[0];
+    this.heroSeen = undefined;
     const backdrop = this.scene.background ?? this.project.meta.background;
     this.app.renderer.background.color = backdrop;
     // A little larger than the screen, so a shake never shows its edge.
@@ -1971,9 +1972,14 @@ export class Game {
     }
   }
 
-  /** The thing the camera follows: in a level, the player. */
+  /** The thing the camera follows: in a level, the player (looked for again only when the last one is gone). */
+  private heroSeen: Entity | undefined;
   private hero(): Entity | undefined {
-    return this.entities.find((e) => e.alive && !e.def.fixed && e.def.behaviors.some((b) => b.type === 'camera'));
+    // (Forgotten when a scene loads.)
+    const seen = this.heroSeen;
+    if (seen?.alive) return seen;
+    this.heroSeen = this.entities.find((e) => e.alive && !e.def.fixed && e.def.behaviors.some((b) => b.type === 'camera'));
+    return this.heroSeen;
   }
 
   /** Notes a playtest mark where the player is now (only while playing, only in a scene with a player). */
@@ -1993,7 +1999,7 @@ export class Game {
 
   /** "respawn" is about to send something back: if it is the player, where it was is kept for a playtest mark. */
   sendingBack(e: Entity): void {
-    if (e === this.hero()) this.sentBack = { x: e.x + e.width / 2, y: e.y + e.height, scene: this.scene.id, time: this.time };
+    if (e.def.behaviors.some((b) => b.type === 'camera') && e === this.hero()) this.sentBack = { x: e.x + e.width / 2, y: e.y + e.height, scene: this.scene.id, time: this.time };
   }
 
   /** Stuck: no more than 100 px of headway in eight seconds of a level marks the spot, once. */
