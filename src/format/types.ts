@@ -107,7 +107,19 @@ export interface ListVariable {
   initial: (number | string)[];
 }
 
+/**
+ * A name of a game value, a text value, a list or an object's own value: Latin letters, digits or _, not
+ * starting with a digit; or several such parts joined by dots, for a value with named parts (item 2 of the
+ * 2026-11-27 roadmap): player.stats.hp is the part hp of the part stats of player. Every value is still one
+ * number (or text, or list) under its whole name; the parts only group them.
+ */
+export const VALUE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+
+/** The groups a name with parts is in: "player.stats.hp" is in "player" and "player.stats". */
+export const nameGroups = (name: string): string[] => name.split('.').slice(0, -1).map((_, i, parts) => parts.slice(0, i + 1).join('.'));
+
 export interface Variable {
+  /** See VALUE_NAME. */
   name: string;
   initial: number;
   /** Kept on the device between sessions, like a best score. */
@@ -964,8 +976,46 @@ export interface ScrollImageBehavior {
 
 // ── Rules ──────────────────────────────────────────────────────────────────
 
-/** Every action a rule can do, whether its conditions hold or not. */
-export const ruleActions = (rule: Rule): Action[] => (rule.otherwise ? [...rule.then, ...rule.otherwise] : rule.then);
+/** A rule and every sub-rule in it, at every depth: the rule first, then each sub-rule followed by its own. */
+export const ruleTree = (rule: Rule | SubRule): (Rule | SubRule)[] => [rule, ...(rule.sub ?? []).flatMap(ruleTree)];
+
+/** Every action a rule can do, whether its conditions hold or not, its sub-rules' too. */
+export const ruleActions = (rule: Rule | SubRule): Action[] =>
+  ruleTree(rule).flatMap((r) => (r.otherwise ? [...r.then, ...r.otherwise] : r.then));
+
+/** Every condition of a rule and of its sub-rules. */
+export const ruleConditions = (rule: Rule | SubRule): Condition[] =>
+  ruleTree(rule).flatMap((r) => [r.condition, ...(r.also ?? [])].filter((c): c is Condition => c !== null));
+
+/**
+ * The rule with each list of actions (`then`, `otherwise`) of it and of its sub-rules, at every depth, changed
+ * by `change`; an `otherwise` that was there stays there.
+ */
+export function mapRuleActions<R extends Rule | SubRule>(rule: R, change: (actions: Action[]) => Action[]): R {
+  return {
+    ...rule,
+    then: change(rule.then),
+    ...(rule.otherwise ? { otherwise: change(rule.otherwise) } : {}),
+    ...(rule.sub ? { sub: rule.sub.map((s) => mapRuleActions(s, change)) } : {}),
+  };
+}
+
+/**
+ * A rule inside another (item 2 of the 2026-11-27 roadmap): it has no trigger of its own. It is looked at only
+ * when its parent's trigger happened and the parent's conditions held, right after the parent's actions, about
+ * the same objects ("first" and "second" are the parent's).
+ */
+export interface SubRule {
+  id: string;
+  condition: Condition | null;
+  /** Further conditions; the sub-rule runs only if every one holds. */
+  also?: Condition[];
+  then: Action[];
+  /** Done instead of `then` when a condition did not hold. */
+  otherwise?: Action[];
+  /** Sub-rules of this one, in order. */
+  sub?: SubRule[];
+}
 
 /** "When `when` happens (and `condition` holds), do every action in `then`." */
 export interface Rule {
@@ -977,6 +1027,8 @@ export interface Rule {
   then: Action[];
   /** Done instead of `then` when the trigger happened but a condition did not hold. */
   otherwise?: Action[];
+  /** Sub-rules, in order: looked at after `then`, only when the conditions held (not with `otherwise`). */
+  sub?: SubRule[];
 }
 
 /** One object by id, or every object of a group. */

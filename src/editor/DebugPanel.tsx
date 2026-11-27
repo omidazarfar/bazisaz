@@ -3,6 +3,7 @@ import type { GameProject } from '../format/types';
 import type { DebugInfo, Game } from '../runtime/Game';
 import { fa } from './labels';
 import { triggerSentence } from './sentences';
+import { findRule } from './state';
 
 const SPEEDS = [
   { value: 1, label: 'عادی' },
@@ -96,14 +97,15 @@ export function DebugPanel({ game, project, onOpenRule }: { game: RefObject<Game
           <ol className="debug-log">
             {[...info.log].reverse().slice(0, 14).map((entry, i) => {
               const scene = sceneOf(entry.scene);
-              const rule = scene?.rules.find((r) => r.id === entry.rule);
-              if (!scene || !rule) return null;
+              const found = scene ? findRule(scene, entry.rule) : null;
+              if (!scene || !found) return null;
+              const { rule, top } = found;
               const here = entry.scene === info.log.at(-1)?.scene;
               const ago = here ? Math.max(0, info.time - entry.time) : null;
               return (
                 <li key={`${entry.rule}.${i}`}>
                   <button type="button" className={entry.ran ? 'debug-rule' : 'debug-rule debug-rule-stopped'} data-debug-rule={entry.rule} title="برو به این قانون" onClick={() => onOpenRule(entry.scene, entry.rule)}>
-                    <span dir="rtl">{triggerSentence(scene, rule.when)}</span>
+                    <span dir="rtl">{triggerSentence(scene, top.when)}{rule !== top ? ' (زیرقانون)' : ''}</span>
                     <small>
                       {entry.ran ? 'کارهایش انجام شد' : rule.otherwise?.length ? 'شرطش برقرار نبود؛ «وگرنه» انجام شد' : 'شرطش برقرار نبود؛ کاری نکرد'}
                       {entry.count > 1 ? ` · ${fa(entry.count)} بار` : ''}

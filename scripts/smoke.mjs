@@ -2758,6 +2758,78 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await page.close();
 }
 
+// ── 13u. Lab 32: sub-rules (roadmap item 2) ──
+{
+  const box = (id, x, extra = {}) => ({ id, name: id, x, y: 300, width: 100, height: 100, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra });
+  const add = (name) => ({ type: 'setVariable', name, op: 'add', amount: 1 });
+  const kind = (n) => ({ of: 'first', name: 'kind', op: '==', value: n });
+  const names = ['ends', 'gold', 'silver', 'notSilver', 'deep', 'leaked', 'parentElse', 'plain', 'fnsub', 'never'];
+  const project = {
+    formatVersion: 3,
+    meta: { name: 'Lab32', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirtytwo', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {},
+    variables: names.map((name) => ({ name, initial: 0, saved: false })),
+    textVariables: [], lists: [],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [],
+      objects: [box('goldCoin', 100, { tags: ['coin'], values: { kind: 1, hit: 0 } }), box('silverCoin', 400, { tags: ['coin'], values: { kind: 2, hit: 0 } })],
+      rules: [
+        { id: 'go', when: { type: 'start' }, condition: null, then: [
+          { type: 'tween', target: { by: 'tag', tag: 'coin' }, property: 'x', mode: 'by', amount: 10, seconds: 0.2, ease: 'linear', times: 1, yoyo: false, label: '' },
+          { type: 'call', name: 'boost' },
+        ] },
+        // Once for each coin: the sub-rules about that same coin.
+        { id: 'each', when: { type: 'tweenDone', target: { by: 'tag', tag: 'coin' } }, condition: null, then: [add('ends')], sub: [
+          { id: 'each.gold', condition: kind(1), then: [add('gold'), { type: 'setValue', target: 'first', name: 'hit', op: 'set', amount: 1 }], sub: [
+            { id: 'each.gold.deep', condition: { name: 'gold', op: '>=', value: 1 }, then: [add('deep')] },
+          ] },
+          { id: 'each.silver', condition: kind(2), then: [add('silver')], otherwise: [add('notSilver')] },
+        ] },
+        // The parent's condition does not hold: its "otherwise", none of its sub-rules.
+        { id: 'stopped', when: { type: 'start' }, condition: { name: 'never', op: '==', value: 1 }, then: [], otherwise: [add('parentElse')], sub: [
+          { id: 'stopped.inner', condition: null, then: [add('leaked')] },
+        ] },
+        // No action of its own, only a sub-rule.
+        { id: 'only', when: { type: 'start' }, condition: null, then: [], sub: [{ id: 'only.inner', condition: { name: 'never', op: '==', value: 0 }, then: [add('plain')] }] },
+        // A function's sub-rules run when it is called.
+        { id: 'fn', when: { type: 'called', name: 'boost' }, condition: null, then: [], sub: [{ id: 'fn.inner', condition: null, then: [add('fnsub')] }] },
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    g.restart?.();
+  });
+  const state = await page.evaluate(() => {
+    const g = window.__game;
+    for (let i = 0; i < 30; i++) g.advance(1 / 60);
+    const hit = (id) => g.entities.find((e) => e.def.id === id).values.get('hit');
+    return { ...g.getState().variables, goldHit: hit('goldCoin'), silverHit: hit('silverCoin') };
+  });
+  const s = JSON.stringify(state);
+  check('sub-rules: the parent runs once for each coin, each sub-rule about that coin', state.ends === 2 && state.gold === 1 && state.silver === 1 && state.notSilver === 1, s);
+  check('sub-rules: an action in a sub-rule acts on the parent\'s "first" (only the gold coin is hit)', state.goldHit === 1 && state.silverHit === 0, s);
+  check('sub-rules: a sub-rule of a sub-rule, after its parent\'s actions', state.deep === 1, s);
+  check('sub-rules: none runs when the parent\'s condition does not hold; its "otherwise" does', state.leaked === 0 && state.parentElse === 1, s);
+  check('sub-rules: a rule with only sub-rules, and a function\'s sub-rules', state.plain === 1 && state.fnsub === 1, s);
+  check('lab 32: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+  // A sub-rule with the id of another rule is refused with a readable message.
+  const twice = structuredClone(project);
+  twice.scenes[0].rules[1].sub[0].id = 'go';
+  const bad = await openPage(browser, url, { project: twice });
+  await bad.page.waitForSelector('.load-error', { timeout: 15000 });
+  const message = await bad.page.$eval('.load-error', (el) => el.textContent);
+  check('sub-rules: an id used twice is refused', message.includes('sub-rule "go"'), message.replace(/\n/g, ' '));
+  await bad.page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

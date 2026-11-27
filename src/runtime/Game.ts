@@ -24,6 +24,7 @@ import type {
   PhysicsBehavior,
   Ref,
   Rule,
+  SubRule,
   Scene,
   Target,
   TileKind,
@@ -2465,10 +2466,7 @@ export class Game {
     for (const rule of this.scene.rules) {
       if (rule.when.type !== 'tap' && rule.when.type !== 'tapObject') continue;
       for (const context of this.fired(rule, { dt: 0, screenTapped: tapped, left: [] })) {
-        const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
-        this.logRule(rule.id, ran);
-        if (ran) this.runActions(rule.then, context);
-        else if (rule.otherwise?.length) this.runActions(rule.otherwise, context);
+        this.runRule(rule, context);
       }
     }
     for (const e of this.entities) {
@@ -2972,12 +2970,22 @@ export class Game {
     const step: TriggerStep = { dt, screenTapped, left };
     for (const rule of this.scene.rules) {
       for (const context of this.fired(rule, step)) {
-        const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
-        this.logRule(rule.id, ran);
-        if (ran) this.runActions(rule.then, context);
-        else if (rule.otherwise?.length) this.runActions(rule.otherwise, context);
+        this.runRule(rule, context);
       }
     }
+  }
+
+  /**
+   * A rule whose trigger happened, on one occasion: its actions if every condition holds, then its sub-rules in
+   * order, each the same way and about the same objects; its "otherwise" if not (and no sub-rule).
+   */
+  private runRule(rule: Rule | SubRule, context: Context): void {
+    const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
+    this.logRule(rule.id, ran);
+    if (ran) {
+      this.runActions(rule.then, context);
+      for (const sub of rule.sub ?? []) this.runRule(sub, context);
+    } else if (rule.otherwise?.length) this.runActions(rule.otherwise, context);
   }
 
   /** Notes for the try-out tools that a rule's trigger happened; the same rule again straight after is counted, not listed twice. */
@@ -3547,10 +3555,7 @@ export class Game {
     try {
       for (const rule of this.named('called', name)) {
         this.fillInputs(rule, given, context);
-        const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
-        this.logRule(rule.id, ran);
-        if (ran) this.runActions(rule.then, context);
-        else if (rule.otherwise?.length) this.runActions(rule.otherwise, context);
+        this.runRule(rule, context);
       }
     } finally {
       this.callDepth -= 1;

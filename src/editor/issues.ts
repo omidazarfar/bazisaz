@@ -1,4 +1,4 @@
-import { ruleActions, type Action, type GameObject, type GameProject, type Ref, type Scene, type Target } from '../format/types';
+import { ruleActions, ruleTree, type Action, type GameObject, type GameProject, type Ref, type Scene, type Target } from '../format/types';
 import { BEHAVIORS } from './labels';
 import { describeRef, triggerSentence } from './sentences';
 import { allTags, valueNames } from './state';
@@ -99,7 +99,8 @@ export function findIssues(project: GameProject): Issue[] {
     for (const r of scene.rules) {
       const where = { rule: r.id };
       const title = triggerSentence(scene, r.when);
-      if (r.then.length === 0) say(`قانون «${title}» هنوز هیچ کاری انجام نمی‌دهد.`, where);
+      if (r.then.length === 0 && !r.sub?.length) say(`قانون «${title}» هنوز هیچ کاری انجام نمی‌دهد.`, where);
+      for (const s of ruleTree(r).slice(1)) if (s.then.length === 0 && !s.sub?.length) say(`یک زیرقانونِ قانون «${title}» هنوز هیچ کاری انجام نمی‌دهد.`, { rule: s.id });
       const read = new Set<string>();
       valuesRead(r, read);
       if (r.when.type === 'value' || r.when.type === 'line') read.add(r.when.name);

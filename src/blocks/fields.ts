@@ -1,4 +1,4 @@
-import type { GameProject, Ref, Scene, SoundName } from '../format/types';
+import { ruleActions, type GameProject, type Ref, type Scene, type SoundName } from '../format/types';
 
 /**
  * What a block's editor description is made of: its fields, the starting value, and the small helpers the
@@ -133,7 +133,7 @@ export const messageNamesOf = (scene: Scene): string[] => {
   const names = new Set<string>();
   for (const r of scene.rules) {
     if (r.when.type === 'message') names.add(r.when.name);
-    for (const a of [...r.then, ...(r.otherwise ?? [])]) if (a.type === 'send') names.add(a.name);
+    for (const a of ruleActions(r)) if (a.type === 'send') names.add(a.name);
   }
   return [...names].filter(Boolean);
 };

@@ -1,4 +1,4 @@
-import { EMPTY_TILE, ruleActions, type Action, type Behavior, type GameObject, type GameProject, type Place, type Ref, type Rule, type Scene, type TilesVisual, type Visual } from '../format/types';
+import { EMPTY_TILE, mapRuleActions, ruleActions, ruleConditions, type Action, type Behavior, type GameObject, type GameProject, type Place, type Ref, type Rule, type Scene, type SubRule, type TilesVisual, type Visual } from '../format/types';
 import { validateProject } from '../format/validate';
 import { migrate } from '../format/migrate';
 import { blank } from '../templates';
@@ -191,7 +191,7 @@ export function removeObject(project: GameProject, sceneId: string, id: string):
     prefabs: s.prefabs.filter((o) => o.id !== id).map(clean),
     rules: s.rules
       .filter((r) => !ruleTriggerUses(r, id))
-      .map((r) => ({ ...r, then: r.then.filter((a) => !actionUses(a, id)), ...(r.otherwise ? { otherwise: r.otherwise.filter((a) => !actionUses(a, id)) } : {}) })),
+      .map((r) => mapRuleActions(r, (list) => list.filter((a) => !actionUses(a, id)))),
   }));
 }
 
@@ -290,9 +290,27 @@ export function duplicateScene(project: GameProject, sceneId: string, name: stri
     name,
     objects: scene.objects.map(object),
     prefabs: scene.prefabs.map(object),
-    rules: scene.rules.map((r) => ({ ...(redirect(r) as Rule), id: newId('rule') })),
+    rules: scene.rules.map((r) => withNewIds(redirect(r) as Rule)),
   };
   return { project: { ...project, scenes: [...project.scenes, copy] }, id };
+}
+
+/** A copy of a rule with a new id for it and for each of its sub-rules. */
+export function withNewIds<R extends Rule | SubRule>(rule: R): R {
+  return { ...rule, id: newId('rule'), ...(rule.sub ? { sub: rule.sub.map(withNewIds) } : {}) };
+}
+
+/**
+ * A rule of a scene by its id, at any depth (item 2), with the rule at the top that it is inside (itself for a
+ * rule at the top): that one's trigger is what it is about.
+ */
+export function findRule(scene: Scene, id: string): { rule: Rule | SubRule; top: Rule } | null {
+  const inside = (rule: Rule | SubRule): Rule | SubRule | null => (rule.id === id ? rule : (rule.sub ?? []).reduce<Rule | SubRule | null>((found, s) => found ?? inside(s), null));
+  for (const top of scene.rules) {
+    const rule = inside(top);
+    if (rule) return { rule, top };
+  }
+  return null;
 }
 
 /** Removes a scene, and every "go to scene" action that led to it. */
@@ -303,7 +321,7 @@ export function removeScene(project: GameProject, sceneId: string): GameProject 
       ...s,
       rules: s.rules.map((r) => {
         const keep = (a: Action) => !((a.type === 'goToScene' || a.type === 'loadGame') && a.scene === sceneId);
-        return { ...r, then: r.then.filter(keep), ...(r.otherwise ? { otherwise: r.otherwise.filter(keep) } : {}) };
+        return mapRuleActions(r, (list) => list.filter(keep));
       }),
     }));
   return { ...project, scenes, startScene: project.startScene === sceneId ? scenes[0].id : project.startScene };
@@ -394,7 +412,7 @@ export function isVariableUsed(project: GameProject, name: string): boolean {
       s.rules.some(
         (r) =>
           blockNames(triggerBlocks.get(r.when.type)?.editor.fields, r.when, name) ||
-          [r.condition, ...(r.also ?? [])].some((c) => c && c.of === undefined && c.name === name) ||
+          ruleConditions(r).some((c) => c.of === undefined && c.name === name) ||
           ruleActions(r).some((a) => blockNames(actionBlocks.get(a.type)?.editor.fields, a, name)),
       ),
   );

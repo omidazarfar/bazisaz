@@ -1,5 +1,5 @@
 import type { Action, Behavior, GameObject, GameProject, Rule, Scene, Sky, TileStyle, Weather } from '../format/types';
-import { EMPTY_TILE, ruleActions } from '../format/types';
+import { EMPTY_TILE, mapRuleActions, ruleActions } from '../format/types';
 import { DANGER, PLAYER, PRIZE } from './presets';
 import { describeChange, findElements, placesEnemies, remix, REMIX_SAID, remixKind, type RemixKind } from './levelremix';
 import { duplicateScene, getScene, newId } from './state';
@@ -76,7 +76,7 @@ function winTarget(project: GameProject, scene: Scene): string | null {
 /** Every "go to scene" toward `from` in a scene's rules now goes to `to`. */
 function redirect(scene: Scene, from: string, to: string): Scene {
   const fix = (actions: Action[]): Action[] => actions.map((a) => (a.type === 'goToScene' && a.scene === from ? { ...a, scene: to } : a));
-  return { ...scene, rules: scene.rules.map((r) => ({ ...r, then: fix(r.then), ...(r.otherwise ? { otherwise: fix(r.otherwise) } : {}) })) };
+  return { ...scene, rules: scene.rules.map((r) => mapRuleActions(r, fix)) };
 }
 
 const isPlayer = (o: GameObject) => o.tags.includes(PLAYER);

@@ -1,9 +1,9 @@
 import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
 import type { BehaviorCheckKit, CheckKit } from '../blocks/types';
 import { OLDEST_FORMAT } from './migrate';
-import { FORMAT_VERSION, isBuiltinMusic, ruleActions, type GameObject, type GameProject, type Place, type Ref } from './types';
+import { FORMAT_VERSION, isBuiltinMusic, nameGroups, ruleActions, ruleConditions, ruleTree, VALUE_NAME, type GameObject, type GameProject, type Place, type Ref, type SubRule } from './types';
 
-const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const VARIABLE_NAME = VALUE_NAME;
 export const APP_ID = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 
 /**
@@ -30,7 +30,7 @@ export function validateProject(project: GameProject): string[] {
 
   const variables = new Set<string>();
   for (const v of project.variables) {
-    if (!VARIABLE_NAME.test(v.name)) say(`Variable name "${v.name}" must be Latin letters, digits or _.`);
+    if (!VARIABLE_NAME.test(v.name)) say(`Variable name "${v.name}" must be Latin letters, digits or _, or such parts joined by dots.`);
     if (variables.has(v.name)) say(`Variable "${v.name}" is defined more than once.`);
     variables.add(v.name);
   }
@@ -62,6 +62,10 @@ export function validateProject(project: GameProject): string[] {
     if (l.initial.some((item) => typeof item !== (l.kind === 'number' ? 'number' : 'string'))) say(`List "${l.name}" starts with an item that is not ${l.kind === 'number' ? 'a number' : 'text'}.`);
     listNames.add(l.name);
   }
+  // Values with parts (item 2): "player.hp" makes "player" a group of values, which is then not a value itself.
+  const allNames = [...variables, ...texts, ...listNames];
+  const groups = new Set(allNames.flatMap(nameGroups));
+  for (const n of allNames) if (groups.has(n)) say(`"${n}" is a value and also the group of other values (${n}.…).`);
   const checkText = (name: string, text: string, where: string) => {
     if (!texts.has(name)) say(`${where} uses missing text variable "${name}".`);
     if (typeof text !== 'string') say(`${where} needs a text value.`);
@@ -149,6 +153,7 @@ export function validateProject(project: GameProject): string[] {
         say(`${where}: ${rule} refers to missing object "${ref.id}".`);
       }
     };
+    const ruleIds = new Set(scene.rules.map((r) => r.id));
     for (const rule of scene.rules) {
       const name = `rule "${rule.id}"`;
       const w = rule.when;
@@ -170,8 +175,18 @@ export function validateProject(project: GameProject): string[] {
       if ('target' in w) checkRef(w.target, name);
       // Every trigger is a block in its own file (src/blocks/triggers/), which checks itself.
       triggerBlocks.get(w.type)?.check?.(w as never, kit);
-      for (const condition of [rule.condition, ...(rule.also ?? [])]) {
-        if (!condition) continue;
+      // Sub-rules (item 2): each a rule without a trigger, with its own id, conditions and actions.
+      const badSub = (s: SubRule): boolean =>
+        !s || typeof s.id !== 'string' || !Array.isArray(s.then) || (s.sub !== undefined && (!Array.isArray(s.sub) || s.sub.some(badSub)));
+      if (rule.sub !== undefined && (!Array.isArray(rule.sub) || rule.sub.some(badSub))) {
+        say(`${where}: ${name} has a sub-rule without an id or a list of actions.`);
+        continue;
+      }
+      for (const r of ruleTree(rule)) {
+        if (r !== rule && ruleIds.has(r.id)) say(`${where}: ${name} has a sub-rule "${r.id}" whose id is used twice.`);
+        ruleIds.add(r.id);
+      }
+      for (const condition of ruleConditions(rule)) {
         const amounts = [condition.value, condition.a1, condition.a2, condition.a3];
         if (condition.check !== undefined) {
           // A question the user made: some rule of the scene must answer it.
