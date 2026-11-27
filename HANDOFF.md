@@ -540,6 +540,9 @@ how to see it, what to try or film, the next phase).
 
 - A conversation's words come in by the wall clock (`performance.now()` in Game.dialogueShown and stepDialogue),
   not the game's: tests and bots that step the game by hand must reveal them themselves. For Phase 4.
+- stress.smoke on CI: 5.9 ms a step at foundations Phase 5, now 7.4–9.1 (mostly "rules"; locally 3.3 → 3.6);
+  it failed twice (runs 85, 91) and passed on a rerun (`node scripts/ci.mjs rerun`). Find what the rules
+  step gained, or measure CI against a fixed local baseline. For Phase 4.
 
 - DONE 2026-11-27: GUIDE §۵ lists all 31 behaviors (animate, homing, moves, layout, slider were missing).
 - DONE 2026-11-27: `isVariableUsed` reads each block's own fields (variable, textVariable, item, anyValue, an
