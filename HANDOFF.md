@@ -377,7 +377,7 @@ how to see it, what to try or film, the next phase).
   place and weather change", which failed on CI after Phase B (run 74).
 - Tests (art.smoke): anchors on a tall phone, a row laid out, a pop that waits its delay, a slide from the
   left, a text in Kenney Future, a slider dragged to 100 and to about half. Passed locally.
-- Not done: the level select (with the five levels, Phase E).
+- The level select came with the five levels (Phase E).
 
 ### Flagship Phase E progress (level tools)
 
@@ -622,6 +622,12 @@ look:
 
 ## Current state (keep this up to date)
 
+- Updated 2026-11-27 by Claude: foundations 1–5 and flagship A–G done as far as the agent can (see THE PLAN
+  NOW and the session log); an automated playtest round fixed Sky Quest's level 1 and the menus' backdrop; the
+  level maker leaves room to land between two gaps (platform-levels now wins on CI) and keeps brick walls full;
+  Gem Crush stops at 0 moves; values are known by every block. Suites on push: smoke, editor.smoke,
+  server.smoke, agent.smoke, art.smoke, contact.smoke, fixtures.smoke, stress.smoke. Bots that still lose on
+  CI: tower-levels (bot timing), bricks-levels (slow runner), sometimes physics and puzzle.
 - Checks run on GitHub Actions (`.github/workflows/test.yml`), because the owner's 8 GB laptop cannot run the bots (Claude Code stops background runs when memory is low, and headless Chrome crashed in Brick Blitz). Every push to main (not docs-only): build once, then smoke / editor.smoke / server.smoke side by side. By hand: `node scripts/ci.mjs run all` (or names, or none) adds one job per bot, all at once. `node scripts/ci.mjs watch` prints each job and the time left, guessed from the last passing run. The repo was made public on 2026-11-24 at the owner's request (history checked first: no keys, passwords or keystores ever committed; all commits use the noreply email; AdMob ids in code are placeholders), so Actions minutes are free and unlimited. Bots still run only by hand (each three-level bot takes 15–60 min there). `node scripts/ci.mjs minutes` adds up what runs used. Failed runs upload `test-output` and bot photos as artifacts.
 
 - 2026-11-22, Codex. Open an object's «ذرات» behaviour and choose «ویرایش جلوه‌ی ذرات» for a live preview of all 30 presets. Apply makes one undoable edit. The rear wheel in newly generated Rescue Relay games emits dust while rolling on the ground. Dungeon Escape's opening conversation exposed a bot timing bug, fixed in the shared bot wait. See today's session log for verification.
