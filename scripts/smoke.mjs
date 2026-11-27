@@ -2830,6 +2830,69 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await bad.page.close();
 }
 
+// ── 13v. Lab 32b: values with named parts (roadmap item 2) ──
+{
+  const project = {
+    formatVersion: 3,
+    meta: { name: 'Lab32b', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirtytwob', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {},
+    variables: [{ name: 'player.stats.hp', initial: 10, saved: true }, { name: 'player.stats.mp', initial: 3, saved: false }, { name: 'player.won', initial: 0, saved: false }],
+    textVariables: [{ name: 'player.name', initial: 'Ava', saved: false }], lists: [{ name: 'player.bag', kind: 'number', initial: [1, 2] }],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [],
+      objects: [
+        { id: 'hero', name: 'hero', x: 100, y: 300, width: 100, height: 100, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], values: { 'stats.power': 7 } },
+        { id: 'label', name: 'label', x: 360, y: 600, width: 10, height: 10, visual: { kind: 'text', text: '{player.name} {player.stats.hp}/{player.stats.mp} {stats.power}', size: 40, color: '#ffffff', align: 'center' }, tags: [], visible: true, behaviors: [], values: { 'stats.power': 7 } },
+      ],
+      rules: [
+        { id: 'go', when: { type: 'start' }, condition: null, then: [
+          { type: 'setVariable', name: 'player.stats.hp', op: 'add', amount: 5 },
+          { type: 'setValue', target: { by: 'id', id: 'hero' }, name: 'stats.power', op: 'add', amount: { value: 'stats.power', of: { by: 'id', id: 'hero' } } },
+        ], sub: [
+          { id: 'go.won', condition: { name: 'player.stats.hp', op: '>=', value: 15 }, also: [{ of: { by: 'id', id: 'hero' }, name: 'stats.power', op: '==', value: 14 }], then: [{ type: 'setVariable', name: 'player.won', op: 'set', amount: 1 }] },
+        ] },
+      ],
+    }],
+  };
+  const read = (page) => page.evaluate((key) => {
+    const g = window.__game;
+    const s = g.getState();
+    return { ...s.variables, bag: s.lists['player.bag'], power: g.entities.find((e) => e.def.id === 'hero').values.get('stats.power'), text: s.entities.find((e) => e.id === 'label').text, stored: localStorage.getItem(key) };
+  }, 'save:com.example.labthirtytwob:player.stats.hp');
+  const first = await openPage(browser, url, { project });
+  await loaded(first.page);
+  await first.page.evaluate(() => localStorage.removeItem('save:com.example.labthirtytwob:player.stats.hp'));
+  await first.page.reload();
+  await loaded(first.page);
+  await untilTime(first.page, 0.3);
+  const a = await read(first.page);
+  const s = JSON.stringify(a);
+  check('parts: game values with parts, changed and asked about by rules and sub-rules', a['player.stats.hp'] === 15 && a['player.stats.mp'] === 3 && a['player.won'] === 1 && a['player.name'] === 'Ava' && a.bag?.join() === '1,2', s);
+  check('parts: an object\'s own value with parts (doubled by a rule, 7 to 14)', a.power === 14, s);
+  check('parts: a text shows values with parts, the object\'s own too', a.text === 'Ava 15/3 7', s);
+  check('parts: a value with parts kept on the phone is saved under its whole name', a.stored === '15', s);
+  await first.page.close();
+  const again = await openPage(browser, url, { project });
+  await loaded(again.page);
+  await untilTime(again.page, 0.3);
+  const b = await read(again.page);
+  check('parts: next time the game starts from the kept value (15, then 5 more)', b['player.stats.hp'] === 20 && b['player.stats.mp'] === 3, JSON.stringify(b));
+  check('lab 32b: no errors in the page', first.errors.length === 0 && again.errors.length === 0, [...first.errors, ...again.errors].join(' | '));
+  await again.page.evaluate(() => localStorage.removeItem('save:com.example.labthirtytwob:player.stats.hp'));
+  await again.page.close();
+  // A value cannot also be a group of others.
+  const both = structuredClone(project);
+  both.variables.push({ name: 'player', initial: 0, saved: false });
+  const bad = await openPage(browser, url, { project: both });
+  await bad.page.waitForSelector('.load-error', { timeout: 15000 });
+  const message = await bad.page.$eval('.load-error', (el) => el.textContent);
+  check('parts: a value that is also the group of others is refused', message.includes('"player" is a value and also the group'), message.replace(/\n/g, ' '));
+  await bad.page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

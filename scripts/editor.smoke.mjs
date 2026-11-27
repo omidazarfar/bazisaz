@@ -1931,6 +1931,60 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('sub-rules: a game with sub-rules has nothing that stops it', problems.length === 0, problems.join(' | '));
 }
 
+// ── Values with named parts (roadmap item 2) ──────────────────────────────
+{
+  await freshGame();
+  await click('بازی', '.tabs');
+  const addValue = async (name) => {
+    await page.click('input[aria-label="نام مقدار تازه"]', { clickCount: 3 });
+    await page.type('input[aria-label="نام مقدار تازه"]', name);
+    await page.keyboard.press('Enter');
+    await sleep(200);
+  };
+  await addValue('player.stats.hp');
+  const card = await page.evaluate(() => {
+    const group = document.querySelector('[data-value-group="player"]');
+    if (!group) return null;
+    return {
+      heads: [...group.querySelectorAll('.variable-subgroup')].map((g) => g.textContent.trim()),
+      part: group.querySelector('[data-variable="player.stats.hp"] .variable-name')?.textContent.trim(),
+      plain: Boolean(document.querySelector('.variable:not(.variable-group)[data-variable="player.stats.hp"]')),
+    };
+  });
+  check('parts: a value named with dots is shown under its group, each part set in under its own', Boolean(card && card.heads.join() === 'stats' && card.part === 'hp' && !card.plain), JSON.stringify(card));
+  // Another part, from the group's own form: a text this time.
+  await page.select('select[aria-label="نوع بخش تازه‌ی player"]', 'text');
+  await page.type('input[aria-label="نام بخش تازه‌ی player"]', 'name');
+  await page.click('button[data-add-part="player"]');
+  await sleep(200);
+  let project = (await editor()).project;
+  check('parts: "+ another part" adds one to the group, of the kind chosen', project.textVariables.some((v) => v.name === 'player.name') && project.variables.some((v) => v.name === 'player.stats.hp'), JSON.stringify(project.textVariables));
+  // One setting keeps them all on the phone.
+  await page.evaluate(() => [...document.querySelectorAll('[data-value-group="player"] label.check')].find((l) => l.textContent.includes('همه‌ی بخش‌ها'))?.querySelector('input').click());
+  await sleep(200);
+  project = (await editor()).project;
+  check('parts: "keep every part on the phone" keeps the numbers and texts of the group', project.variables.find((v) => v.name === 'player.stats.hp')?.saved === true && project.textVariables.find((v) => v.name === 'player.name')?.saved === true);
+  // A group is not a value, and a value cannot have parts.
+  await page.type('input[aria-label="نام مقدار تازه"]', 'player');
+  await sleep(150);
+  const groupRefused = await page.evaluate(() => document.querySelector('.field-error')?.textContent ?? '');
+  await addValue('score');
+  await addValue('score.best');
+  const valueRefused = await page.evaluate(() => document.querySelector('.field-error')?.textContent ?? '');
+  project = (await editor()).project;
+  check('parts: a group cannot be made a value, nor a value given parts', groupRefused.includes('player') && valueRefused.includes('score') && !project.variables.some((v) => v.name === 'player' || v.name === 'score.best'), `${groupRefused} | ${valueRefused}`);
+  await page.click('input[aria-label="نام مقدار تازه"]', { clickCount: 3 });
+  await page.keyboard.press('Backspace');
+  // Rules pick a part like any value.
+  await click('قانون‌ها', '.tabs');
+  const ruleId = await newRule('start');
+  await addAction(ruleId, 'setVariable');
+  const offered = await page.evaluate((id) => [...document.querySelectorAll(`article.rule[data-rule="${id}"] select option`)].map((o) => o.value), ruleId);
+  check('parts: rules offer the parts as values', offered.includes('player.stats.hp'), offered.join(' | '));
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('parts: a game with values with parts has nothing that stops it', problems.length === 0, problems.join(' | '));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

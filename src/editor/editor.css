@@ -977,6 +977,20 @@ a.block {
   font-weight: 700;
 }
 
+/* A value with named parts (item 2): its parts inside its card, each joined to it by a line. */
+.variable-part {
+  display: grid;
+  gap: 6px;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--line-hi);
+}
+
+.variable-subgroup {
+  color: var(--text-soft);
+  padding-inline-start: 10px;
+  border-inline-start: 2px dashed var(--line-hi);
+}
+
 /* A thing the player carries: its picture in a little gold-edged place, like in the game's own bag. */
 .item .variable-head {
   align-items: center;

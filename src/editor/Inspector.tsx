@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { TerrainEditor } from './TerrainEditor';
-import { FONTS, ruleActions, type Behavior, type GameObject, type Rule, type Trigger, type Visual } from '../format/types';
+import { FONTS, ruleActions, VALUE_NAME, type Behavior, type GameObject, type Rule, type Trigger, type Visual } from '../format/types';
 import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextField } from './controls';
 import type { Editor } from './editor';
 import { Fields } from './Fields';
@@ -619,7 +619,7 @@ export function Inspector({ editor }: { editor: Editor }) {
           onSubmit={(e) => {
             e.preventDefault();
             const name = newValue.trim();
-            if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) update(`value.add.${name}`, (o) => ({ ...o, values: { [name]: 0, ...o.values } }));
+            if (VALUE_NAME.test(name)) update(`value.add.${name}`, (o) => ({ ...o, values: { [name]: 0, ...o.values } }));
             setNewValue('');
           }}
         >

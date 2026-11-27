@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { FONTS, isBuiltinMusic, ruleActions, type Look, type Retro, type Sky, type Weather } from '../format/types';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { FONTS, isBuiltinMusic, nameGroups, ruleActions, VALUE_NAME, type Look, type Retro, type Sky, type Weather } from '../format/types';
 import { builtinMusic } from '../runtime/music';
 import { setMusic } from '../runtime/sound';
 import { BUILTIN_MUSIC_OPTIONS, LOOK_OPTIONS, RETRO_OPTIONS, SKY_OPTIONS, WEATHER_OPTIONS } from './labels';
@@ -49,6 +49,128 @@ function ListItems({ initial, kind, onChange }: { initial: (number | string)[]; 
   );
 }
 
+/**
+ * What is wrong with a name for a new value, with parts or without (item 2), next to the values the game has; null
+ * when it is fine. A value cannot also be a group of others: with player.hp, "player" is a group.
+ */
+function nameProblem(name: string, all: { name: string }[]): string | null {
+  if (!VALUE_NAME.test(name)) return 'نام باید با حروف انگلیسی باشد، بدون فاصله؛ مثل lives، یا چند بخش با نقطه، مثل player.hp';
+  if (all.some((v) => v.name === name)) return 'این نام قبلاً استفاده شده است.';
+  if (all.some((v) => nameGroups(v.name).includes(name))) return `«${name}» چند بخش دارد و خودش نمی‌تواند یک مقدار باشد.`;
+  const taken = nameGroups(name).find((g) => all.some((v) => v.name === g));
+  return taken ? `«${taken}» خودش یک مقدار است و نمی‌تواند بخش داشته باشد.` : null;
+}
+
+/** Whether a value is one of the parts of a value with parts. */
+const hasParts = (name: string) => name.includes('.');
+
+/**
+ * A value with named parts (item 2): every number, text and list whose name starts with `group.`, under one
+ * heading, each part set in under the parts it is inside (player › stats › hp), with one setting that keeps
+ * them all on the phone, and a form for another part.
+ */
+function ValueGroup({ group, editor }: { group: string; editor: Editor }) {
+  const { project, change } = editor;
+  const [part, setPart] = useState('');
+  const [kind, setKind] = useState('number');
+  const texts = project.textVariables ?? [];
+  const lists = project.lists ?? [];
+  const inGroup = (name: string) => name.startsWith(group + '.');
+  const numbers = project.variables.filter((v) => !v.item && inGroup(v.name));
+  const words = texts.filter((v) => inGroup(v.name));
+  const parts = [
+    ...numbers.map((v) => ({ name: v.name, kind: 'number' as const })),
+    ...words.map((v) => ({ name: v.name, kind: 'text' as const })),
+    ...lists.filter((l) => inGroup(l.name)).map((l) => ({ name: l.name, kind: 'list' as const })),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const keepable = [...numbers, ...words];
+  const allSaved = keepable.length > 0 && keepable.every((v) => v.saved);
+  const isUsed = (p: { name: string; kind: string }) => (p.kind === 'list' ? isListUsed(project, p.name) : isVariableUsed(project, p.name));
+  const used = parts.some(isUsed);
+  const full = `${group}.${part}`;
+  const error = part === '' ? null : nameProblem(full, [...project.variables, ...texts, ...lists]);
+  const without = (names: Set<string>) => ({
+    ...project,
+    variables: project.variables.filter((v) => !names.has(v.name)),
+    textVariables: texts.filter((v) => !names.has(v.name)),
+    lists: lists.filter((l) => !names.has(l.name)),
+  });
+  const addPart = () => {
+    if (error || part === '') return;
+    const next = kind === 'text'
+      ? { ...project, textVariables: [...texts, { name: full, initial: '', saved: allSaved }] }
+      : kind === 'list' || kind === 'textList'
+        ? { ...project, lists: [...lists, { name: full, kind: kind === 'list' ? ('number' as const) : ('text' as const), initial: [] }] }
+        : { ...project, variables: [...project.variables, { name: full, initial: 0, saved: allSaved }] };
+    change(next, `variable.add.${full}`);
+    setPart('');
+  };
+  // Each part under the parts it is inside, those named once above it, as the list is in order of names.
+  const rows: ReactNode[] = [];
+  const seen = new Set<string>();
+  for (const p of parts) {
+    const inner = p.name.slice(group.length + 1).split('.');
+    inner.slice(0, -1).forEach((segment, depth) => {
+      const path = inner.slice(0, depth + 1).join('.');
+      if (seen.has(path)) return;
+      seen.add(path);
+      rows.push(<div key={`group.${path}`} className="variable-subgroup" style={{ marginInlineStart: depth * 16 }}><bdi dir="ltr" className="variable-name">{segment}</bdi></div>);
+    });
+    const partUsed = isUsed(p);
+    const list = lists.find((l) => l.name === p.name);
+    rows.push(
+      <div key={p.name} className="variable-part" data-variable={p.name} style={{ marginInlineStart: (inner.length - 1) * 16 }}>
+        <div className="variable-head">
+          <bdi dir="ltr" className="variable-name">{inner[inner.length - 1]}</bdi>
+          <span className="control-hint">{p.kind === 'number' ? 'عدد' : p.kind === 'text' ? 'متن' : list?.kind === 'text' ? 'فهرست متنی' : 'فهرست عددی'}</span>
+          <button type="button" className="link link-danger" disabled={partUsed} title={partUsed ? 'یک قانون یا رفتار از این بخش استفاده می‌کند.' : undefined}
+            onClick={() => change(without(new Set([p.name])), `variable.remove.${p.name}`)}>
+            {partUsed ? 'در حال استفاده' : 'حذف'}
+          </button>
+        </div>
+        {p.kind === 'number' && (
+          <NumberField label="مقدار اول بازی" value={numbers.find((v) => v.name === p.name)!.initial}
+            onChange={(initial) => change({ ...project, variables: project.variables.map((v) => (v.name === p.name ? { ...v, initial } : v)) }, `variable.${p.name}.initial`)} />
+        )}
+        {p.kind === 'text' && (
+          <TextField label="متن اول بازی" dir="ltr" value={words.find((v) => v.name === p.name)!.initial}
+            onChange={(initial) => change({ ...project, textVariables: texts.map((v) => (v.name === p.name ? { ...v, initial } : v)) }, `text.${p.name}.initial`)} />
+        )}
+        {list && <ListItems initial={list.initial} kind={list.kind} onChange={(initial) => change({ ...project, lists: lists.map((x) => (x.name === p.name ? { ...x, initial } : x)) }, `list.${p.name}.initial`)} />}
+      </div>,
+    );
+  }
+  return (
+    <div className="variable variable-group" data-value-group={group}>
+      <div className="variable-head">
+        <bdi dir="ltr" className="variable-name">{group}</bdi>
+        <span className="control-hint">چند بخشی؛ در قانون‌ها و متن‌ها مثل {`{${parts[0]?.name ?? group + '.hp'}}`}</span>
+        <button type="button" className="link link-danger" disabled={used} title={used ? 'یک قانون یا رفتار از یکی از بخش‌هایش استفاده می‌کند.' : undefined}
+          onClick={() => change(without(new Set(parts.map((p) => p.name))), `variable.remove.${group}`)}>
+          {used ? 'در حال استفاده' : 'حذف'}
+        </button>
+      </div>
+      {rows}
+      {keepable.length > 0 && (
+        <Check label="همه‌ی بخش‌ها روی گوشی بمانند" hint="با بستن بازی پاک نمی‌شوند؛ بخشی که بعداً اضافه شود هم می‌ماند." value={allSaved}
+          onChange={(saved) => change({
+            ...project,
+            variables: project.variables.map((v) => (!v.item && inGroup(v.name) ? { ...v, saved } : v)),
+            textVariables: texts.map((v) => (inGroup(v.name) ? { ...v, saved } : v)),
+          }, `variable.${group}.saved`)} />
+      )}
+      <form className="inline-form" onSubmit={(e) => { e.preventDefault(); addPart(); }}>
+        <select aria-label={`نوع بخش تازه‌ی ${group}`} value={kind} onChange={(e) => setKind(e.target.value)}>
+          <option value="number">عدد</option><option value="text">متن</option><option value="list">فهرست عددها</option><option value="textList">فهرست متن‌ها</option>
+        </select>
+        <input type="text" dir="ltr" aria-label={`نام بخش تازه‌ی ${group}`} placeholder="hp" value={part} onChange={(e) => setPart(e.target.value.trim())} />
+        <button type="submit" className="chip" data-add-part={group} disabled={Boolean(error) || part === ''}>+ بخش تازه</button>
+      </form>
+      {error && <p className="field-error">{error}</p>}
+    </div>
+  );
+}
+
 /** Settings of the whole game: identity, the current scene, variables, the Android app, and ads. */
 export function GamePanel({ editor }: { editor: Editor }) {
   const { project, scene, change } = editor;
@@ -60,9 +182,9 @@ export function GamePanel({ editor }: { editor: Editor }) {
   const allVariables = [...project.variables, ...texts, ...lists];
   const variableError =
     newVariable === '' ? null
-    : !/^[A-Za-z_][A-Za-z0-9_]*$/.test(newVariable) ? 'نام باید با حروف انگلیسی باشد، بدون فاصله؛ مثل lives'
-    : allVariables.some((v) => v.name === newVariable) ? 'این نام قبلاً استفاده شده است.'
-    : null;
+    : nameProblem(newVariable, allVariables);
+  // Values with parts (item 2), each group once, in the order they were made.
+  const groups = [...new Set([...project.variables.filter((v) => !v.item), ...texts, ...lists].filter((v) => hasParts(v.name)).map((v) => v.name.split('.')[0]))];
 
   const setMeta = (patch: Partial<typeof meta>, key: string) => change({ ...project, meta: { ...meta, ...patch } }, `meta.${key}`);
   const setApp = (patch: Partial<typeof app>, key: string) => change({ ...project, app: { ...app, ...patch } }, `app.${key}`);
@@ -476,8 +598,8 @@ export function GamePanel({ editor }: { editor: Editor }) {
         )}
       </Section>
 
-      <Section title="مقدارها" about="عدد برای امتیاز و جان، یا متن برای نام و هدف مأموریت بساز. برای نمایش مقدار در بازی، نامش را داخل آکولاد بنویس؛ مثل {quest}.">
-        {project.variables.filter((v) => !v.item).map((v) => {
+      <Section title="مقدارها" about="عدد برای امتیاز و جان، یا متن برای نام و هدف مأموریت بساز. برای نمایش مقدار در بازی، نامش را داخل آکولاد بنویس؛ مثل {quest}. برای یک مقدار چند بخشی، بخش‌ها را با نقطه جدا کن؛ مثل player.hp و player.name.">
+        {project.variables.filter((v) => !v.item && !hasParts(v.name)).map((v) => {
           const used = isVariableUsed(project, v.name);
           return (
             <div key={v.name} className="variable" data-variable={v.name}>
@@ -498,7 +620,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
             </div>
           );
         })}
-        {texts.map(v => {
+        {texts.filter((v) => !hasParts(v.name)).map(v => {
           const used = isVariableUsed(project, v.name);
           const edit = (patch: { initial?: string; saved?: boolean }, field: string) =>
             change({ ...project, textVariables: texts.map(t => t.name === v.name ? { ...t, ...patch } : t) }, `text.${v.name}.${field}`);
@@ -514,7 +636,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
             <Check label="روی گوشی بماند" value={v.saved} onChange={saved => edit({ saved }, 'saved')} />
           </div>;
         })}
-        {lists.map((l) => {
+        {lists.filter((l) => !hasParts(l.name)).map((l) => {
           const used = isListUsed(project, l.name);
           const setItems = (initial: (number | string)[]) =>
             change({ ...project, lists: lists.map((x) => (x.name === l.name ? { ...x, initial } : x)) }, `list.${l.name}.initial`);
@@ -532,6 +654,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
             </div>
           );
         })}
+        {groups.map((group) => <ValueGroup key={group} group={group} editor={editor} />)}
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); addVariable(); }}>
           <select aria-label="نوع مقدار تازه" value={variableKind} onChange={e => setVariableKind(e.target.value)}>
             <option value="number">عدد</option><option value="text">متن</option><option value="list">فهرست عددها</option><option value="textList">فهرست متن‌ها</option>
