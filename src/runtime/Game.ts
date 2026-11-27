@@ -49,7 +49,6 @@ import { applyDirection, fillTemplate } from './text';
 import { clamp } from './math';
 import { contains, cornersOf, terrainTop, test } from './geometry';
 import { Contacts } from './contacts';
-import { buttonTags, frameOf, NO_FRAME, type Frame } from './framing';
 import { SHAKE_SECONDS, STICK_REACH, TAP_GRACE } from './constants';
 import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
 import type { BehaviorStep, TriggerStep } from '../blocks/types';
@@ -399,8 +398,6 @@ export interface GameState {
   scene: string;
   /** Seconds since the current scene started. */
   time: number;
-  /** Screen framing (Phase 1): the controls area's height and the world's enlargement. */
-  frame: { strip: number; zoom: number };
   variables: Record<string, number | string>;
   /** The game's lists, item by item (Phase 4). */
   lists: Record<string, (number | string)[]>;
@@ -514,9 +511,6 @@ export class Game {
   private readonly world = new Container();
   /** Objects fixed to the screen, drawn over the world. */
   private readonly hud = new Container();
-  /** Screen framing (roadmap Phase 1): the controls area at the bottom of a level, and how large the world is drawn. */
-  private frame: Frame = NO_FRAME;
-  private readonly stripView = new Graphics();
   /** A black sheet over the game, clear except while one scene fades into the next. */
   private readonly curtain = new Graphics();
   /** The joystick drawn under a finger that is steering. */
@@ -746,7 +740,7 @@ export class Game {
     await this.loadImages(this.project);
 
     this.mount.appendChild(this.app.canvas);
-    this.scenery.addChild(this.backdrop, this.world, this.physicsView, this.weather.view, this.shade, this.glow, this.weather.flash, this.vignette, this.stripView, this.hud);
+    this.scenery.addChild(this.backdrop, this.world, this.physicsView, this.weather.view, this.shade, this.glow, this.weather.flash, this.vignette, this.hud);
     this.weather.onThunder = () => this.sound('boom', 30);
     this.app.stage.addChild(this.scenery, this.stick, this.debugView, this.curtain, this.overlay);
     this.vignette.texture = softSpot(512, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.65)', 0.45);
@@ -1208,44 +1202,7 @@ export class Game {
 
   /** The zoom of the world in force: the editor's while editing, the camera's while playing. */
   get z(): number {
-    return this.mode.kind === 'edit' ? this.zoom : this.playZoom * this.frame.zoom;
-  }
-
-  /** The height of the screen the world is shown in: above the controls area while playing. */
-  private get playHeight(): number {
-    return this.mode.kind === 'play' ? this.view.height - this.frame.strip : this.view.height;
-  }
-
-  /**
-   * Frames a level on the screen it is played on (see framing.ts): measures the controls area from where the
-   * on-screen buttons now are, and draws the panel they sit on.
-   */
-  private reframe(): void {
-    const tags = buttonTags(this.scene);
-    const buttons = this.mode.kind !== 'play' ? [] : this.entities
-      // (Hidden ones count: buttons kept out of sight during an opening conversation still need their room.)
-      .filter((e) => e.alive && e.def.fixed && e.def.tags.some((t) => tags.has(t)))
-      .map((e) => ({ x: e.x, y: e.y, width: e.width, height: e.height }));
-    this.frame = this.mode.kind === 'play' ? frameOf(this.scene, this.view, this.project.meta, buttons) : NO_FRAME;
-    const { width, height } = this.view;
-    // A screen (a menu, a board) shown on a wider screen than the design sits in its middle: a backdrop the
-    // width of the scene that repeats across (clouds, hills) reaches the screen's edges instead of ending there.
-    const extra = width - this.scene.width;
-    if (this.mode.kind === 'play' && extra > 0 && this.scene.width <= this.project.meta.width) {
-      for (const e of this.entities) {
-        const v = e.def.visual;
-        if (e.def.fixed || e.def.width < this.scene.width * 0.98 || !(v.kind === 'rect' || (v.kind === 'image' && v.repeat === 'x'))) continue;
-        e.x = e.def.x - extra / 2;
-        e.width = e.def.width + extra;
-        this.syncView(e);
-      }
-    }
-    const strip = this.frame.strip;
-    this.stripView.clear();
-    if (strip > 0) {
-      this.stripView.rect(0, height - strip, width, strip).fill({ color: '#121822', alpha: 0.94 });
-      this.stripView.rect(0, height - strip, width, 4).fill({ color: '#ffffff', alpha: 0.18 });
-    }
+    return this.mode.kind === 'edit' ? this.zoom : this.playZoom;
   }
 
   /** The zoom of things fixed to the screen: the editor's while editing; while playing they never zoom. */
@@ -1276,7 +1233,6 @@ export class Game {
       mode: this.mode.kind,
       scene: this.scene.id,
       time: this.time,
-      frame: { ...this.frame },
       variables: Object.fromEntries([...this.variables, ...this.textVariables]),
       lists: Object.fromEntries([...this.lists].map(([name, items]) => [name, [...items]])),
       selection: this.selection,
@@ -1423,7 +1379,6 @@ export class Game {
     this.listChanged();
     this.entities.forEach((e) => this.layerOf(e).addChild(e.view));
     this.placeOnScreen(this.entities);
-    this.reframe();
     this.healthBars = new Graphics();
     this.world.addChild(this.healthBars);
     // Coming through a door: whoever came is put at the door they arrive by, standing on its bottom edge.
@@ -1486,7 +1441,6 @@ export class Game {
     this.showTop(this.topScores());
     this.punch = null;
     this.focus = null;
-    this.backFromFocus = false;
     this.scenery.scale.set(1);
     this.slowScale = 1;
     this.app.stage.position.set(0, 0);
@@ -2123,8 +2077,7 @@ export class Game {
   // ── Camera ───────────────────────────────────────────────────────────────
 
   private setCamera(x: number, y: number): void {
-    const { width } = this.view;
-    const height = this.playHeight;
+    const { width, height } = this.view;
     const z = this.z;
     const margin = this.mode.kind === 'edit' ? EDIT_MARGIN / z : 0;
     // A world that fits in the view with room to spare sits in its middle; a larger one is slid over.
@@ -2132,8 +2085,6 @@ export class Game {
       world + margin * 2 <= view ? (low ? world - view : (world - view) / 2) : clamp(at, -margin, world - view + margin);
     this.camera.x = fit(x, this.scene.width, width / z);
     this.camera.y = fit(y, this.scene.height, height / z, this.mode.kind === 'play' && this.scene.gravity > 0);
-    // The bottom of a level may go under the controls area (its deep ground), so the camera may look lower.
-    if (this.frame.strip > 0 && this.scene.height > height / z) this.camera.y = clamp(y, 0, this.scene.height - height / z + this.frame.strip / z);
     this.world.scale.set(z);
     this.world.position.set(-this.camera.x * z, -this.camera.y * z);
     const origin = this.hudOrigin();
@@ -2147,27 +2098,19 @@ export class Game {
     const focus = this.focus && this.focus.left > 0 && this.focus.entity.alive ? this.focus.entity : null;
     if (this.focus) {
       this.focus.left -= dt;
-      if (!focus) {
-        this.focus = null;
-        this.backFromFocus = true;
-      }
+      if (!focus) this.focus = null;
     }
     const target = focus ?? this.entities.find((e) => e.alive && !e.def.fixed && e.def.behaviors.some((b) => b.type === 'camera'));
     if (!target) return;
-    const { width } = this.view;
-    const height = this.playHeight;
+    const { width, height } = this.view;
     const camera = focus ? undefined : target.def.behaviors.find((b) => b.type === 'camera');
-    // Coming back from a look elsewhere (a "focus"), a one-way camera may go back the other way to its object.
-    const lock = camera?.type === 'camera' && !fresh && !this.backFromFocus ? camera.lock : 'free';
+    const lock = camera?.type === 'camera' && !fresh ? camera.lock : 'free';
     const smooth = focus ? 0.35 : camera?.type === 'camera' && !fresh ? (camera.smooth ?? 0) : 0;
     // A soft camera closes a share of the gap each moment instead of all of it.
     const share = smooth > 0 ? 1 - Math.exp(-dt / (smooth * 0.4)) : 1;
     const [vw, vh] = [width / this.z, height / this.z];
-    // Above a controls area, a hero that falls and jumps is held lower than the middle: more of what is above
-    // it, the ground under it and a little of the deep ground (Phase 1).
-    const lower = this.frame.strip > 0 && this.scene.gravity > 0 ? vh * 0.17 : 0;
     let wantX = target.x + target.width / 2 - vw / 2;
-    let wantY = target.y + target.height / 2 - vh / 2 - lower;
+    let wantY = target.y + target.height / 2 - vh / 2;
     // Game feel (flagship Phase F): a dead zone, looking ahead, and up and down only when standing.
     if (camera?.type === 'camera' && !focus && !fresh) {
       const [tx, ty] = [target.x + target.width / 2, target.y + target.height / 2];
@@ -2183,7 +2126,7 @@ export class Game {
       const ahead = (camera.lookAhead ?? 0) * (going || (this.lookAhead === 0 ? 0 : Math.sign(this.lookAhead)));
       this.lookAhead += (ahead - this.lookAhead) * (1 - Math.exp(-dt / 0.35));
       wantX = aim.x + this.lookAhead - vw / 2;
-      wantY = aim.y - vh / 2 - lower;
+      wantY = aim.y - vh / 2;
     } else if (fresh) {
       this.cameraAim = null;
       this.lookAhead = 0;
@@ -2201,10 +2144,7 @@ export class Game {
     const x = this.camera.x + (wantX - this.camera.x) * share;
     const y = this.camera.y + (wantY - this.camera.y) * share;
     // A locked view never goes back: up means y only shrinks, right means x only grows.
-    const was = { x: this.camera.x, y: this.camera.y };
     this.setCamera(lock === 'right' ? Math.max(this.camera.x, x) : x, lock === 'up' ? Math.min(this.camera.y, y) : y);
-    // Back (it hardly moves any more): the lock holds again.
-    if (this.backFromFocus && Math.abs(this.camera.x - was.x) < 0.5 && Math.abs(this.camera.y - was.y) < 0.5) this.backFromFocus = false;
   }
 
   /** Edit mode: slides the view so that a newly selected object far away can be seen. */
@@ -3444,8 +3384,6 @@ export class Game {
 
   /** The camera's visit to something else, and how long it has left there. */
   focus: { entity: Entity; left: number } | null = null;
-  /** Gliding back to the camera's own object after a focus: its one-way lock waits until it is there. */
-  private backFromFocus = false;
 
   /** A dodge roll: a quick dash the way it is going (or facing), safe from harm while it lasts. */
   roll(e: Entity, b: SteerBehavior, way: Point | null, dt: number): void {
@@ -3553,8 +3491,7 @@ export class Game {
     const part = glide.seconds > 0 ? glide.elapsed / glide.seconds : 1;
     const eased = part * part * (3 - 2 * part);
     // Zoom about the middle of the view, so the scene does not slide off to one side.
-    const { width } = this.view;
-    const height = this.playHeight;
+    const { width, height } = this.view;
     const middle = { x: this.camera.x + width / this.z / 2, y: this.camera.y + height / this.z / 2 };
     this.playZoom = glide.from + (glide.to - glide.from) * eased;
     this.setCamera(middle.x - width / this.z / 2, middle.y - height / this.z / 2);
@@ -4691,7 +4628,6 @@ export class Game {
     this.weather.set(this.scene.weather ?? 'none', this.view.width, this.view.height);
     this.applyLook();
     this.placeOnScreen(this.entities);
-    this.reframe();
     this.setCamera(this.camera.x, this.camera.y);
     this.followCameraTarget(true);
   }

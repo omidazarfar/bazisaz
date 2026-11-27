@@ -6,9 +6,7 @@
 //   node scripts/ci.mjs minutes       how many of the free GitHub minutes this month the runs used
 //   node scripts/ci.mjs log <part>    the end of what one part of the latest run printed, e.g. log server
 //   node scripts/ci.mjs photos [part] the bot photos and test pictures it kept, into ci-output/
-//   node scripts/ci.mjs rerun         plays the parts of a finished run that failed once more (a slow moment on
-//                                     GitHub's computers, not the code: the same commit, the same checks)
-// CI_RUN=<number> in front of status, log, photos or rerun looks at that run rather than the latest.
+// CI_RUN=<number> in front of status, log or photos looks at that run rather than the latest.
 // The time left is guessed from how long each part took the last time it passed.
 // Needs a GitHub login: GITHUB_TOKEN, or `gh auth login`, or the login git already uses for pushing.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -106,10 +104,6 @@ if (command === 'run') {
   const inputs = { bots, ref, repeat: process.env.CI_REPEAT ?? '1' };
   await api('/actions/workflows/test.yml/dispatches', { method: 'POST', body: JSON.stringify({ ref: 'main', inputs }) });
   console.log(`Started a run with bots: ${bots}${inputs.repeat !== '1' ? ` x${inputs.repeat}` : ''}${inputs.ref ? ` at ${inputs.ref.slice(0, 7)}` : ''}. Follow it with: node scripts/ci.mjs watch (CI_RUN=<number> for one of several)`);
-} else if (command === 'rerun') {
-  const run = await pickRun();
-  await api(`/actions/runs/${run.id}/rerun-failed-jobs`, { method: 'POST' });
-  console.log(`Run ${run.run_number}: its failed parts run again. Follow it with: CI_RUN=${run.run_number} node scripts/ci.mjs watch`);
 } else if (command === 'log') {
   const run = await pickRun();
   const job = (await api(`/actions/runs/${run.id}/jobs?per_page=100`)).jobs.find((j) => j.name.includes(bots));

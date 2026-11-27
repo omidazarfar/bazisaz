@@ -14,8 +14,8 @@ declare module '../../format/types' {
 
 /** The loudness each slider has set, so sounds and music keep theirs when the other changes. */
 const volumes = { effects: 1, music: 1 };
-/** Where each knob is along its track (0 to 1): it stays there when the screen is laid out anew (a tablet). */
-const along = new WeakMap<Entity, number>();
+/** Knobs already put where their value is. */
+const placed = new WeakSet<Entity>();
 
 export const slider = behaviorBlock({
   type: 'slider',
@@ -47,10 +47,11 @@ export const slider = behaviorBlock({
     const share = (x: number) => (high > low ? clamp((x - low) / (high - low), 0, 1) : 0);
     const read = () => (b.sets === 'value' ? clamp(((game.variables.get(b.variable) ?? b.min) - b.min) / ((b.max - b.min) || 1), 0, 1) : volumes[b.sets]);
     // Centred on the track's height, at its value, the first time.
-    if (!along.has(e)) along.set(e, read());
-    // On its track every moment: the track may have moved with the screen's edges.
-    e.y = track.y + track.height / 2 - e.height / 2;
-    e.x = low + along.get(e)! * (high - low);
+    if (!placed.has(e)) {
+      placed.add(e);
+      e.y = track.y + track.height / 2 - e.height / 2;
+      e.x = low + read() * (high - low);
+    }
     // A finger that came down on the track or the knob drags it.
     const reach = { x: track.x - e.width / 2, y: Math.min(track.y, e.y) - 20, width: track.width + e.width, height: Math.max(track.height, e.height) + 40 };
     for (const p of game.pointers.values()) {
@@ -58,7 +59,6 @@ export const slider = behaviorBlock({
       if (start.x < reach.x || start.x > reach.x + reach.width || start.y < reach.y || start.y > reach.y + reach.height) continue;
       e.x = clamp(game.inSpaceOf(e, p).x - e.width / 2, low, high);
       const s = share(e.x);
-      along.set(e, s);
       if (b.sets === 'value') game.setValueOf(b.variable, Math.round(b.min + s * (b.max - b.min)));
       else {
         volumes[b.sets] = s;

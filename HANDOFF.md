@@ -58,75 +58,7 @@ other did. **It is the single source of truth for "where are we".**
 - They will test on a real phone themselves later; nothing has been tried on a
   phone yet.
 
-## THE PLAN NOW: as good as the best 2D engines where Bazisaz plays (owner's roadmap, 2026-11-27)
-
-The foundations and the flagship roadmaps (below) are done. An outside review compared Bazisaz with Construct
-3, GDevelop and Godot. No 3D, multiplayer or more export platforms: be as good as they are where Bazisaz plays
-(Persian, mobile, beginners).
-
-**Rules:** ONE phase per session; never start the next phase on your own, even if asked to work overnight:
-stop, report, wait for the owner's OK. Every phase ends with before and after screenshots (scripts/look/),
-shown to the owner; a phase is done only when the owner says so. No blocks, genres, pictures or features
-outside the current phase (one line under "Later" instead). Drift signs: renaming, reformatting or restyling
-code; a few lines in one file rather than a system; tuning a genre game or a picture. Build, `npm test` and
-the bots pass after every step; commit after every step that passes.
-
-- [~] **1. Screen framing** (built 2026-11-27, waiting for the owner's OK; notes below the list): a controls area at the bottom for the on-screen
-  buttons, the camera framing the play area above it (ground and what is ahead always visible); on tall
-  phones more of the level sideways and an easy-to-see hero instead of empty sky; menus and win/lose screens
-  with nothing off the screen or over the title, on 9:16, 9:19.5, 9:21 and a tablet. Check the ten genre
-  games and Sky Quest on those four shapes, with screenshots.
-- [ ] **2. The rules screen (an event sheet):** a list of all the scene's rules as short Persian sentences
-  («وقتی … ← …»), many at once; clicking a rule edits it in place (the tall form only as the detail view);
-  drag to reorder; copy, paste, duplicate; search; folding groups; turn a rule off; comments. Rebuild the
-  editor tests for it. Sky Quest's rules on about 2 screens instead of dozens.
-- [ ] **3. The rules model:** sub-rules (run only when the parent's condition holds), else, for each object
-  in a group, local variables. Format change with migration step and fixture. Rewrite one genre game's rules
-  with them to show the rule count shrink.
-- [ ] **4. Code and tests:** split Game.ts into systems (camera, scenes, UI and layout, sound, playtest,
-  physics adapter), moving code as it is; deterministic bots (fixed step, seeded random), timing-proof tests;
-  old session logs and finished phase notes to docs/history.md, HANDOFF.md under 250 lines.
-- [ ] **5. Art:** an asset browser (several CC0 packs in CREDITS.md, sets per genre, search; tell the owner
-  exactly what to download and where); front and back decoration layers, each Sky Quest level its own look;
-  an animation editor (frames on a timeline, speed per frame, hitbox and points per frame).
-- [ ] **6. Common game systems:** A* on the tile map and "chase by path"; line of sight as a condition; a
-  general tween action; a simple state machine per object; a JavaScript code block with a small documented
-  API (objects, values, scenes), no editor or network access.
-- [ ] **7. A game from a Persian sentence:** first a short design for the owner, no code (a model reads a
-  guide like AGENTS-GAMES.md and builds with scripts/game.mjs's tools, validated like any project; not
-  trained). The API key only on a small server that limits use per user. Ask the owner which provider and
-  where the users are (and to check that provider's terms there) before building; then behind an off-by-
-  default switch, tested on 5 sample Persian sentences.
-
-At the end of each session: tick what is done here, keep "Later" short, report in Finglish (what changed,
-before and after screenshots, how to try it) and ask for the OK to start the next phase.
-
-### Phase 1 progress (screen framing, 2026-11-27)
-
-- src/runtime/framing.ts: `buttonTags` (the scene's on-screen buttons: jumper button, walker left/right, moves
-  dash/pound, steer roll), `isLevel` (something non-fixed with a camera), `frameOf` → `{ strip, zoom }`. The
-  controls area runs from the highest button in the bottom third (after the buttons keep to their edges) to the
-  bottom, plus 18 px; hidden buttons count (Tower Climb hides them in its opening talk). Zoom: a screen-sized
-  scene is shown whole (smaller if the strip needs room); a larger world is drawn up to 1.25× larger when the
-  play area is taller than the design's height, keeping ≥ 80% of the design's width across (a world no wider
-  than the design, a tower, is never cut at the sides).
-- Game.ts glue: `frame`, `playHeight` (view minus strip while playing), `z` = playZoom × frame zoom,
-  `reframe()` after `placeOnScreen` in loadScene and relayout (also draws the dark panel, `stripView`, under
-  the HUD); setCamera and followCameraTarget frame the play area; with a strip, a falling hero is held 17% of
-  the play area below the middle and the level's deep ground may go under the strip. getState().frame.
-- Also: a backdrop as wide as a screen-sized scene that repeats across (or a rect) reaches the edges of a
-  wider screen (menus on a tablet); slider knobs stay on their tracks when the screen is laid out anew (they
-  went off the screen on a tablet); a one-way camera (lock up/right) comes back to its hero after a focus
-  (`backFromFocus`; Tower Climb's opening look at the bell left the hero out of sight for good).
-- Tests: scripts/framing.smoke.mjs (in npm test and CI): the ten games, made fresh, on 9:16, 9:19.5, 9:21 and
-  a 3:4 tablet: platform, tower and adventure keep a strip with the hero above it; runner and hopper are drawn
-  larger on 9:19.5; nothing enlarged on 9:16; on Start, Levels, You win and Game over nothing fixed is off the
-  screen and nothing covers the title. Bots platform, tower, adventure won locally.
-- Pictures: `node scripts/look/framing.mjs <label>` (after `node scripts/bots/export.mjs` and a build): every
-  game on the four shapes (start, level a few seconds in, win) and a sheet per screen; before and after in
-  scripts/look/out/framing/ (compare-*.png put before and after side by side).
-
-## DONE: foundations, not features (owner's roadmap, 2026-11-25)
+## THE PLAN NOW: foundations, not features (owner's roadmap, 2026-11-25)
 
 Bazisaz has more features than it needs (29 behaviors, 26 triggers, 68 actions, 31 parts, 95 pictures, ten
 genre games). What it lacks next to GDevelop or Construct 3 is foundations. This replaces the feature plan
@@ -173,7 +105,7 @@ A–G is DONE as far as the agent can take it (notes per phase below). Waiting o
 choices (contact direction, Sky Quest as the flagship, the reference games, our own bones), choose a feel preset
 after trying them, and the real playtests (watch 3–5 people, fix the top three, repeat once).
 
-## DONE: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
+## THEN: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
 
 Why: the games and their graphics are not yet at the level of a good Google Play game. (1) All 95 library
 pictures, the skies and the music are drawn by code (art.ts, sky.ts, music.ts): that has a ceiling; GDevelop and
@@ -537,12 +469,6 @@ how to see it, what to try or film, the next phase).
   a second round.
 
 ### Later (small things noticed, not blocking the phase)
-
-- A conversation's words come in by the wall clock (`performance.now()` in Game.dialogueShown and stepDialogue),
-  not the game's: tests and bots that step the game by hand must reveal them themselves. For Phase 4.
-- stress.smoke on CI: 5.9 ms a step at foundations Phase 5, now 7.4–9.1 (mostly "rules"; locally 3.3 → 3.6);
-  it failed twice (runs 85, 91) and passed on a rerun (`node scripts/ci.mjs rerun`). Find what the rules
-  step gained, or measure CI against a fixed local baseline. For Phase 4.
 
 - DONE 2026-11-27: GUIDE §۵ lists all 31 behaviors (animate, homing, moves, layout, slider were missing).
 - DONE 2026-11-27: `isVariableUsed` reads each block's own fields (variable, textVariable, item, anyValue, an
