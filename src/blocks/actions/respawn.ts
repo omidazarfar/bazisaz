@@ -13,6 +13,7 @@ export const respawn = actionBlock({
   run: (game, action, context) => {
     for (const e of game.targets(action.target, context)) {
       const back = e.checkpoint ?? { x: e.def.x, y: e.def.y };
+      game.sendingBack(e);
       game.place(e, back.x, back.y);
       e.vx = e.vy = 0;
     }

@@ -67,10 +67,10 @@ const levels = [
     l.thing('sign', 4, SURFACE - 1);
     l.thing('bush', 7, SURFACE - 1);
     l.coins(5, 8, SURFACE - 2);
-    for (const [a, b] of [[11, 12], [21, 23], [34, 35]]) { l.gap(a, b); l.arc(a, b); }
+    // Gaps two cells wide: a first level (an automated playtest round lost lives in a three-cell one here).
+    for (const [a, b] of [[11, 12], [21, 22], [34, 35]]) { l.gap(a, b); l.arc(a, b); }
+    // No spikes here: level 4 teaches them (an automated playtest round died on a row of spikes put here).
     l.put(16, 16, SURFACE - 1, SURFACE - 1, 'stone');
-    // One short row of spikes to hop over, on open ground.
-    l.thing('spikes', 18, SURFACE - 1, 1, 0.5);
     l.put(27, 28, SURFACE - 2, SURFACE - 1, 'stone');
     l.coins(27, 28, SURFACE - 4);
     l.put(40, 41, SURFACE - 1, SURFACE - 1, 'stone');

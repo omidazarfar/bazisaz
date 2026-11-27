@@ -50,11 +50,12 @@ async function skyScene(project: GameProject, name: string, music: string): Prom
   const clouds = await packPicture(project, 'backgrounds', 'background_clouds');
   const hills = await packPicture(clouds.project, 'backgrounds', 'background_color_hills');
   const scene: Scene = {
-    id: newId('scene'), name, width: W, height: H, background: '#c8e6f5', music, gravity: 2400, sky: 'none', prefabs: [], rules: [],
+    id: newId('scene'), name, width: W, height: H, background: '#c3e3ff', music, gravity: 2400, sky: 'none', prefabs: [], rules: [],
     objects: [
-      // The hills' sky-coloured top covers the white foot of the clouds.
-      makeObject('ابرها', { ...clouds.visual, repeat: 'x' }, W, H * 0.36, { x: W / 2, y: H * 0.18 }, { locked: true, opacity: 0.95 }),
-      makeObject('تپه‌ها', { ...hills.visual, repeat: 'x' }, W, H * 0.9, { x: W / 2, y: H * 0.68 }, { locked: true }),
+      // The hills behind, the clouds over their white top: the clouds' white foot (its last 34 of 256 rows) ends
+      // just where the hills turn green (row 114 of 256), so no plain white band shows (playtest).
+      makeObject('تپه‌ها', { ...hills.visual, repeat: 'x' }, W, H * 0.82, { x: W / 2, y: H * (0.6 - 0.82 * (114 / 256) + 0.41) }, { locked: true }),
+      makeObject('ابرها', { ...clouds.visual, repeat: 'x' }, W, H * 0.6, { x: W / 2, y: H * 0.3 }, { locked: true }),
     ],
   };
   return { project: hills.project, scene };

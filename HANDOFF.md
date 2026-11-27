@@ -446,6 +446,18 @@ how to see it, what to try or film, the next phase).
   play (no help, what to note, three questions, film it), then fix the top three and test again.
 - Tests: art.smoke (hurt, stuck and quit marked at the player's place; the editor draws a scene's marks and
   takes them away), server.smoke (marks come with a report, a bad one is left out, cleared). Passed locally.
+- An automated round first (2026-11-27), standing in for people until the owner's: `CLUMSY=0.6 node
+  scripts/bots/platform.mjs 400` plays like a new player (reacts late about 60% of the time) and prints its
+  playtest marks (export the game first: `node scripts/bots/export.mjs platform`; `all.mjs` does that itself).
+  Round 1 (9 games): most lives lost on the spikes put in level 1 just after a step, and in its 3-cell gap; a
+  bug: a fall into a pit was marked where the player came back to (the start), since the pit's rule sends it
+  back before the hurt message costs the life (now `Game.sendingBack`, called by "respawn", keeps the spot).
+  Fixed: no spikes in level 1 (level 4 teaches them; editor.smoke now checks spikes grow from level 4, and
+  `__editor.makeLevels(count, seed, sceneId)` takes a scene), level 1 gaps two cells. Also from looking at the
+  photos: a plain white band under the clouds on the menus (now the clouds' white foot ends where the hills
+  turn green) and a strip of sky between the hills and the ground in the levels (a green foot under the hills,
+  over their last rows). Round 2 (6 games): 6 of 6 won, lives lost 5 (round 1: 1 game over in 9, ~1.4 lives
+  lost a game); the most marks now at level 1's third gap (x≈2835), likely the bot's short reaction window.
 - **Owner's part, not doable by the agent:** watching real people play, fixing the top problems they find, and
   a second round.
 

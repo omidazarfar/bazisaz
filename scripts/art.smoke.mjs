@@ -524,6 +524,24 @@ await page.close();
   });
   check('playtest: a life lost, stuck for eight seconds and leaving are marked where the player was',
     marks.marks.map((m) => m.kind).join() === 'hurt,stuck,quit' && marks.marks.every((m) => m.x === marks.hero[0] && m.y === marks.hero[1] && m.scene === 's'), JSON.stringify(marks));
+  // A fall into a pit: the rule sends the player back at once and the life goes a step later; the mark is
+  // where it fell, not where it came back to.
+  const fell = await run({}, () => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    const hero = g.entities.find((e) => e.def.id === 'hero');
+    g.setValueOf('lives', 3);
+    g.advance(1 / 60);
+    g.place(hero, hero.x + 400, hero.y);
+    const there = Math.round(hero.x + hero.width / 2);
+    g.sendingBack(hero);
+    g.place(hero, hero.def.x, hero.def.y);
+    g.advance(1 / 60);
+    g.setValueOf('lives', 2);
+    g.app.ticker.start();
+    return { there, mark: g.playtest.at(-1), back: Math.round(hero.x + hero.width / 2) };
+  });
+  check('playtest: a life lost in a fall is marked where the player fell, not where it was sent back', fell.mark?.kind === 'hurt' && fell.mark.x === fell.there && fell.back !== fell.there, JSON.stringify(fell));
 }
 {
   // The editor shows marks on the scene being edited.

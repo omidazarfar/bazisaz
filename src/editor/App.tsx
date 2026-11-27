@@ -165,8 +165,8 @@ export function App({ saved }: { saved: GameProject | null }) {
     window.__editor = {
       getState: () => state,
       open,
-      // For the tests and bots: the next levels of the scene being edited, made as the dialog makes them.
-      makeLevels: (count: number, seed = 7) => open(generateLevels(state.project, state.sceneId, { ...DEFAULT_LEVEL_OPTIONS, count, seed }).project),
+      // For the tests and bots: the next levels of the scene being edited (or of another), made as the dialog makes them.
+      makeLevels: (count: number, seed = 7, sceneId = state.sceneId) => open(generateLevels(state.project, sceneId, { ...DEFAULT_LEVEL_OPTIONS, count, seed }).project),
       agent: agentApi,
     };
   });

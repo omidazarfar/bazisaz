@@ -606,6 +606,9 @@ export class Game {
    */
   readonly playtest: PlaytestMark[] = [];
   private stuck: { x: number; y: number; since: number; marked: boolean; scene: string } | null = null;
+  /** Where the player stood at the end of the last step, and where it was when last sent back to a checkpoint. */
+  private heroSpot: { x: number; y: number; scene: string } | null = null;
+  private sentBack: { x: number; y: number; scene: string; time: number } | null = null;
   private markView: Graphics | null = null;
   /** What is being measured, when the performance budget asks (Phase 5). */
   private profile: Profile | null = null;
@@ -1977,8 +1980,20 @@ export class Game {
   markPlaytest(kind: PlaytestMark['kind']): void {
     const hero = this.mode.kind === 'play' ? this.hero() : undefined;
     if (!hero) return;
-    this.playtest.push({ scene: this.scene.id, kind, x: Math.round(hero.x + hero.width / 2), y: Math.round(hero.y + hero.height), t: Math.round(this.time * 10) / 10 });
+    let [x, y] = [hero.x + hero.width / 2, hero.y + hero.height];
+    // Losing a life: where it happened, though the same rule may have sent the player back already (a fall into
+    // a pit: "respawn" now, the life a step later), or moved it this step.
+    const back = this.sentBack;
+    const was = this.heroSpot;
+    if (kind === 'hurt' && back && back.scene === this.scene.id && this.time - back.time < 0.5) [x, y] = [back.x, back.y];
+    else if (kind === 'hurt' && was && was.scene === this.scene.id) [x, y] = [was.x, was.y];
+    this.playtest.push({ scene: this.scene.id, kind, x: Math.round(x), y: Math.round(y), t: Math.round(this.time * 10) / 10 });
     if (this.playtest.length > 300) this.playtest.shift();
+  }
+
+  /** "respawn" is about to send something back: if it is the player, where it was is kept for a playtest mark. */
+  sendingBack(e: Entity): void {
+    if (e === this.hero()) this.sentBack = { x: e.x + e.width / 2, y: e.y + e.height, scene: this.scene.id, time: this.time };
   }
 
   /** Stuck: no more than 100 px of headway in eight seconds of a level marks the spot, once. */
@@ -1986,6 +2001,7 @@ export class Game {
     const hero = this.hero();
     if (!hero) return;
     const [x, y] = [hero.x + hero.width / 2, hero.y + hero.height];
+    this.heroSpot = { x, y, scene: this.scene.id };
     const s = this.stuck;
     if (!s || s.scene !== this.scene.id || Math.hypot(x - s.x, y - s.y) > 100) {
       this.stuck = { x, y, since: this.time, marked: false, scene: this.scene.id };

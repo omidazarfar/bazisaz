@@ -1736,7 +1736,19 @@ check('the player stays as fast as before', new Set(platformLevels.map((s) => JS
 const groundOf = (s) => s.objects.find((o) => o.name === 'مرحله').visual.rows.join('/');
 check('each new level has new ground: gaps, steps and floating platforms laid out afresh, longer', new Set(platformLevels.map(groundOf)).size === 4 && platformLevels[1].width > platformLevels[0].width, platformLevels.map((s) => s.width).join(','));
 const spikesOf = (s) => s.objects.filter((o) => o.tags.includes('تیغ')).length;
-check('with more spikes, and the checkpoints and the goal still there', spikesOf(platformLevels[3]) > spikesOf(platformLevels[0]) && platformLevels.every((s) => s.objects.filter((o) => o.tags.includes('ایست بازرسی')).length === 2 && s.objects.some((o) => o.tags.includes('پایان'))), platformLevels.map(spikesOf).join(','));
+// (Sky Quest's level 1 teaches running and jumping and has no spikes: then the new levels have none either, since
+// the level has no rule for them. Levels made from level 4, which teaches spikes, have more; checked below.)
+check('with more spikes if the level has some, and the checkpoints and the goal still there', (spikesOf(platformLevels[0]) ? spikesOf(platformLevels[3]) > spikesOf(platformLevels[0]) : platformLevels.every((s) => spikesOf(s) === 0)) && platformLevels.every((s) => s.objects.filter((o) => o.tags.includes('ایست بازرسی')).length === 2 && s.objects.some((o) => o.tags.includes('پایان'))), platformLevels.map(spikesOf).join(','));
+{
+  // Levels made from Sky Quest's level 4 (spikes, a key and a gate) have more spikes than it.
+  const before = (await editor()).project;
+  const four = before.scenes.find((s) => s.name === 'Level 4');
+  await page.evaluate((id) => window.__editor.makeLevels(2, 11, id), four.id);
+  await until(page, (n) => window.__editor.getState().project.scenes.length >= n + 2, before.scenes.length, 10000);
+  // (The new levels go right after the one they are made from.)
+  const made = (await editor()).project.scenes.filter((s) => !before.scenes.some((b) => b.id === s.id));
+  check('levels made from a level with spikes have more spikes', made.length === 2 && made.every((s) => spikesOf(s) > spikesOf(four)), [four, ...made].map(spikesOf).join(','));
+}
 await click('امتحان کن');
 check('a newLevels level plays without errors in the try-out', await until(page, () => window.__game.getState().time > 0.5, null, 60000));
 await click('توقف');

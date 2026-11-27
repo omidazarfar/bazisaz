@@ -244,6 +244,9 @@ async function skyQuestLevel(project: GameProject, sceneId: string, n: number, s
   const hills = await kenney(clouds.project, 'backgrounds', 'background_color_hills');
   p = hills.project;
   objects.push(makeObject('تپه‌های دور', { kind: 'image', asset: hills.asset, repeat: 'x' }, worldW, 768, { x: worldW / 2, y: top - 300 }, { parallax: 0.35, locked: true }));
+  // The hills' green goes on below them (playtest: a strip of sky showed between the hills and the ground), in
+  // front of their last rows, where the repeated picture's edge shows a light line.
+  objects.push(makeObject('دامنه‌ی تپه‌ها', { kind: 'rect', color: '#2ecc71' }, worldW, 940, { x: worldW / 2, y: top - 300 + 384 + 462 }, { parallax: 0.35, locked: true }));
   objects.push(makeObject('ابرهای دور', { kind: 'image', asset: clouds.asset, repeat: 'x' }, worldW, 512, { x: worldW / 2, y: 300 }, { parallax: 0.15, locked: true, opacity: 0.95 }));
   if (n === 1) {
     // A lantern swinging under a floating island, on two lengths of rope: three bones, each turning with the one
