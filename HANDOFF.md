@@ -58,7 +58,50 @@ other did. **It is the single source of truth for "where are we".**
 - They will test on a real phone themselves later; nothing has been tried on a
   phone yet.
 
-## THE PLAN NOW: foundations, not features (owner's roadmap, 2026-11-25)
+## THE PLAN NOW: as good as the best 2D engines where Bazisaz plays (owner's roadmap, 2026-11-27)
+
+The foundations and the flagship roadmaps (below) are done. An outside review compared Bazisaz with Construct
+3, GDevelop and Godot. No 3D, multiplayer or more export platforms: be as good as they are where Bazisaz plays
+(Persian, mobile, beginners).
+
+**Rules:** ONE phase per session; never start the next phase on your own, even if asked to work overnight:
+stop, report, wait for the owner's OK. Every phase ends with before and after screenshots (scripts/look/),
+shown to the owner; a phase is done only when the owner says so. No blocks, genres, pictures or features
+outside the current phase (one line under "Later" instead). Drift signs: renaming, reformatting or restyling
+code; a few lines in one file rather than a system; tuning a genre game or a picture. Build, `npm test` and
+the bots pass after every step; commit after every step that passes.
+
+- [ ] **1. Screen framing** (every game, not only Sky Quest): a controls area at the bottom for the on-screen
+  buttons, the camera framing the play area above it (ground and what is ahead always visible); on tall
+  phones more of the level sideways and an easy-to-see hero instead of empty sky; menus and win/lose screens
+  with nothing off the screen or over the title, on 9:16, 9:19.5, 9:21 and a tablet. Check the ten genre
+  games and Sky Quest on those four shapes, with screenshots.
+- [ ] **2. The rules screen (an event sheet):** a list of all the scene's rules as short Persian sentences
+  («وقتی … ← …»), many at once; clicking a rule edits it in place (the tall form only as the detail view);
+  drag to reorder; copy, paste, duplicate; search; folding groups; turn a rule off; comments. Rebuild the
+  editor tests for it. Sky Quest's rules on about 2 screens instead of dozens.
+- [ ] **3. The rules model:** sub-rules (run only when the parent's condition holds), else, for each object
+  in a group, local variables. Format change with migration step and fixture. Rewrite one genre game's rules
+  with them to show the rule count shrink.
+- [ ] **4. Code and tests:** split Game.ts into systems (camera, scenes, UI and layout, sound, playtest,
+  physics adapter), moving code as it is; deterministic bots (fixed step, seeded random), timing-proof tests;
+  old session logs and finished phase notes to docs/history.md, HANDOFF.md under 250 lines.
+- [ ] **5. Art:** an asset browser (several CC0 packs in CREDITS.md, sets per genre, search; tell the owner
+  exactly what to download and where); front and back decoration layers, each Sky Quest level its own look;
+  an animation editor (frames on a timeline, speed per frame, hitbox and points per frame).
+- [ ] **6. Common game systems:** A* on the tile map and "chase by path"; line of sight as a condition; a
+  general tween action; a simple state machine per object; a JavaScript code block with a small documented
+  API (objects, values, scenes), no editor or network access.
+- [ ] **7. A game from a Persian sentence:** first a short design for the owner, no code (a model reads a
+  guide like AGENTS-GAMES.md and builds with scripts/game.mjs's tools, validated like any project; not
+  trained). The API key only on a small server that limits use per user. Ask the owner which provider and
+  where the users are (and to check that provider's terms there) before building; then behind an off-by-
+  default switch, tested on 5 sample Persian sentences.
+
+At the end of each session: tick what is done here, keep "Later" short, report in Finglish (what changed,
+before and after screenshots, how to try it) and ask for the OK to start the next phase.
+
+## DONE: foundations, not features (owner's roadmap, 2026-11-25)
 
 Bazisaz has more features than it needs (29 behaviors, 26 triggers, 68 actions, 31 parts, 95 pictures, ten
 genre games). What it lacks next to GDevelop or Construct 3 is foundations. This replaces the feature plan
@@ -105,7 +148,7 @@ A–G is DONE as far as the agent can take it (notes per phase below). Waiting o
 choices (contact direction, Sky Quest as the flagship, the reference games, our own bones), choose a feel preset
 after trying them, and the real playtests (watch 3–5 people, fix the top three, repeat once).
 
-## THEN: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
+## DONE: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
 
 Why: the games and their graphics are not yet at the level of a good Google Play game. (1) All 95 library
 pictures, the skies and the music are drawn by code (art.ts, sky.ts, music.ts): that has a ceiling; GDevelop and
