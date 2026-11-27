@@ -1878,6 +1878,59 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('tween: a game with a tween and "a tween finished" has nothing that stops it', problems.length === 0, problems.join(' | '));
 }
 
+// ── Sub-rules (roadmap item 2) ────────────────────────────────────────────
+{
+  await freshGame();
+  await click('قانون‌ها', '.tabs');
+  const top = await newRule('start');
+  await addAction(top, 'shake');
+  const byId = async (id) => (await scene()).rules.find((r) => r.id === id);
+  // "+ sub-rule": a rule inside it, open, with no trigger of its own.
+  await page.click(`article.rule[data-rule="${top}"] [data-add-sub]`);
+  await sleep(150);
+  const sub = (await byId(top)).sub?.[0];
+  const openSub = sub && await page.$(`article.rule[data-sub][data-rule="${sub.id}"]`);
+  const ownTrigger = sub && await page.evaluate((id) => [...document.querySelectorAll(`article.rule[data-rule="${id}"] .rule-word`)].some((w) => w.textContent.trim() === 'وقتی'), sub.id).catch(() => true);
+  check('sub-rules: "+ sub-rule" adds one inside the rule, open, without a trigger', Boolean(sub && openSub && !('when' in sub) && sub.then.length === 0 && ownTrigger === false), JSON.stringify(sub));
+  await addAction(sub.id, 'flash');
+  await click('بستن', `article.rule[data-rule="${sub.id}"]`);
+  // Closed, it reads as a sentence below its rule, set in.
+  const shown = await page.evaluate(([top, sub]) => {
+    const parent = document.querySelector(`.rule-closed[data-rule="${top}"]`).getBoundingClientRect();
+    const card = document.querySelector(`.rule-subs[data-subs-of="${top}"] .rule-closed[data-sub][data-rule="${sub}"]`);
+    if (!card) return null;
+    const box = card.getBoundingClientRect();
+    return { text: card.textContent, inset: parent.width - box.width, below: box.top >= parent.bottom - 1, label: card.getAttribute('aria-label') };
+  }, [top, sub.id]);
+  check('sub-rules: shown closed below their rule, set in, numbered under it', Boolean(shown && shown.inset > 20 && shown.below && shown.text.includes('بدون شرط') && /زیرقانون \d+\.1/.test(shown.label)), JSON.stringify(shown));
+  // A rule moved in: inside the rule above it, without its own trigger, keeping its actions.
+  const other = await newRule('tap');
+  await addAction(other, 'shake');
+  await page.click(`article.rule[data-rule="${other}"] [data-move-in]`);
+  await sleep(150);
+  const inside = await byId(top);
+  const moved = inside.sub?.find((s) => s.id === other);
+  check('sub-rules: "move into the rule above" makes the rule its last sub-rule', !(await byId(other)) && inside.sub.length === 2 && inside.sub[1] === moved && moved && !('when' in moved) && moved.then[0]?.type === 'shake', JSON.stringify(inside.sub));
+  // And out again: after its rule, with that rule's trigger.
+  await page.evaluate((id) => document.querySelector(`.rule-closed[data-rule="${id}"]`)?.click(), other);
+  await sleep(100);
+  await page.click(`article.rule[data-rule="${other}"] [data-move-out]`);
+  await sleep(150);
+  const rules = (await scene()).rules;
+  const at = rules.findIndex((r) => r.id === top);
+  check('sub-rules: "move out" puts it after its rule, with that rule\'s trigger', rules[at + 1]?.id === other && rules[at + 1].when.type === 'start' && rules[at].sub.length === 1, JSON.stringify(rules.slice(at)));
+  // A copy of a rule copies its sub-rules with ids of their own.
+  await page.evaluate((id) => document.querySelector(`.rule-closed[data-rule="${id}"]`)?.click(), top);
+  await sleep(100);
+  await click('کپی این قانون', `article.rule[data-rule="${top}"]`);
+  await sleep(150);
+  const all = (await scene()).rules;
+  const copy = all[all.findIndex((r) => r.id === top) + 1];
+  check('sub-rules: a copied rule has its sub-rules, under new ids', copy && copy.id !== top && copy.sub?.length === 1 && copy.sub[0].id !== sub.id && copy.sub[0].then[0]?.type === 'flash', JSON.stringify(copy));
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('sub-rules: a game with sub-rules has nothing that stops it', problems.length === 0, problems.join(' | '));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

@@ -1236,6 +1236,20 @@ a.block {
   align-items: center;
 }
 
+/* Sub-rules (item 2): below their rule, set in, joined to it by a line. */
+.rule-subs {
+  display: grid;
+  gap: 10px;
+  margin-top: -6px;
+  margin-inline-start: 26px;
+  padding-inline-start: 10px;
+  border-inline-start: 2px dashed var(--line-hi);
+}
+
+.rule-sub {
+  border-inline-start-color: #8fd3ff;
+}
+
 .stage-hint {
   max-width: 46ch;
   text-align: center;

@@ -1,13 +1,15 @@
-import { useState } from 'react';
-import type { Action, Condition, GameProject, Rule, Trigger } from '../format/types';
+import { Fragment, useState, type ReactNode } from 'react';
+import { mapRuleActions, type Action, type Condition, type GameProject, type Rule, type SubRule, type Trigger } from '../format/types';
 import type { Editor } from './editor';
 import { Fields, isNewPicture, type NewPicture } from './Fields';
 import { useSprite } from './sprites';
 import { ACTION_GROUPS, ACTIONS, COMMON_ACTIONS, COMMON_TRIGGERS, CHECK_CONDITION_FIELDS, CONDITION_FIELDS, OBJECT_CONDITION_FIELDS, TRIGGER_GROUPS, TRIGGERS, whyNot, type Context } from './labels';
 import { PickButton, type PickGroup } from './Pick';
 import { actionSentence, conditionSentence, subjectsOf, triggerSentence } from './sentences';
-import { newId, updateScene, valueNames } from './state';
+import { changeRule, moveRuleIn, moveRuleOut, newId, updateScene, valueNames, withNewIds } from './state';
 import { namesOf } from '../blocks/fields';
+
+type RuleNode = Rule | SubRule;
 
 /** The action being dragged in a rule, by its list and place. */
 let dragging: { which: string; index: number } | null = null;
@@ -36,8 +38,9 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
   const [askingElse, setAskingElse] = useState<string | null>(null);
 
   const setRules = (rules: Rule[], key: string) => change(updateScene(project, scene.id, (s) => ({ ...s, rules })), key);
-  const setRule = (rule: Rule, key: string) =>
-    setRules(scene.rules.map((r) => (r.id === rule.id ? rule : r)), `${rule.id}.${key}`);
+  /** A rule or a sub-rule (item 2), at any depth, replaced by this one. */
+  const setRule = (rule: RuleNode, key: string) =>
+    setRules(changeRule(scene.rules, rule.id, () => [rule]), `${rule.id}.${key}`);
 
   const addRule = (type: Trigger['type']) => {
     const rule: Rule = { id: newId('rule'), when: TRIGGERS[type].make(ctx), condition: null, then: [] };
@@ -45,17 +48,15 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
     setOpen(rule.id);
   };
 
-  return (
-    <div className="rules">
-      <header className="panel-head">
-        <h2>قانون‌های این صحنه</h2>
-        <p>هر قانون می‌گوید «وقتی فلان اتفاق افتاد، این کارها را بکن». قانون‌ها فقط در صحنه‌ی «{scene.name}» کار می‌کنند.</p>
-      </header>
-
-      {scene.rules.length === 0 && <p className="empty">هنوز قانونی نیست. مثلاً: وقتی بازیکن به سکه می‌خورد، یک امتیاز اضافه کن.</p>}
-
-      {scene.rules.map((rule, number) => {
-        const subjects = subjectsOf(scene, rule.when);
+  /**
+   * One rule card, closed as a sentence or open for editing, with its sub-rules (item 2) below it. `place` is its
+   * number and its parents' (2.1 is the first sub-rule of rule 2); `top` is the rule at the top it is inside.
+   */
+  const drawRule = (rule: RuleNode, place: number[], top: Rule): ReactNode => {
+        // A sub-rule is about the objects of the trigger of the rule at the top.
+        const isTop = rule === top;
+        const subjects = subjectsOf(scene, top.when);
+        const name = isTop ? `قانون ${place[0]}` : `زیرقانون ${place.join('.')}`;
         // Every condition must hold. The first is kept where older games have their only one.
         const conditions = [rule.condition, ...(rule.also ?? [])].filter((c): c is Condition => c !== null);
         const setConditions = (list: Condition[], key: string) => {
@@ -68,19 +69,18 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
           const ok = (t: unknown) => (t === 'first' ? Boolean(allowed.first) : t === 'second' ? Boolean(allowed.second) : true);
           return then.filter((a) => (!('target' in a) || ok(a.target)) && (a.type !== 'spawn' || ok(a.at)));
         };
-        const setWhen = (when: Trigger, key: string) =>
-          setRule({ ...rule, when, then: fixTargets(rule.then, when), ...(rule.otherwise ? { otherwise: fixTargets(rule.otherwise, when) } : {}) }, key);
+        const setWhen = (when: Trigger, key: string) => setRule(mapRuleActions({ ...top, when }, (list) => fixTargets(list, when)), key);
         type Which = 'then' | 'otherwise';
         const listOf = (which: Which): Action[] => rule[which] ?? [];
         /** The rule with one of its two lists of actions replaced; an empty "otherwise" is dropped. */
-        const withList = (which: Which, list: Action[]): Rule => {
+        const withList = (which: Which, list: Action[]): RuleNode => {
           if (which === 'then') return { ...rule, then: list };
           const { otherwise: _otherwise, ...rest } = rule;
           return list.length > 0 ? { ...rest, otherwise: list } : rest;
         };
         const setAction = (which: Which, index: number, action: Action, key: string, base: GameProject = project) =>
           change(
-            updateScene(base, scene.id, (s) => ({ ...s, rules: s.rules.map((r) => (r.id === rule.id ? withList(which, listOf(which).map((a, i) => (i === index ? action : a))) : r)) })),
+            updateScene(base, scene.id, (s) => ({ ...s, rules: changeRule(s.rules, rule.id, () => [withList(which, listOf(which).map((a, i) => (i === index ? action : a)))]) })),
             `${rule.id}.${which}.${index}.${key}`,
           );
         /** A picture new to the game joins its pictures in the same step that the action starts using it. */
@@ -153,10 +153,13 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
           );
         };
 
-        if (open !== rule.id) {
-          return (
-            <button key={rule.id} type="button" className="rule rule-closed" data-rule={rule.id} aria-label={`قانون ${number + 1}`} onClick={() => setOpen(rule.id)}>
-              <span className="rule-when"><span dir="rtl">{triggerSentence(scene, rule.when)}</span>{conditions.map((c, i) => <small key={i}> (فقط اگر {conditionSentence(scene, c, subjects)})</small>)}</span>
+        const view = open !== rule.id ? (
+            <button key={rule.id} type="button" className={isTop ? 'rule rule-closed' : 'rule rule-closed rule-sub'} data-rule={rule.id} data-sub={isTop ? undefined : ''} aria-label={name} onClick={() => setOpen(rule.id)}>
+              {isTop ? (
+                <span className="rule-when"><span dir="rtl">{triggerSentence(scene, top.when)}</span>{conditions.map((c, i) => <small key={i}> (فقط اگر {conditionSentence(scene, c, subjects)})</small>)}</span>
+              ) : (
+                <span className="rule-when"><span dir="rtl">{conditions.length ? `اگر ${conditions.map((c) => conditionSentence(scene, c, subjects)).join(' و ')}` : 'بدون شرط'}</span></span>
+              )}
               {rule.then.length === 0 ? (
                 <span className="rule-then">هنوز کاری انتخاب نشده</span>
               ) : (
@@ -168,11 +171,12 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
                 <span className="rule-else">وگرنه: {rule.otherwise.map((a) => actionSentence(project, scene, a, subjects)).join('، ')}</span>
               )}
             </button>
-          );
-        }
-
-        return (
-          <article key={rule.id} className="rule" data-rule={rule.id} aria-label={`قانون ${number + 1}`}>
+        ) : (
+          <article key={rule.id} className={isTop ? 'rule' : 'rule rule-sub'} data-rule={rule.id} data-sub={isTop ? undefined : ''} aria-label={name}>
+            {!isTop && (
+              <p className="control-hint">زیرقانون: وقتی قانونِ بالایی کارهایش را انجام داد (اتفاقش افتاد و شرط‌هایش برقرار بود)، این یکی هم درباره‌ی همان اشیا نگاه می‌شود.</p>
+            )}
+            {isTop && (
             <div className="rule-part">
               <span className="rule-word">وقتی</span>
               <PickButton
@@ -183,15 +187,16 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
                 common={COMMON_TRIGGERS}
                 onPick={(type) => setWhen(TRIGGERS[type as Trigger['type']].make(ctx), 'type')}
               >
-                {TRIGGERS[rule.when.type].title}
+                {TRIGGERS[top.when.type].title}
               </PickButton>
               <Fields
-                fields={TRIGGERS[rule.when.type].fields}
-                value={rule.when as unknown as Record<string, unknown>}
+                fields={TRIGGERS[top.when.type].fields}
+                value={top.when as unknown as Record<string, unknown>}
                 ctx={ctx}
-                onChange={(key, value) => setWhen({ ...rule.when, [key]: value } as Trigger, `when.${key}`)}
+                onChange={(key, value) => setWhen({ ...top.when, [key]: value } as Trigger, `when.${key}`)}
               />
             </div>
+            )}
 
             {conditions.length === 0 && asking !== rule.id ? (
               <div className="rule-part rule-part-quiet">
@@ -202,7 +207,7 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
               </div>
             ) : (
             <div className="rule-part">
-              <span className="rule-word">فقط اگر</span>
+              <span className="rule-word">{isTop ? 'فقط اگر' : 'اگر'}</span>
               {conditions.length === 0 && <p className="control-hint">شرطی نیست: هر بار که این اتفاق بیفتد، کارها انجام می‌شوند.</p>}
               {conditions.map((c, i) => (
                 <div key={i} className="action" data-condition={i}>
@@ -262,26 +267,76 @@ export function Rules({ editor, open, setOpen }: { editor: Editor; open: string 
               </div>
             ))}
 
+            <div className="adders">
+              <button
+                type="button"
+                className="chip"
+                data-add-sub
+                title="قانونی بدون اتفاقِ خودش، که فقط وقتی این یکی کارهایش را انجام داد نگاه می‌شود."
+                onClick={() => {
+                  const sub: SubRule = { id: newId('rule'), condition: null, then: [] };
+                  setRule({ ...rule, sub: [...(rule.sub ?? []), sub] }, `sub.add.${sub.id}`);
+                  setOpen(sub.id);
+                }}
+              >
+                + زیرقانون
+              </button>
+              {place[place.length - 1] > 1 && (
+                <button
+                  type="button"
+                  className="chip"
+                  data-move-in
+                  title={isTop ? 'زیرقانونِ قانون بالایی شود؛ اتفاقِ خودش کنار می‌رود و با اتفاق آن قانون نگاه می‌شود.' : 'زیرقانونِ زیرقانون بالایی شود.'}
+                  onClick={() => setRules(moveRuleIn(scene.rules, rule.id, (s, host) => mapRuleActions(s, (list) => fixTargets(list, host.when))), `in.${rule.id}.${newId('m')}`)}
+                >
+                  ببر داخل قانون بالایی
+                </button>
+              )}
+              {!isTop && (
+                <button type="button" className="chip" data-move-out title="از قانونِ بالایی بیرون بیاید و بعد از آن بنشیند." onClick={() => setRules(moveRuleOut(scene.rules, rule.id), `out.${rule.id}.${newId('m')}`)}>
+                  بیرون بیاور
+                </button>
+              )}
+            </div>
+
             <div className="rule-foot">
               <button type="button" className="chip" onClick={() => setOpen(null)}>بستن</button>
               <button
                 type="button"
                 className="chip"
                 onClick={() => {
-                  const copy: Rule = { ...rule, id: newId('rule') };
-                  setRules(scene.rules.flatMap((r) => (r.id === rule.id ? [r, copy] : [r])), `copy.${copy.id}`);
+                  const copy = withNewIds(rule);
+                  setRules(changeRule(scene.rules, rule.id, (r) => [r, copy]), `copy.${copy.id}`);
                   setOpen(copy.id);
                 }}
               >
-                کپی این قانون
+                {isTop ? 'کپی این قانون' : 'کپی این زیرقانون'}
               </button>
-              <button type="button" className="link link-danger" onClick={() => setRules(scene.rules.filter((r) => r.id !== rule.id), `remove.${rule.id}`)}>
-                حذف این قانون
+              <button type="button" className="link link-danger" onClick={() => setRules(changeRule(scene.rules, rule.id, () => []), `remove.${rule.id}`)}>
+                {isTop ? 'حذف این قانون' : 'حذف این زیرقانون'}
               </button>
             </div>
           </article>
         );
-      })}
+        // Its sub-rules, below it and set in.
+        return (
+          <Fragment key={rule.id}>
+            {view}
+            {rule.sub && rule.sub.length > 0 && <div className="rule-subs" data-subs-of={rule.id}>{rule.sub.map((s, i) => drawRule(s, [...place, i + 1], top))}</div>}
+          </Fragment>
+        );
+  };
+
+  return (
+    <div className="rules">
+      <header className="panel-head">
+        <h2>قانون‌های این صحنه</h2>
+        <p>هر قانون می‌گوید «وقتی فلان اتفاق افتاد، این کارها را بکن». قانون‌ها فقط در صحنه‌ی «{scene.name}» کار می‌کنند.</p>
+      </header>
+
+      {scene.rules.length === 0 && <p className="empty">هنوز قانونی نیست. مثلاً: وقتی بازیکن به سکه می‌خورد، یک امتیاز اضافه کن.</p>}
+
+      {scene.rules.map((rule, number) => drawRule(rule, [number + 1], rule))}
 
       <PickButton label="قانون تازه" title="قانون تازه با چه اتفاقی شروع شود؟" about="بعد از انتخاب اتفاق، کارهایی را که باید انجام شوند اضافه می‌کنی." groups={triggerChoices(ctx)} common={COMMON_TRIGGERS} onPick={(type) => addRule(type as Trigger['type'])}>
         + قانون تازه

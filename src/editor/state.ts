@@ -313,6 +313,73 @@ export function findRule(scene: Scene, id: string): { rule: Rule | SubRule; top:
   return null;
 }
 
+type RuleNode = Rule | SubRule;
+
+/** A rule as a sub-rule: without a trigger of its own. */
+export function asSubRule(rule: RuleNode): SubRule {
+  const { when: _when, ...rest } = rule as Rule;
+  return rest;
+}
+
+/**
+ * The rules with the one of this id, at any depth, replaced by what `change` gives for it: one rule, several,
+ * or none to remove it.
+ */
+export function changeRule(rules: Rule[], id: string, change: (rule: RuleNode) => RuleNode[]): Rule[] {
+  const inList = (list: RuleNode[]): RuleNode[] =>
+    list.flatMap((r) => (r.id === id ? change(r) : r.sub ? [{ ...r, sub: inList(r.sub) as SubRule[] }] : [r]));
+  return inList(rules) as Rule[];
+}
+
+/**
+ * The rule of this id moved inside the one just above it (item 2), as that one's last sub-rule; a rule at the
+ * top leaves its own trigger behind. `fit` makes it fit its new place (for instance, about the objects of the
+ * trigger it now hangs on). With no rule above it in its list, nothing changes.
+ */
+export function moveRuleIn(rules: Rule[], id: string, fit: (rule: SubRule, top: Rule) => SubRule = (r) => r): Rule[] {
+  const inList = (list: RuleNode[], top: Rule | null): RuleNode[] | null => {
+    const i = list.findIndex((r) => r.id === id);
+    if (i === 0) return null;
+    if (i > 0) {
+      const host = list[i - 1];
+      const moved = fit(asSubRule(list[i]), top ?? (host as Rule));
+      return [...list.slice(0, i - 1), { ...host, sub: [...(host.sub ?? []), moved] }, ...list.slice(i + 1)];
+    }
+    for (let j = 0; j < list.length; j++) {
+      const r = list[j];
+      const inner = r.sub ? inList(r.sub, top ?? (r as Rule)) : null;
+      if (inner) return list.map((x, k) => (k === j ? { ...r, sub: inner as SubRule[] } : x));
+    }
+    return null;
+  };
+  return (inList(rules, null) as Rule[] | null) ?? rules;
+}
+
+/**
+ * The sub-rule of this id moved out of its parent, to just after it (item 2). Out at the top, it takes its
+ * parent's trigger, so it still happens when it did.
+ */
+export function moveRuleOut(rules: Rule[], id: string): Rule[] {
+  const inList = (list: RuleNode[], atTop: boolean): RuleNode[] | null => {
+    for (let j = 0; j < list.length; j++) {
+      const parent = list[j];
+      const sub = parent.sub ?? [];
+      const i = sub.findIndex((s) => s.id === id);
+      if (i >= 0) {
+        const rest = sub.filter((_, k) => k !== i);
+        const { sub: _sub, ...bare } = parent;
+        const left = rest.length ? { ...bare, sub: rest } : bare;
+        const out: RuleNode = atTop ? { ...sub[i], when: (parent as Rule).when } : sub[i];
+        return [...list.slice(0, j), left, out, ...list.slice(j + 1)];
+      }
+      const inner = sub.length ? inList(sub, false) : null;
+      if (inner) return list.map((x, k) => (k === j ? { ...parent, sub: inner as SubRule[] } : x));
+    }
+    return null;
+  };
+  return (inList(rules, true) as Rule[] | null) ?? rules;
+}
+
 /** Removes a scene, and every "go to scene" action that led to it. */
 export function removeScene(project: GameProject, sceneId: string): GameProject {
   const scenes = project.scenes
