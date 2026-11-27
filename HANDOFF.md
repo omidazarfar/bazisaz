@@ -68,10 +68,10 @@ and the game showing it. Nothing that is not part of the current item. Report in
 to try it in the editor, what was tested. (A screen-framing roadmap tried the same day was reverted at the
 owner's request, a36f448: no visible changes outside the item.)
 
-- [~] **1. Tween any property** (built 2026-11-27, waiting for the owner's OK; notes below the list): an action that changes any number of an object over time to a target with an
+- [x] **1. Tween any property** (DONE 2026-11-27, the owner said OK; notes below the list): an action that changes any number of an object over time to a target with an
   easing curve (x, y, width, height, angle, opacity, scale, one of its values, or a game variable); by or to,
   repeat, back and forth; a trigger "a tween finished" on that object.
-- [ ] **2. Sub-rules and structured variables:** sub-rules checked only when the parent's trigger happened and
+- [~] **2. Sub-rules and structured variables** (built 2026-11-27, waiting for the owner's OK; notes below the list): sub-rules checked only when the parent's trigger happened and
   its conditions passed, on the same objects; shown indented, movable in and out. Variables with named parts
   (player.stats.hp) for game variables and object values; rules, texts and saving understand them.
 - [ ] **3. Custom behaviors:** made from rules, with a Persian name and number settings; "this object" means
@@ -106,6 +106,38 @@ owner's request, a36f448: no visible changes outside the item.)
   without a name, stepped by hand), editor.smoke (the action's fields, "a game value" shows its picker with
   the first value ready, the sentence, no problems). GUIDE-fa «تغییر نرم هر عدد», counts 29 triggers, 75
   actions. Pictures: `node scripts/look/tween.mjs` → scripts/look/out/tween-editor.png, tween-game.png.
+
+### Item 2 progress (sub-rules and values with parts, 2026-11-27)
+
+- Format: `Rule.sub?: SubRule[]`; a `SubRule` is a rule without `when` (id, condition, also, then, otherwise,
+  sub), at any depth. Additive, so no format version change: old files are unchanged and valid.
+- Runtime: `Game.runRule(rule, context)` is the one place a rule runs (scene step, taps while paused, a
+  function call): conditions, then `then`, then each sub-rule with the same context ("first"/"second" are the
+  parent's); `otherwise` and no sub-rule when a condition fails. A `wait` in the parent puts off only the
+  parent's later actions; the sub-rules are looked at straight away. A question ("asked") answers from its own
+  conditions only. The try-out log lists sub-rules by id (DebugPanel shows the top rule's trigger + «زیرقانون»).
+- Helpers in types.ts: `ruleTree`, `ruleActions` and `ruleConditions` (both walk sub-rules now), `mapRuleActions`.
+  state.ts: `changeRule`, `moveRuleIn` (into the rule above as its last sub-rule; a top rule loses its trigger,
+  actions about objects the new trigger lacks are dropped as when a trigger is changed), `moveRuleOut` (after its
+  parent; out at the top it takes the parent's trigger), `withNewIds`, `findRule`, `asSubRule`. Removing an
+  object or scene, copying a scene, the level maker's redirect, the problem list and validation all see them.
+  Validation: sub-rule shape and ids unique in a scene.
+- Editor (Rules.tsx `drawRule`): sub-rules below their rule in `.rule-subs` (set in, dashed line), numbered 2.1;
+  open rule has «+ زیرقانون», «ببر داخل قانون بالایی», «بیرون بیاور»; a sub-rule has no trigger part, «اگر».
+  Copy gives sub-rules new ids. Cards keep `data-rule`; sub-rules also `data-sub`.
+- Values with parts: `VALUE_NAME` (types.ts) allows dotted names (player.stats.hp) for game values, text
+  values, lists and object values; `nameGroups`. Each is still one value under its whole name: rules, amounts,
+  saving (localStorage key per whole name, saveGame) needed no change; text.ts's {name} pattern takes dots.
+  A name cannot be both a value and a group (validate + editor `nameProblem`). GamePanel: `ValueGroup` card per
+  group (parts set in under their own groups, «همه‌ی بخش‌ها روی گوشی بمانند», «+ بخش تازه»); plain values look as
+  before. Bag items keep plain names.
+- Tests: smoke Lab 32 (sub-rules per coin about that coin, nested, parent condition fails → otherwise only, a
+  rule with only sub-rules, a function's sub-rules, a duplicate id refused) and Lab 32b (values with parts in
+  rules, sub-rules, object values, texts, saved and read back next time, value-and-group refused); editor.smoke
+  "Sub-rules" (add, closed look set in, move in, move out, copy, check) and "Values with named parts" (group card,
+  another part, keep all, refusals, offered in rules). GUIDE-fa «زیرقانون و مقدار چند بخشی». Pictures:
+  `node scripts/look/subrules.mjs` → scripts/look/out/subrules-editor.png, subrules-open-editor.png,
+  parts-editor.png, subrules-game.png.
 
 ## DONE: foundations, not features (owner's roadmap, 2026-11-25)
 

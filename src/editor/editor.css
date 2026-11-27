@@ -1264,6 +1264,12 @@ a.block {
   border-inline-start-color: #8fd3ff;
 }
 
+/* A sub-rule's card is narrower: its foot wraps rather than crowding. */
+.rule-sub .rule-foot {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .stage-hint {
   max-width: 46ch;
   text-align: center;

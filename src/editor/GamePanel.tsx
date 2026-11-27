@@ -144,12 +144,12 @@ function ValueGroup({ group, editor }: { group: string; editor: Editor }) {
     <div className="variable variable-group" data-value-group={group}>
       <div className="variable-head">
         <bdi dir="ltr" className="variable-name">{group}</bdi>
-        <span className="control-hint">چند بخشی؛ در قانون‌ها و متن‌ها مثل {`{${parts[0]?.name ?? group + '.hp'}}`}</span>
         <button type="button" className="link link-danger" disabled={used} title={used ? 'یک قانون یا رفتار از یکی از بخش‌هایش استفاده می‌کند.' : undefined}
           onClick={() => change(without(new Set(parts.map((p) => p.name))), `variable.remove.${group}`)}>
           {used ? 'در حال استفاده' : 'حذف'}
         </button>
       </div>
+      <p className="control-hint">چند بخشی؛ در قانون‌ها و متن‌ها با نام کامل، مثل <bdi dir="ltr">{`{${parts[0]?.name ?? group + '.hp'}}`}</bdi></p>
       {rows}
       {keepable.length > 0 && (
         <Check label="همه‌ی بخش‌ها روی گوشی بمانند" hint="با بستن بازی پاک نمی‌شوند؛ بخشی که بعداً اضافه شود هم می‌ماند." value={allSaved}

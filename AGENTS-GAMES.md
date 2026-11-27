@@ -49,12 +49,18 @@ project
 ├─ meta        name, orientation, design size (720×1280 portrait is the norm), background, font
 ├─ app, ads    Android package id and versions; AdMob (leave ads off unless asked)
 ├─ assets      pictures and sounds by id (library pictures are stored here by `picture`)
-├─ variables   numbers the game keeps: score, lives… ({name} in any text shows it; saved: kept on the phone)
+├─ variables   numbers the game keeps: score, lives… ({name} in any text shows it; saved: kept on the phone);
+│              a name may have parts joined by dots, player.stats.hp, for values that belong together
 ├─ scenes[]    levels and screens; startScene is the first one
 │  ├─ objects[]   what is in the scene
 │  ├─ prefabs[]   templates that spawners and the spawn action copy during play
-│  └─ rules[]     when <trigger> [if <condition>] then <actions> [otherwise <actions>]
+│  └─ rules[]     when <trigger> [if <condition>] then <actions> [otherwise <actions>] [sub <rules without a trigger>]
 ```
+
+**Sub-rules:** a rule may have `sub`, a list of rules without `when` (each `{ id, condition, also?, then,
+otherwise?, sub? }`). They are looked at only when the rule's trigger happened and its conditions held, right
+after its actions, about the same "first" and "second". Use them instead of several rules with the same trigger
+that differ in one condition. Every id, sub-rules' too, is unique in the scene.
 
 **An object** has an `id` (unique in the whole project), a `name` (only the editor shows it), `x`, `y`,
 `width`, `height`, a `visual`, `tags` (the groups it belongs to — rules and behaviors refer to groups
