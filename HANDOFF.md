@@ -58,7 +58,37 @@ other did. **It is the single source of truth for "where are we".**
 - They will test on a real phone themselves later; nothing has been tried on a
   phone yet.
 
-## THE PLAN NOW: foundations, not features (owner's roadmap, 2026-11-25)
+## THE PLAN NOW: seven additions after a comparison with GDevelop (owner's roadmap, 2026-11-27)
+
+The owner compared Bazisaz with GDevelop and chose these seven. Build only these, in this order, **ONE per
+session**: when one is done, stop, report and wait for the owner's OK before the next, even if asked to keep
+working. For each: build, `npm test` and the bots pass; commit after every passing step; a format change comes
+with its migrate.ts step and fixture (scripts/fixtures/); a Persian GUIDE-fa entry; screenshots of the editor
+and the game showing it. Nothing that is not part of the current item. Report in Finglish: what was added, how
+to try it in the editor, what was tested. (A screen-framing roadmap tried the same day was reverted at the
+owner's request, a36f448: no visible changes outside the item.)
+
+- [ ] **1. Tween any property:** an action that changes any number of an object over time to a target with an
+  easing curve (x, y, width, height, angle, opacity, scale, one of its values, or a game variable); by or to,
+  repeat, back and forth; a trigger "a tween finished" on that object.
+- [ ] **2. Sub-rules and structured variables:** sub-rules checked only when the parent's trigger happened and
+  its conditions passed, on the same objects; shown indented, movable in and out. Variables with named parts
+  (player.stats.hp) for game variables and object values; rules, texts and saving understand them.
+- [ ] **3. Custom behaviors:** made from rules, with a Persian name and number settings; "this object" means
+  each object that has it; in the behavior list next to the built-in ones, each object its own settings. Built
+  on functions; a test remakes a back-and-forth mover as one.
+- [ ] **4. Visual effects on anything:** any pixi-filters effect on an object, a layer or the whole scene, with
+  settings and a live preview; an action that changes a setting during play; existing looks keep working; the
+  stress scene stays in budget with several effects.
+- [ ] **5. Lights that cast shadows:** the existing lights cast soft shadows from a chosen group, with a shadow
+  length setting; stress budget with several lights and casters.
+- [ ] **6. Gamepad, text input, phone tilt:** a gamepad works like the controls without setup, plus a trigger
+  for its buttons; a text input object (Persian and English, RTL) into a text variable, with a confirm trigger;
+  tilt as a steer option and a number in rules.
+- [ ] **7. Export for the web:** a .zip with index.html and everything, next to Android in the export dialog;
+  tested from a local web server in headless Chrome.
+
+## DONE: foundations, not features (owner's roadmap, 2026-11-25)
 
 Bazisaz has more features than it needs (29 behaviors, 26 triggers, 68 actions, 31 parts, 95 pictures, ten
 genre games). What it lacks next to GDevelop or Construct 3 is foundations. This replaces the feature plan
@@ -105,7 +135,7 @@ A–G is DONE as far as the agent can take it (notes per phase below). Waiting o
 choices (contact direction, Sky Quest as the flagship, the reference games, our own bones), choose a feel preset
 after trying them, and the real playtests (watch 3–5 people, fix the top three, repeat once).
 
-## THEN: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
+## DONE: the flagship game (owner's roadmap, 2026-11-25), after the five foundations phases
 
 Why: the games and their graphics are not yet at the level of a good Google Play game. (1) All 95 library
 pictures, the skies and the music are drawn by code (art.ts, sky.ts, music.ts): that has a ceiling; GDevelop and
