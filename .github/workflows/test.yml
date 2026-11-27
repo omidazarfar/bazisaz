@@ -64,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [smoke, editor.smoke, server.smoke, agent.smoke, contact.smoke, fixtures.smoke, stress.smoke, art.smoke]
+        suite: [smoke, editor.smoke, server.smoke, agent.smoke, contact.smoke, fixtures.smoke, stress.smoke, art.smoke, framing.smoke]
     name: test (${{ matrix.suite }})
     steps:
       - uses: actions/checkout@v4
