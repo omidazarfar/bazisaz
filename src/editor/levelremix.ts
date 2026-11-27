@@ -208,7 +208,11 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
     { kind: 'step', size: 4 }, ...(f > 1.4 ? [{ kind: 'step', size: 4 } as Piece] : []),
     { kind: 'plain', size: 3 }, { kind: 'plain', size: 3 },
   ] as Piece[]).sort(() => rnd() - 0.5);
-  const cols = 6 + pieces.reduce((sum, p) => sum + p.size, 0) + 8;
+  // After a gap, two cells of ground; four when another gap or a lift comes next, so there is room to land and
+  // run up again (two cells between two gaps was a spot where players, and the bot, fell in again and again).
+  const jumpy = (p?: Piece) => p?.kind === 'gap' || p?.kind === 'lift';
+  const landing = (i: number) => (jumpy(pieces[i + 1]) ? 4 : 2);
+  const cols = 6 + pieces.reduce((sum, p, i) => sum + p.size + (jumpy(p) ? landing(i) - 2 : 0), 0) + 8;
   const grid = Array.from({ length: rowsN }, () => Array.from({ length: cols }, () => EMPTY_TILE));
   const ground = (c: number, rise = 0) => { for (let r = top - rise; r < rowsN; r++) grid[r][c] = groundKey; };
   const put = (r: number, c: number, k: string | null) => { if (k && r >= 0 && r < rowsN && c >= 0 && c < cols && grid[r][c] === EMPTY_TILE) grid[r][c] = k; };
@@ -221,14 +225,14 @@ function platformer(scene: Scene, e: Elements, f: number, rnd: () => number): Sc
   let c = 0;
   for (; c < 6; c++) { ground(c); open.push(c); }
   const gapsAt: { c: number; g: number }[] = [];
-  for (const piece of pieces) {
+  for (const [i, piece] of pieces.entries()) {
     if (piece.kind === 'gap' || piece.kind === 'lift') {
       const g = piece.size - 2;
       if (pitT) add(pitT, at(c), pitT.y, { width: g * cell });
       if (piece.kind === 'lift') add(liftT, at(c) - cell * 0.25, liftT!.y);
       else gapsAt.push({ c, g });
       c += g;
-      for (let k = 0; k < 2; k++, c++) { ground(c); flat.push(c); open.push(c); }
+      for (let k = 0; k < landing(i); k++, c++) { ground(c); flat.push(c); open.push(c); }
     } else if (piece.kind === 'walker') {
       // (Over a walking enemy or spikes there is no floating platform: jumping them must not bump into one.)
       for (let k = 0; k < piece.size; k++) { ground(c + k); }

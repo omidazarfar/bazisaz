@@ -461,6 +461,10 @@ how to see it, what to try or film, the next phase).
   turn green) and a strip of sky between the hills and the ground in the levels (a green foot under the hills,
   over their last rows). Round 2 (6 games): 6 of 6 won, lives lost 5 (round 1: 1 game over in 9, ~1.4 lives
   lost a game); the most marks now at level 1's third gap (x≈2835), likely the bot's short reaction window.
+- platform-levels (Sky Quest with two levels made from level 1) lost on CI every time, not by luck: the
+  level maker could put a two-cell island between two gaps (level 3, x≈995), where the bot fell in three
+  times running. Now a gap is followed by four cells of ground when another gap or a lift comes next
+  (levelremix.ts `landing`). Won twice locally after (2026-11-27).
 - **Owner's part, not doable by the agent:** watching real people play, fixing the top problems they find, and
   a second round.
 
