@@ -1827,6 +1827,17 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('a rule calls the function and adds to the list, in sentences', said.includes('تابع «تابع 1» را اجرا کن') && said.includes('فهرست deck اضافه کن'), said);
   const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
   check('a game with a function and a list has nothing that stops it running', problems.length === 0, problems.join(' | '));
+  // A value named only by a block's amount (the number added to the list) is in use: it cannot be removed from
+  // under the rule. Every block says which values it names through its fields.
+  await page.evaluate(() => {
+    const { project } = window.__editor.getState();
+    const scenes = project.scenes.map((s) => ({ ...s, rules: s.rules.map((r) => ({ ...r, then: r.then.map((a) => (a.type === 'listAdd' ? { ...a, value: { variable: 'points' } } : a)) })) }));
+    window.__editor.open({ ...project, scenes });
+  });
+  await click('بازی', '.tabs');
+  await sleep(200);
+  const removable = await page.$eval('[data-variable="points"] .link-danger', (b) => !b.disabled);
+  check('a value used only as an amount of a list block cannot be removed', !removable);
 }
 
 // ── Narrow screen ──────────────────────────────────────────────────────────

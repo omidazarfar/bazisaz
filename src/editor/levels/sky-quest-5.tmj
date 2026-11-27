@@ -30,9 +30,12 @@
    "tilewidth": 80,
    "tileheight": 80,
    "tilecount": 3,
-   "columns": 0,
+   "columns": 3,
    "margin": 0,
    "spacing": 0,
+   "image": "sky-quest-tiles.png",
+   "imagewidth": 240,
+   "imageheight": 80,
    "tiles": [
     {
      "id": 0,

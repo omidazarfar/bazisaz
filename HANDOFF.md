@@ -411,8 +411,11 @@ how to see it, what to try or film, the next phase).
   object; joins (stone keeps its edges, grass joins it); the flagship has five levels getting longer, three
   gems each, enemies from level 2, planks in 3, spikes, key and gate in 4, the levels screen, no warnings.
   Passed locally. `node scripts/look/flagship.mjs` photographs the levels screen, each level and the win.
-- Not done: LDtk import; 47-tile sets; the .tmj tileset has no picture (Tiled shows the tiles blank; the game
-  draws them with Kenney's art by class).
+- The .tmj tileset has a picture now (src/editor/levels/sky-quest-tiles.png: Kenney's grass, stone and coin,
+  80 px), so the levels show their tiles when opened in Tiled; the game still draws each class itself.
+- Not done, on purpose (2026-11-27, agent's choice; the roadmap: no blocks the flagship does not need): LDtk
+  import and 47-tile (blob) sets. Sky Quest's levels are Tiled maps and Kenney's terrain is a 16-tile set.
+  Build them when a game needs them.
 
 ### Flagship Phase F progress (camera and game feel)
 
@@ -463,11 +466,10 @@ how to see it, what to try or film, the next phase).
 
 ### Later (small things noticed, not blocking the phase)
 
-- GUIDE §۵ says "26 behaviors" and its table lacks animate, moves and homing (29 exist); counts were stale
-  before Phase 4.
-
-- `isVariableUsed` (state.ts, the warning before deleting a value) knows only some blocks (not e.g. a bar, a
-  `variable` amount in actions other than setVariable). Each block could say which values it names.
+- DONE 2026-11-27: GUIDE §۵ lists all 31 behaviors (animate, homing, moves, layout, slider were missing).
+- DONE 2026-11-27: `isVariableUsed` reads each block's own fields (variable, textVariable, item, anyValue, an
+  amount's variable, {name} in a text) plus bars and conditions, so every block is known (editor.smoke: a value
+  used only as a list block's amount cannot be removed).
 
 - The player bundle now carries the moved blocks' Persian editor texts (+21 KB so far, 1.6%). When all are
   moved, let a block file export its runtime part separately so the player's registry leaves the editor part out.
@@ -476,9 +478,12 @@ how to see it, what to try or film, the next phase).
 - physics bot (Rock Smash): fails on CI (Game over, score 60–90) both before and after Phase 1 (checked on a
   temporary branch at a235f62); wins locally (score 123). The slow CI runner, not the game. platform-levels
   and bricks-levels bots also fail on CI, as before.
-- puzzle bot (Gem Crush): random boards, so it wins some runs and loses some on CI (lost 80 and 85 of 90 twice after Phase 1 step 2, won once; won 92 on the commit before Phase 1). The moved puzzle actions are line for line the same code. Its losing runs show moves 21 of 20: worth a look later.
-- Brick Blitz levels: the level maker's level 2 can have half the bricks of level 1 (a checkerboard shape)
-  while being "harder".
+- puzzle bot (Gem Crush): random boards, so it wins some runs and loses some on CI (lost 80 and 85 of 90 twice after Phase 1 step 2, won once; won 92 on the commit before Phase 1). The moved puzzle actions are line for line the same code. DONE 2026-11-27: "moves 21 of 20" was real: in the two seconds the
+  game waits for the last pieces after the moves run out, the board still took swaps. Now no moves left sets
+  `picked` to 2 (neither tap rule matches) and takes the ring away. (A bug fix in a genre game, not a change of
+  it.)
+- DONE 2026-11-27: Brick Blitz levels: a new wall has at least as many bricks as the level it is made from (the
+  drawn shape gets more rows, else the next shape); agent.smoke checks it.
 
 ## Owner decision, 2026-11-20: whole games in the genre helper
 

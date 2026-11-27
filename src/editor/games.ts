@@ -822,6 +822,9 @@ export async function buildPuzzle(project: GameProject, sceneId: string): Promis
   p = screen.project;
   p = withRules(p, sceneId,
     rule({ type: 'start' }, [{ type: 'setVariable', name: 'moves', op: 'set', amount: MOVES }]),
+    // No moves left: no more picking or swapping while the last pieces settle ("picked" 2 matches neither tap
+    // rule of the board; before, a player could swap on for two seconds: a bot made 21 moves of 20).
+    rule({ type: 'variable', name: 'moves', op: '<=', value: 0 }, [{ type: 'setVariable', name: 'picked', op: 'set', amount: 2 }, { type: 'destroy', target: { by: 'tag', tag: 'نشانگر' } }]),
     rule({ type: 'variable', name: 'score', op: '>=', value: GOAL_POINTS }, [{ type: 'playSound', sound: 'win' }, { type: 'shake', strength: 6 }, { type: 'wait', seconds: 1.2 }, { type: 'goToScene', scene: screen.win }]),
     // Out of moves: the last pieces settle first, then it is over unless the goal was reached.
     {

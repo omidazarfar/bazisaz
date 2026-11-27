@@ -46,7 +46,10 @@ function level(title, idea, cols, build) {
     width: cols, height: ROWS, tilewidth: CELL, tileheight: CELL, infinite: false, nextlayerid: 3, nextobjectid: objects.length + 1,
     properties: [{ name: 'title', type: 'string', value: title }, { name: 'idea', type: 'string', value: idea }],
     tilesets: [{
-      firstgid: 1, name: 'sky-quest', tilewidth: CELL, tileheight: CELL, tilecount: 3, columns: 0, margin: 0, spacing: 0,
+      // The picture is only for Tiled (open a level there and its tiles show): the game draws each class with
+      // Kenney's art itself. sky-quest-tiles.png: Kenney's grass top, stone top and gold coin, 80 px each (CC0).
+      firstgid: 1, name: 'sky-quest', tilewidth: CELL, tileheight: CELL, tilecount: 3, columns: 3, margin: 0, spacing: 0,
+      image: 'sky-quest-tiles.png', imagewidth: 3 * CELL, imageheight: CELL,
       tiles: [
         { id: 0, class: 'grass', properties: [{ name: 'tags', type: 'string', value: 'زمین' }] },
         { id: 1, class: 'stone', properties: [{ name: 'tags', type: 'string', value: 'زمین' }] },

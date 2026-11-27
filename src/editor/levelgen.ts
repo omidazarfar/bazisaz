@@ -259,15 +259,29 @@ function bricksLayout(scene: Scene, f: number, rnd: () => number): Scene {
   const sample = bricks[0];
   const colours = [...new Set(bricks.map((b) => (b.visual.kind === 'rect' ? b.visual.color : '#ffd23f')))];
   const cols = 7;
-  const rows = Math.min(9, 5 + Math.round(f));
+  // Each shape is given the number of rows of the wall.
   const shapes = [
-    (_r: number, _c: number) => true,
+    (_r: number, _c: number, _n: number) => true,
     (r: number, c: number) => Math.abs(c - 3) <= r * 0.6 + 0.4,
     (r: number, c: number) => (r + c) % 2 === 0,
-    (r: number, c: number) => Math.abs(c - 3) + Math.abs(r - (rows - 1) / 2) <= 3.6,
+    (r: number, c: number, n: number) => Math.abs(c - 3) + Math.abs(r - (n - 1) / 2) <= 3.6,
     (r: number) => r % 2 === 0,
   ];
-  const shape = shapes[Math.floor(rnd() * shapes.length)];
+  // A shape with at least as many bricks as the level it is made from (a checkerboard of the same rows has half
+  // as many, which made a "harder" level shorter): the drawn shape gets more rows if it can, else the next shape.
+  const countOf = (k: number, n: number) => Array.from({ length: n * cols }, (_, i) => shapes[k](Math.floor(i / cols), i % cols, n)).filter(Boolean).length;
+  const rows0 = Math.min(9, 5 + Math.round(f));
+  const first = Math.floor(rnd() * shapes.length);
+  let [pick, rows] = [first, rows0];
+  found: for (let k = 0; k < shapes.length; k++) {
+    for (let n = rows0; n <= 9; n++) {
+      if (countOf((first + k) % shapes.length, n) >= bricks.length) {
+        [pick, rows] = [(first + k) % shapes.length, n];
+        break found;
+      }
+    }
+  }
+  const shape = (r: number, c: number) => shapes[pick](r, c, rows);
   const left = Math.min(...bricks.map((b) => b.x));
   const topY = Math.min(...bricks.map((b) => b.y));
   const step = { x: bricks.length > 1 ? Math.min(...bricks.filter((b) => b.x > left).map((b) => b.x)) - left : sample.width + 8, y: 50 };

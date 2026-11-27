@@ -2,6 +2,8 @@ import { EMPTY_TILE, ruleActions, type Action, type Behavior, type GameObject, t
 import { validateProject } from '../format/validate';
 import { migrate } from '../format/migrate';
 import { blank } from '../templates';
+import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
+import type { Field } from '../blocks/fields';
 
 export interface EditorState {
   project: GameProject;
@@ -358,25 +360,42 @@ export function isListUsed(project: GameProject, name: string): boolean {
   return project.scenes.some((s) => s.rules.some((r) => ruleActions(r).some((a) => 'list' in a && a.list === name)));
 }
 
+/**
+ * Whether a block's value names a game value, read from the block's own fields (a value, a text value, a thing
+ * for the bag, an amount that may be a value, a text that shows {name}), so every block is known, new ones too.
+ */
+function blockNames(fields: readonly Field[] | undefined, block: object, name: string): boolean {
+  const values = block as Record<string, unknown>;
+  return (fields ?? []).some((f) => {
+    const v = values[f.key];
+    switch (f.kind) {
+      case 'variable':
+      case 'textVariable':
+      case 'item':
+      case 'anyValue':
+        return v === name;
+      case 'amount':
+        return typeof v === 'object' && v !== null && (v as { variable?: string }).variable === name;
+      case 'text':
+        return typeof v === 'string' && v.includes(`{${name}}`);
+      default:
+        return false;
+    }
+  });
+}
+
 export function isVariableUsed(project: GameProject, name: string): boolean {
   return project.scenes.some(
     (s) =>
-      [...s.objects, ...s.prefabs].some((o) => (o.visual.kind === 'text' && o.visual.text.includes(`{${name}}`)) || o.behaviors.some((b) => b.type === 'mover' && b.speedVariable === name)) ||
+      [...s.objects, ...s.prefabs].some((o) =>
+        (o.visual.kind === 'text' && o.visual.text.includes(`{${name}}`)) ||
+        (o.visual.kind === 'bar' && o.visual.variable === name) ||
+        o.behaviors.some((b) => blockNames(behaviorBlocks.get(b.type)?.editor.fields, b, name))) ||
       s.rules.some(
         (r) =>
-          ((r.when.type === 'variable' || r.when.type === 'textEquals') && r.when.name === name) ||
-          ((r.when.type === 'useItem' || r.when.type === 'useItemOn') && r.when.item === name) ||
-          // A function's or question's inputs (Phase 4).
-          ((r.when.type === 'called' || r.when.type === 'asked') && [r.when.in1, r.when.in2, r.when.in3].includes(name)) ||
+          blockNames(triggerBlocks.get(r.when.type)?.editor.fields, r.when, name) ||
           [r.condition, ...(r.also ?? [])].some((c) => c && c.of === undefined && c.name === name) ||
-          ruleActions(r).some(
-            (a) =>
-              (a.type === 'setTextVariable' && a.name === name) ||
-              (a.type === 'setText' && a.text.includes(`{${name}}`)) ||
-              (a.type === 'setVariable' && (a.name === name || (typeof a.amount === 'object' && 'variable' in a.amount && a.amount.variable === name))) ||
-              ((a.type === 'give' || a.type === 'take') && a.item === name) ||
-              ((a.type === 'listGet' || a.type === 'listCount' || a.type === 'forEach') && a.into === name),
-          ),
+          ruleActions(r).some((a) => blockNames(actionBlocks.get(a.type)?.editor.fields, a, name)),
       ),
   );
 }

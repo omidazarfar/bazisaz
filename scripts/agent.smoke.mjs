@@ -45,5 +45,10 @@ check('new <genre>: a finished genre game', r.ok && json('bricks.json').scenes.l
 const level = json('bricks.json').scenes[0].name;
 r = game('levels', 'bricks.json', level, '2');
 check('levels: two harder levels after the first, and it still runs', r.ok && json('bricks.json').scenes.length === 6 && game('check', 'bricks.json').ok, r.out);
+{
+  // Brick Blitz's new walls have new shapes, never fewer bricks than the first level (a checkerboard once had half).
+  const walls = json('bricks.json').scenes.map((s) => s.objects.filter((o) => o.name.startsWith('آجر ')).length).filter((n) => n > 0);
+  check('levels: each new wall of bricks has at least as many as the first', walls.length === 3 && walls.every((n) => n >= walls[0]), walls.join(','));
+}
 
 finish();

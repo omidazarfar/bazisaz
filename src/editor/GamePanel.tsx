@@ -480,7 +480,7 @@ export function GamePanel({ editor }: { editor: Editor }) {
         {project.variables.filter((v) => !v.item).map((v) => {
           const used = isVariableUsed(project, v.name);
           return (
-            <div key={v.name} className="variable">
+            <div key={v.name} className="variable" data-variable={v.name}>
               <div className="variable-head">
                 <bdi dir="ltr" className="variable-name">{v.name}</bdi>
                 <button
