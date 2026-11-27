@@ -479,6 +479,10 @@ how to see it, what to try or film, the next phase).
   moved, let a block file export its runtime part separately so the player's registry leaves the editor part out.
 - tower-levels bot: game over at score 56 on level 2 about one run in two (bot timing on the extra slimes);
   same before Phase 1 (measured 2026-11-25: 3 of 6 wins before step 5 and 3 of 6 after).
+  2026-11-27: lost 3 of 3 locally (at 6519ecc and after). One photo showed a made level's slime right where
+  the player steps off a ladder (100 px from the hole): now 180 px from the ladder the player comes up, 60 from
+  the next one. The bot still loses on slimes between it and the next ladder (its jump timing on a narrow
+  floor); a person can wait or jump. Not fixed: needs a better tower bot, not a different game.
 - physics bot (Rock Smash): fails on CI (Game over, score 60–90) both before and after Phase 1 (checked on a
   temporary branch at a235f62); wins locally (score 123). The slow CI runner, not the game. platform-levels
   and bricks-levels bots also fail on CI, as before.

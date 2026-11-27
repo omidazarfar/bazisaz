@@ -392,7 +392,9 @@ function tower(scene: Scene, e: Elements, f: number, rnd: () => number): Scene {
     // and an enemy walks only the middle of that way, never at a ladder's foot or top.
     const exit = (holes[i].from + holes[i].to) / 2;
     const next = i + 1 < holes.length ? (holes[i + 1].from + holes[i + 1].to) / 2 : (goal ? goal.x + goal.width / 2 : W / 2);
-    const side = [Math.min(exit, next) + 100, Math.max(exit, next) - 100];
+    // Well clear of the ladder the player steps off (stepping off into a slime was where lives went, for people
+    // and the bot); nearer the next ladder's foot, which the player walks up to and can jump.
+    const side = exit < next ? [exit + 180, next - 60] : [next + 60, exit - 180];
     for (let k = 0; k < wanted; k++) {
       const t = mine[k] ?? template!;
       const room = side[1] - side[0];
