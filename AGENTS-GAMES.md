@@ -62,6 +62,14 @@ otherwise?, sub? }`). They are looked at only when the rule's trigger happened a
 after its actions, about the same "first" and "second". Use them instead of several rules with the same trigger
 that differ in one condition. Every id, sub-rules' too, is unique in the scene.
 
+**Custom behaviors:** `project.customBehaviors` is a list of `{ id, name, about?, settings: [{ name, label?,
+initial }], rules: [...] }`. An object gets one with the behavior `{ type: 'custom', behavior: <id>, settings?:
+{ name: number } }`. Its rules run for each object that has it, on its own: `{ by: 'self' }` ("this object") is
+that object, anywhere a ref or target goes; each setting is that object's own value of the same name (the
+object's number, or `initial`). Name groups or `self` in them, never one object by `id`; no `called`/`asked`
+rules there. "Scene starts" is, for each object, when it first takes part (made later: when made); "every N
+seconds" counts per object. Use one for an ability many objects share with different numbers.
+
 **An object** has an `id` (unique in the whole project), a `name` (only the editor shows it), `x`, `y`,
 `width`, `height`, a `visual`, `tags` (the groups it belongs to — rules and behaviors refer to groups
 by name), `visible`, and `behaviors`. Optional: `fixed` (stays on the screen like a score or a button),

@@ -1985,6 +1985,71 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('parts: a game with values with parts has nothing that stops it', problems.length === 0, problems.join(' | '));
 }
 
+// ── Custom behaviors (roadmap item 3) ─────────────────────────────────────
+{
+  await freshGame();
+  await page.evaluate(() => {
+    const p = window.__editor.getState().project;
+    const box = (id, x) => ({ id, name: id, x, y: 600, width: 100, height: 100, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [] });
+    window.__editor.open({ ...p, scenes: p.scenes.map((s, i) => (i ? s : { ...s, objects: [...s.objects, box('boxA', 100), box('boxB', 400)] })) });
+  });
+  await sleep(200);
+  const made = async () => (await editor()).project.customBehaviors ?? [];
+  // From an object's behavior list: a new one, made, given to it and opened for its rules in one step.
+  await clickRow('boxA');
+  await pick('اضافه کردن رفتار', 'custom:', '.panel-inspector');
+  await sleep(200);
+  let behaviors = await made();
+  const id = behaviors[0]?.id;
+  const head = await page.$(`[data-behavior-head="${id}"]`);
+  check('custom behavior: "+ a new behavior from rules" makes one, gives it to the object and opens its rules', behaviors.length === 1 && Boolean(head) && (await object('boxA')).behaviors.some((b) => b.type === 'custom' && b.behavior === id), JSON.stringify(behaviors));
+  await setControl('نام رفتار', 'رفت و برگشت', '.rules');
+  await page.type('input[aria-label="نام تنظیم تازه"]', 'distance');
+  await page.keyboard.press('Enter');
+  await sleep(150);
+  await page.type('input[aria-label="نام تنظیم تازه"]', 'distance');
+  const twice = await page.$eval('[data-behavior-settings] button[type="submit"]', (b) => b.disabled);
+  await page.click('input[aria-label="نام تنظیم تازه"]', { clickCount: 3 });
+  await page.keyboard.press('Backspace');
+  behaviors = await made();
+  check('custom behavior: a name and a setting, and the same setting not twice', behaviors[0].name === 'رفت و برگشت' && behaviors[0].settings.length === 1 && behaviors[0].settings[0].name === 'distance' && twice, JSON.stringify(behaviors[0]));
+  // Its rules: "this object" is offered and chosen at first; single objects by name are not offered.
+  await pick('قانون تازه', 'start', '.rules');
+  const ruleId = (await made())[0].rules.at(-1)?.id;
+  await addAction(ruleId, 'tween');
+  const action = (await made())[0].rules.find((r) => r.id === ruleId).then[0];
+  const offered = await page.evaluate((id) => [...document.querySelector(`article.rule[data-rule="${id}"] .action select`).options].map((o) => o.value), ruleId);
+  check('custom behavior: a rule\'s action is about "this object" at first, and offers no single object', action?.target?.by === 'self' && offered.includes('self') && !offered.some((v) => v.startsWith('id:')), `${JSON.stringify(action?.target)} | ${offered.join(' ')}`);
+  const sceneRules = (await scene()).rules.length;
+  await click('بستن', `article.rule[data-rule="${ruleId}"]`);
+  const said = await page.$eval(`.rule-closed[data-rule="${ruleId}"]`, (el) => el.textContent);
+  check('custom behavior: its rule reads as a sentence about "this object", and is not a rule of the scene', said.includes('همین شیء') && sceneRules === 0, said);
+  // Back to the scene's rules, and to the behavior's again.
+  await page.click('[data-rules-of="scene"]');
+  await sleep(100);
+  const sceneView = !(await page.$('[data-behavior-head]'));
+  await page.click(`[data-rules-of="${id}"]`);
+  await sleep(100);
+  check('custom behavior: the rules tab switches between the scene\'s rules and the behavior\'s', sceneView && Boolean(await page.$(`[data-behavior-head="${id}"]`)) && Boolean(await page.$(`.rule-closed[data-rule="${ruleId}"]`)));
+  // Another object gets it from its list by name, and sets its own distance.
+  await click('شیء', '.tabs');
+  await clickRow('boxB');
+  await pick('اضافه کردن رفتار', `custom:${id}`, '.panel-inspector');
+  await setControl('distance', 300);
+  const own = (await object('boxB')).behaviors.find((b) => b.type === 'custom');
+  const first = (await object('boxA')).behaviors.find((b) => b.type === 'custom');
+  check('custom behavior: offered by its name to another object, which sets its own setting', own?.behavior === id && own.settings?.distance === 300 && !first.settings?.distance, JSON.stringify([own, first]));
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('custom behavior: a game with one has nothing that stops it', problems.length === 0, problems.join(' | '));
+  // Removed: from the game and from every object.
+  await page.click(`[data-edit-custom="${id}"]`);
+  await sleep(150);
+  await page.click('[data-remove-behavior]');
+  await sleep(150);
+  const left = [...(await scene()).objects].filter((o) => o.behaviors.some((b) => b.type === 'custom'));
+  check('custom behavior: removing it takes it from every object too', (await made()).length === 0 && left.length === 0 && !(await page.$('[data-behavior-head]')));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);
