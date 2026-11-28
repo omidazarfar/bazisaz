@@ -2099,6 +2099,28 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('effects: a game with effects has nothing that stops it', problems.length === 0, problems.join(' | '));
 }
 
+// ── Lights that cast soft shadows (roadmap item 5) ────────────────────────
+{
+  await freshGame();
+  await page.evaluate(() => {
+    const p = window.__editor.getState().project;
+    const box = (id, x, tags) => ({ id, name: id, x, y: 600, width: 60, height: 60, visual: { kind: 'rect', color: '#8d6e63' }, tags, visible: true, behaviors: [] });
+    window.__editor.open({ ...p, scenes: p.scenes.map((s, i) => (i ? s : { ...s, darkness: 0.9, objects: [...s.objects, box('lampBox', 200, []), box('wallBox', 400, ['wall'])] })) });
+  });
+  await sleep(200);
+  await clickRow('lampBox');
+  await pick('اضافه کردن رفتار', 'light', '.panel-inspector');
+  const labels = () => page.evaluate(() => [...document.querySelectorAll('.panel-inspector .control-head label')].map((l) => l.textContent));
+  const before = await labels();
+  await setControl('سایه‌ی این گروه بیفتد', 'wall');
+  await setControl('سایه تا کجا برود', 150);
+  const after = await labels();
+  const light = (await object('lampBox')).behaviors.find((b) => b.type === 'light');
+  check('soft shadows: a new light starts soft; length and softness show once it has a shadow group', !before.includes('سایه تا کجا برود') && after.includes('سایه تا کجا برود') && after.includes('نرمی لبه‌ی سایه') && light.shadowSoftness === 8 && light.shadowLength === 150 && light.shadowTag === 'wall', JSON.stringify(light));
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('soft shadows: a game with them has nothing that stops it', problems.length === 0, problems.join(' | '));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

@@ -58,6 +58,13 @@ fxScene.objects.forEach((o, i) => {
 });
 fxScene.rules.push({ id: 'fx', when: { type: 'every', seconds: 0.5 }, condition: null, then: [{ type: 'setEffect', place: 'world', target: { by: 'tag', tag: 'coin' }, kind: 'hue', setting: 'hue', amount: { random: [0, 90] }, seconds: 0.4 }] });
 
+// And with lights that cast soft, short shadows (item 5): four lights in the dark, 40 walls, each light's shadows
+// worked out every frame.
+const withShadows = structuredClone(project);
+const shadowScene = withShadows.scenes[0];
+for (let i = 0; i < 40; i++) shadowScene.objects.push(box(`wall${i}`, 100 + random() * 2200, 400 + random() * 1000, 40, 120, { tags: ['wall'], color: '#5d4037' }));
+for (let i = 0; i < 4; i++) shadowScene.objects.push(box(`lamp${i}`, 300 + i * 500, 900, 30, 30, { color: '#fff59d', behaviors: [{ type: 'light', radius: 500, color: '#fff3c4', flicker: true, shadowTag: 'wall', shadowLength: 180, shadowSoftness: 10 }] }));
+
 const browser = await launch();
 async function measure(project, picture) {
   const { page, errors } = await openPage(browser, url, { project });
@@ -89,6 +96,7 @@ async function measure(project, picture) {
 }
 const result = await measure(project, 'stress.png');
 const fx = await measure(withEffects, 'stress-effects.png');
+const lit = await measure(withShadows, 'stress-shadows.png');
 await browser.close();
 
 const { profile } = result;
@@ -104,6 +112,7 @@ const report = [
   ...parts.map(([part, ms]) => `  ${ms.toFixed(3).padStart(8)} ms  ${part}`),
   `With visual effects (${fx.effects} on objects, 4 on the scene and its layers, one changed by a rule): a step ${fxMean.toFixed(2)} ms on average, ${fx.profile.worst.toFixed(2)} ms at worst.`,
   `Drawing a frame (this computer's graphics; software drawing on CI): ${result.drawMs.toFixed(2)} ms without effects, ${fx.drawMs.toFixed(2)} ms with them.`,
+  `With 4 lights casting soft, short shadows from 40 walls: a step ${(lit.profile.stepMs / lit.profile.steps).toFixed(2)} ms on average; working out the darkness and lights ${((lit.profile.ms['frame: darkness and lights'] ?? 0) / lit.profile.frames).toFixed(2)} ms a frame (${((profile.ms['frame: darkness and lights'] ?? 0) / profile.frames).toFixed(2)} ms with the 2 plain lights); drawing a frame ${lit.drawMs.toFixed(2)} ms.`,
 ].join('\n');
 console.log(report);
 writeFileSync(resolve(shots, 'stress-profile.txt'), report + '\n');
@@ -111,5 +120,7 @@ writeFileSync(resolve(shots, 'stress-profile.txt'), report + '\n');
 check('the stress scene has 500 objects and its rules fire', result.objects >= 490 && result.variables.ticks > 0 && result.variables.touches > 0, JSON.stringify(result.variables));
 check(`a step of the stress scene takes under ${BUDGET_MS} ms on average (${mean.toFixed(2)} ms)`, mean < BUDGET_MS, parts.slice(0, 3).map(([p, ms]) => `${p} ${ms.toFixed(2)}`).join(', '));
 check(`with several visual effects, a step still takes under ${BUDGET_MS} ms on average (${fxMean.toFixed(2)} ms)`, fx.effects >= 20 && fxMean < BUDGET_MS, `${fx.effects} effects on objects`);
-check('stress scene: no errors in the page', result.errors.length === 0 && fx.errors.length === 0, [...result.errors, ...fx.errors].join(' | '));
+const litMean = lit.profile.stepMs / lit.profile.steps;
+check(`with 4 lights casting soft shadows from 40 walls, a step still takes under ${BUDGET_MS} ms on average (${litMean.toFixed(2)} ms)`, litMean < BUDGET_MS);
+check('stress scene: no errors in the page', [result, fx, lit].every((r) => r.errors.length === 0), [...result.errors, ...fx.errors, ...lit.errors].join(' | '));
 finish();

@@ -77,10 +77,10 @@ owner's request, a36f448: no visible changes outside the item.)
 - [x] **3. Custom behaviors** (DONE 2026-11-28; CI green, the owner asked for item 4; notes below the list): made from rules, with a Persian name and number settings; "this object" means
   each object that has it; in the behavior list next to the built-in ones, each object its own settings. Built
   on functions; a test remakes a back-and-forth mover as one.
-- [~] **4. Visual effects on anything** (built 2026-11-28 by Claude in a cloud session, waiting for the owner's OK; notes below the list): any pixi-filters effect on an object, a layer or the whole scene, with
+- [x] **4. Visual effects on anything** (DONE 2026-11-28; CI green, the owner asked for item 5; notes below the list): any pixi-filters effect on an object, a layer or the whole scene, with
   settings and a live preview; an action that changes a setting during play; existing looks keep working; the
   stress scene stays in budget with several effects.
-- [ ] **5. Lights that cast shadows:** the existing lights cast soft shadows from a chosen group, with a shadow
+- [~] **5. Lights that cast shadows** (built 2026-11-28 by Claude in a cloud session, waiting for the owner's OK; notes below the list; lights already cast sharp shadows as far as their reach since 2026-11-19, so this adds length and soft edges): the existing lights cast soft shadows from a chosen group, with a shadow
   length setting; stress budget with several lights and casters.
 - [ ] **6. Gamepad, text input, phone tilt:** a gamepad works like the controls without setup, plus a trigger
   for its buttons; a text input object (Persian and English, RTL) into a text variable, with a confirm trigger;
@@ -138,6 +138,27 @@ owner's request, a36f448: no visible changes outside the item.)
   another part, keep all, refusals, offered in rules). GUIDE-fa «زیرقانون و مقدار چند بخشی». Pictures:
   `node scripts/look/subrules.mjs` → scripts/look/out/subrules-editor.png, subrules-open-editor.png,
   parts-editor.png, subrules-game.png.
+
+### Item 5 progress (soft shadows of a set length, 2026-11-28)
+
+- Lights already cast hard shadows from `shadowTag` as far as their reach (shadows.ts `lightPolygon`, Game.drawShade).
+  Added (additive, no format change): `LightBehavior.shadowLength` (px past a wall's far side; 0/absent as before) and
+  `shadowSoftness` (px of blur; 0/absent sharp). New lights made in the editor start with softness 8; old games look
+  as they did. Both sliders show only once the light has a shadow group.
+- shadows.ts `lightBeyond`: per ray (corners of near walls ±, and 72 around), the stretches lit again after the first
+  shadow (shadows as intervals from a little into a wall to `length` past its far side, merged), as four-sided pieces
+  between neighbouring rays; drawn with the lit polygon in the same Graphics. Game.drawShade blurs the shade layer by
+  the softest shadow-casting light on screen (`shadeBlur`; at least 1.5 px when there are pieces, to hide the hairlines
+  where they meet); the dark sheet now extends 48 px past the screen so the blur keeps the edges dark. getState().lit
+  has `beyond`. lightPolygon now reads the walls' sides from one flat array (same result, ~2.4x faster).
+- Tests: smoke Lab 35 (dark behind, lit again past the end, on the screen too; none set → as before; soft edges have
+  more in-between pixels); Lab 20 (the old shadows) unchanged and passing; editor.smoke "Lights that cast soft
+  shadows"; stress.smoke plays the stress scene with 4 shadow lights and 40 walls: step in budget; darkness and lights
+  ~3.7 ms a frame here (0.2 ms with plain lights), drawing time reported. GUIDE-fa «سایه‌ی دیوارها». Pictures:
+  `node scripts/look/shadows.mjs` → shadows-game.png (before / short / short and soft), shadows-editor.png.
+- Later: one softness for the whole scene (the softest light's); faint hairlines can still show with softness 0 and
+  a length; the blur is a full-screen pass every frame while a soft shadow light is on (cheap on a phone's GPU, slow in
+  software drawing).
 
 ### Item 4 progress (visual effects on anything, 2026-11-28)
 
@@ -942,6 +963,10 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-28 — Claude (cloud session), roadmap item 5: soft shadows of a set length (owner: "مرحله ۵ شروع")
+
+- Item 4's CI run was green; the owner asked for item 5, taken as item 4's OK. Built item 5 (notes under THE PLAN NOW).
 
 ### 2026-11-28 — Claude (cloud session), roadmap item 4: visual effects on anything (owner: "مرحله ۴")
 

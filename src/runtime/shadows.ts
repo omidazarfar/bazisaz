@@ -40,14 +40,17 @@ export function lightPolygon(cx: number, cy: number, radius: number, boxes: Box[
   }
   for (let i = 0; i < AROUND; i++) angles.push(-Math.PI + (i * 2 * Math.PI) / AROUND);
   angles.sort((a, b) => a - b);
+  // The walls' sides in one flat array: this runs for every light with shadows, every frame.
+  const flat = Float64Array.from(segments.flat());
   const points: number[] = [];
   for (const angle of angles) {
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
     let nearest = radius;
-    for (const [x1, y1, x2, y2] of segments) {
-      const sx = x2 - x1;
-      const sy = y2 - y1;
+    for (let k = 0; k < flat.length; k += 4) {
+      const x1 = flat[k], y1 = flat[k + 1];
+      const sx = flat[k + 2] - x1;
+      const sy = flat[k + 3] - y1;
       const denominator = dx * sy - dy * sx;
       if (Math.abs(denominator) < 1e-9) continue;
       const t = ((x1 - cx) * sy - (y1 - cy) * sx) / denominator;
@@ -93,38 +96,51 @@ export function lightBeyond(cx: number, cy: number, radius: number, boxes: Box[]
       angles.push(angle - 0.0008, angle, angle + 0.0008);
     }
   }
-  for (let i = 0; i < AROUND * 2; i++) angles.push(-Math.PI + (i * Math.PI) / AROUND);
+  for (let i = 0; i < AROUND; i++) angles.push(-Math.PI + (i * 2 * Math.PI) / AROUND);
   angles.sort((a, b) => a - b);
+  // The boxes as their edges, once (this runs for every light with short shadows, every frame).
+  const n = near.length;
+  const x0 = new Float64Array(n), x1 = new Float64Array(n), y0 = new Float64Array(n), y1 = new Float64Array(n);
+  near.forEach((b, k) => { x0[k] = b.x; x1[k] = b.x + b.width; y0[k] = b.y; y1[k] = b.y + b.height; });
+  const from = new Float64Array(n), to = new Float64Array(n);
   /** The parts of one ray lit again after its first shadow: [from, to] distances. */
   const litAgain = (angle: number): [number, number][] => {
     const dx = Math.cos(angle);
     const dy = Math.sin(angle);
-    const shadows: [number, number][] = [];
-    for (const b of near) {
+    let count = 0;
+    for (let k = 0; k < n; k++) {
       // Where the ray enters and leaves the box (the slab method).
       let t0 = -Infinity;
       let t1 = Infinity;
-      for (const [d, lo, hi, c] of [[dx, b.x, b.x + b.width, cx], [dy, b.y, b.y + b.height, cy]]) {
-        if (Math.abs(d) < 1e-12) {
-          if (c < lo || c > hi) t0 = Infinity;
-          continue;
-        }
-        const a = (lo - c) / d;
-        const z = (hi - c) / d;
-        t0 = Math.max(t0, Math.min(a, z));
-        t1 = Math.min(t1, Math.max(a, z));
+      if (Math.abs(dx) < 1e-12) {
+        if (cx < x0[k] || cx > x1[k]) continue;
+      } else {
+        const a = (x0[k] - cx) / dx, z = (x1[k] - cx) / dx;
+        t0 = a < z ? a : z;
+        t1 = a < z ? z : a;
+      }
+      if (Math.abs(dy) < 1e-12) {
+        if (cy < y0[k] || cy > y1[k]) continue;
+      } else {
+        const a = (y0[k] - cy) / dy, z = (y1[k] - cy) / dy;
+        t0 = Math.max(t0, a < z ? a : z);
+        t1 = Math.min(t1, a < z ? z : a);
       }
       if (t0 > t1 || t1 <= 0 || t0 >= radius) continue;
-      shadows.push([t0 <= 0 ? 0 : t0 + BLEED, t1 + length]);
+      from[count] = t0 <= 0 ? 0 : t0 + BLEED;
+      to[count] = t1 + length;
+      count++;
     }
-    if (shadows.length === 0) return [];
-    shadows.sort((a, b) => a[0] - b[0]);
+    if (count === 0) return [];
+    // In order along the ray (few, so a simple sort).
+    const order = Array.from({ length: count }, (_, k) => k).sort((a, b) => from[a] - from[b]);
     // The lit stretches between shadows, after the first one.
     const lit: [number, number][] = [];
-    let reach = shadows[0][1];
-    for (const [from, to] of shadows.slice(1)) {
-      if (from > reach) lit.push([reach, Math.min(from, radius)]);
-      reach = Math.max(reach, to);
+    let reach = to[order[0]];
+    for (let q = 1; q < count; q++) {
+      const k = order[q];
+      if (from[k] > reach) lit.push([reach, Math.min(from[k], radius)]);
+      reach = Math.max(reach, to[k]);
     }
     if (reach < radius) lit.push([reach, radius]);
     return lit.filter(([a, b]) => b - a > 0.5);
