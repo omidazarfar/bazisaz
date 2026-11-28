@@ -2050,6 +2050,55 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('custom behavior: removing it takes it from every object too', (await made()).length === 0 && left.length === 0 && !(await page.$('[data-behavior-head]')));
 }
 
+// ── Visual effects on anything (roadmap item 4) ───────────────────────────
+{
+  await freshGame();
+  await page.evaluate(() => {
+    const p = window.__editor.getState().project;
+    const box = { id: 'fxBox', name: 'fxBox', x: 300, y: 600, width: 120, height: 120, visual: { kind: 'rect', color: '#ff7043' }, tags: [], visible: true, behaviors: [] };
+    window.__editor.open({ ...p, scenes: p.scenes.map((s, i) => (i ? s : { ...s, objects: [...s.objects, box] })) });
+  });
+  await sleep(200);
+  await clickRow('fxBox');
+  await pick('اضافه کردن جلوه به این شیء', 'blur', '.panel-inspector');
+  await setControl('چقدر محو', 12);
+  const shown = () => page.evaluate(() => window.__game.entities.find((e) => e.def.id === 'fxBox')?.effects.map((x) => ({ kind: x.kind, strength: x.filter.strength, on: x.filter.enabled })));
+  let effects = (await object('fxBox')).effects;
+  let live = await shown();
+  check('effects: added to an object from its list, a setting changed, and seen at once in the scene', effects?.length === 1 && effects[0].kind === 'blur' && effects[0].settings?.strength === 12 && live?.[0]?.strength === 12, `${JSON.stringify(effects)} | ${JSON.stringify(live)}`);
+  await tick('روشن از اول', '[data-effect="blur"]');
+  effects = (await object('fxBox')).effects;
+  live = await shown();
+  check('effects: one can start turned off, for a rule to turn on', effects[0].off === true && live?.[0]?.on === false, JSON.stringify(effects));
+  await page.evaluate(() => document.querySelector('[data-effects="این شیء"] button[aria-label^="اضافه کردن جلوه"]').click());
+  await page.waitForSelector('.modal button[data-block]');
+  const offered = await page.evaluate(() => [...document.querySelectorAll('.modal button[data-block]')].map((b) => b.dataset.block));
+  await page.keyboard.press('Escape');
+  await sleep(100);
+  check('effects: the list offers the others, not the one it has', offered.length >= 20 && !offered.includes('blur') && offered.includes('pixelate'), offered.join(' '));
+  // The scene: everything, or one of its layers.
+  await click('بازی', '.tabs');
+  await setControl('روی کجا', 'world');
+  await pick('اضافه کردن جلوه به لایه‌ی دنیا (اشیایی که با دوربین می‌روند)', 'pixelate', '[data-scene-effects]');
+  const sceneFx = (await scene()).effects;
+  const worldLive = await page.evaluate(() => window.__game.placeEffects.world.map((x) => x.kind));
+  check('effects: a layer of the scene gets one from the game tab, seen at once', sceneFx?.world?.[0]?.kind === 'pixelate' && worldLive.join() === 'pixelate', `${JSON.stringify(sceneFx)} | ${worldLive}`);
+  // A rule changes one during play: its setting is chosen from that effect's own.
+  await click('قانون‌ها', '.tabs');
+  const ruleId = await newRule('tap');
+  await addAction(ruleId, 'setEffect');
+  const settings = await page.evaluate((id) => {
+    const select = [...document.querySelectorAll(`article.rule[data-rule="${id}"] .control`)].find((c) => c.querySelector('label')?.textContent === 'کدام تنظیمش')?.querySelector('select');
+    return [...(select?.options ?? [])].map((o) => o.value);
+  }, ruleId);
+  check('change an effect: its settings are the chosen effect\'s own', settings.includes('on') && settings.includes('strength'), settings.join(' '));
+  await click('بستن', `article.rule[data-rule="${ruleId}"]`);
+  const said = await page.$eval(`.rule-closed[data-rule="${ruleId}"]`, (el) => el.textContent);
+  check('change an effect: reads as a sentence', said.includes('جلوه‌ی «محو»') && said.includes('نرم'), said);
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('effects: a game with effects has nothing that stops it', problems.length === 0, problems.join(' | '));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

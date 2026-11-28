@@ -74,10 +74,10 @@ owner's request, a36f448: no visible changes outside the item.)
 - [x] **2. Sub-rules and structured variables** (DONE 2026-11-27; the owner asked for item 3 on 2026-11-28; notes below the list): sub-rules checked only when the parent's trigger happened and
   its conditions passed, on the same objects; shown indented, movable in and out. Variables with named parts
   (player.stats.hp) for game variables and object values; rules, texts and saving understand them.
-- [~] **3. Custom behaviors** (built 2026-11-28 by Claude in a cloud session, waiting for the owner's OK; notes below the list): made from rules, with a Persian name and number settings; "this object" means
+- [x] **3. Custom behaviors** (DONE 2026-11-28; CI green, the owner asked for item 4; notes below the list): made from rules, with a Persian name and number settings; "this object" means
   each object that has it; in the behavior list next to the built-in ones, each object its own settings. Built
   on functions; a test remakes a back-and-forth mover as one.
-- [ ] **4. Visual effects on anything:** any pixi-filters effect on an object, a layer or the whole scene, with
+- [~] **4. Visual effects on anything** (built 2026-11-28 by Claude in a cloud session, waiting for the owner's OK; notes below the list): any pixi-filters effect on an object, a layer or the whole scene, with
   settings and a live preview; an action that changes a setting during play; existing looks keep working; the
   stress scene stays in budget with several effects.
 - [ ] **5. Lights that cast shadows:** the existing lights cast soft shadows from a chosen group, with a shadow
@@ -138,6 +138,33 @@ owner's request, a36f448: no visible changes outside the item.)
   another part, keep all, refusals, offered in rules). GUIDE-fa «زیرقانون و مقدار چند بخشی». Pictures:
   `node scripts/look/subrules.mjs` → scripts/look/out/subrules-editor.png, subrules-open-editor.png,
   parts-editor.png, subrules-game.png.
+
+### Item 4 progress (visual effects on anything, 2026-11-28)
+
+- 25 effects (src/format/effects.ts: `EFFECTS` with Persian names, settings, `heavy`, `animated`; `effectSettings` adds
+  "on"; `settingOf`, `effectProblems`). The other filters of pixi-filters need a picture or a position of their own
+  (colour map, lightmap, tilt-shift, twist, zoom/radial blur, shockwave) and are left out. src/runtime/effects.ts:
+  `makeEffect`, `setEffectValue`, `animateEffect` (noise, film, crt, glitch, rays, water), `remadeFor` (a glow's width
+  needs the filter made again).
+- Format (additive, no version change): `GameObject.effects?: VisualEffect[]`, `Scene.effects?: { all?, sky?, world?,
+  screen? }`, `VisualEffect = { kind, settings?, off? }`, one of each kind per place. Action `setEffect`
+  (blocks/actions/setEffect.ts: place object|all|sky|world|screen, target, kind, setting or "on", amount or color,
+  seconds; puts the effect there if missing; field kind `effectSetting`).
+- Runtime (Game.ts «Visual effects on anything»): `Entity.effects` (after `fx`, in `applyFilters`); `placeEffects` made
+  in loadScene; "all" in `applyLook` after the look, sky/world/screen in `applyPlaceEffects` (skyView container, world,
+  hud); `setEffect`, `effectGlides`, `stepVisualEffects` in stepEffects; `lighten` turns heavy ones off. A tile map's
+  blocks get none (the editor does not offer them for tile maps).
+- Editor: src/editor/EffectList.tsx (on from the start, sliders and colours, pick list in four groups); object tab
+  «جلوه‌های تصویری»; game tab scene part «جلوه‌های تصویری صحنه» with «روی کجا». The editor's scene reloads on every
+  change, so effects show as they are changed.
+- Tests: smoke Lab 34 (object and the four places, put on by a rule where missing, off, colour, a glow's width, a
+  smooth change, a grey pixel from "all" grayscale, three refusals); editor.smoke "Visual effects on anything";
+  stress.smoke now also plays the stress scene with 50 object effects, 4 scene/layer effects and a rule changing one:
+  its step stays in budget (3.3 ms here), and the drawing time with and without effects is reported (not checked:
+  software drawing on CI; here 125 → 175 ms a frame). GUIDE-fa «جلوه‌های تصویری روی هر چیز»; AGENTS-GAMES.
+  Pictures: `node scripts/look/effects.mjs` → effects-all (every effect on one picture), effects-scene,
+  effects-object-editor, effects-scene-editor, effects-pick-editor.
+- Later: rays, reflection and hatch look best on a whole scene, not a small object; bulge's centre is the middle.
 
 ### Item 3 progress (custom behaviors, 2026-11-28)
 
@@ -915,6 +942,11 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-28 — Claude (cloud session), roadmap item 4: visual effects on anything (owner: "مرحله ۴")
+
+- Item 3's CI run was green (all 8 suites); the owner then asked for item 4, taken as item 3's OK.
+- Built item 4 (notes under THE PLAN NOW). Tests: see below and the CI run of this push.
 
 ### 2026-11-28 — Claude (cloud session from the owner's phone), roadmap item 3: custom behaviors (owner: "start item 3")
 

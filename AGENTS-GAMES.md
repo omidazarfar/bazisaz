@@ -70,6 +70,11 @@ object's number, or `initial`). Name groups or `self` in them, never one object 
 rules there. "Scene starts" is, for each object, when it first takes part (made later: when made); "every N
 seconds" counts per object. Use one for an ability many objects share with different numbers.
 
+**Visual effects:** an object's `effects` and a scene's `effects` (`{ all?, sky?, world?, screen? }`) are lists of
+`{ kind, settings?, off? }`, one of each kind; the kinds and their settings are in `src/format/effects.ts` (blur,
+outline, pixelate, hue, film, glitch, rays, …). The action `setEffect` (`place`: object with `target`, or all, sky,
+world, screen; `kind`; `setting` or "on"; `amount`, or `color`; `seconds`) changes one during play.
+
 **An object** has an `id` (unique in the whole project), a `name` (only the editor shows it), `x`, `y`,
 `width`, `height`, a `visual`, `tags` (the groups it belongs to — rules and behaviors refer to groups
 by name), `visible`, and `behaviors`. Optional: `fixed` (stays on the screen like a score or a button),

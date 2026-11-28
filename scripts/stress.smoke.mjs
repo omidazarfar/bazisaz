@@ -46,26 +46,54 @@ const project = {
   scenes: [{ id: 's', name: 's', width: 2400, height: 1600, background: null, music: null, gravity: 2000, darkness: 0.7, prefabs: [], objects, rules }],
 };
 
-const browser = await launch();
-const { page, errors } = await openPage(browser, url, { project });
-await until(page, () => window.__game, null, 30000);
-const result = await page.evaluate(() => {
-  const g = window.__game;
-  g.app.ticker.stop();
-  for (let i = 0; i < 60; i++) g.advance(1 / 60);
-  g.startProfile();
-  for (let i = 0; i < 180; i++) g.advance(1 / 60);
-  const p = g.readProfile();
-  g.app.ticker.start();
-  const s = g.getState();
-  return { profile: p, objects: s.entities.length, rules: 100, variables: s.variables };
+// The same scene with visual effects (item 4): on everything, the world and the screen, on 40 objects, and a rule
+// changing one twice a second. Effects cost drawing time (not counted in a step), so that is measured and reported
+// beside the step: the drawing of a frame, with and without them.
+const withEffects = structuredClone(project);
+const fxScene = withEffects.scenes[0];
+fxScene.effects = { all: [{ kind: 'adjust', settings: { saturation: 1.3 } }, { kind: 'film' }], world: [{ kind: 'hue', settings: { hue: 20 } }], screen: [{ kind: 'tint', settings: { alpha: 0.1 } }] };
+fxScene.objects.forEach((o, i) => {
+  if (o.tags.includes('coin') && i % 15 === 0) o.effects = [{ kind: 'outline' }, { kind: 'glow' }];
+  if (o.tags.includes('walker') && i % 5 === 0) o.effects = [{ kind: 'pixelate', settings: { size: 4 } }];
 });
-await page.screenshot({ path: resolve(shots, 'stress.png') });
-await page.close();
+fxScene.rules.push({ id: 'fx', when: { type: 'every', seconds: 0.5 }, condition: null, then: [{ type: 'setEffect', place: 'world', target: { by: 'tag', tag: 'coin' }, kind: 'hue', setting: 'hue', amount: { random: [0, 90] }, seconds: 0.4 }] });
+
+const browser = await launch();
+async function measure(project, picture) {
+  const { page, errors } = await openPage(browser, url, { project });
+  await until(page, () => window.__game, null, 30000);
+  const result = await page.evaluate(() => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    for (let i = 0; i < 60; i++) g.advance(1 / 60);
+    g.startProfile();
+    for (let i = 0; i < 180; i++) g.advance(1 / 60);
+    const p = g.readProfile();
+    // Drawing frames, timed apart from the steps; reading one pixel waits for the drawing to be done.
+    const gl = g.app.renderer.gl;
+    const pixel = new Uint8Array(4);
+    const t0 = performance.now();
+    for (let i = 0; i < 30; i++) {
+      g.app.render();
+      gl?.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+    }
+    const drawMs = (performance.now() - t0) / 30;
+    g.app.ticker.start();
+    const s = g.getState();
+    const effects = s.entities.length && g.entities.reduce((n, e) => n + e.effects.length, 0);
+    return { profile: p, objects: s.entities.length, rules: 100, variables: s.variables, drawMs, effects };
+  });
+  await page.screenshot({ path: resolve(shots, picture) });
+  await page.close();
+  return { ...result, errors };
+}
+const result = await measure(project, 'stress.png');
+const fx = await measure(withEffects, 'stress-effects.png');
 await browser.close();
 
 const { profile } = result;
 const mean = profile.stepMs / profile.steps;
+const fxMean = fx.profile.stepMs / fx.profile.steps;
 const parts = Object.entries(profile.ms)
   .map(([part, ms]) => [part, part.startsWith('frame:') ? ms / profile.frames : ms / profile.steps])
   .sort((a, b) => b[1] - a[1]);
@@ -74,11 +102,14 @@ const report = [
   `A step: ${mean.toFixed(2)} ms on average, ${profile.worst.toFixed(2)} ms at worst (budget ${BUDGET_MS} ms).`,
   'Per part, on average (a step, or a frame for "frame: …"):',
   ...parts.map(([part, ms]) => `  ${ms.toFixed(3).padStart(8)} ms  ${part}`),
+  `With visual effects (${fx.effects} on objects, 4 on the scene and its layers, one changed by a rule): a step ${fxMean.toFixed(2)} ms on average, ${fx.profile.worst.toFixed(2)} ms at worst.`,
+  `Drawing a frame (this computer's graphics; software drawing on CI): ${result.drawMs.toFixed(2)} ms without effects, ${fx.drawMs.toFixed(2)} ms with them.`,
 ].join('\n');
 console.log(report);
 writeFileSync(resolve(shots, 'stress-profile.txt'), report + '\n');
 
 check('the stress scene has 500 objects and its rules fire', result.objects >= 490 && result.variables.ticks > 0 && result.variables.touches > 0, JSON.stringify(result.variables));
 check(`a step of the stress scene takes under ${BUDGET_MS} ms on average (${mean.toFixed(2)} ms)`, mean < BUDGET_MS, parts.slice(0, 3).map(([p, ms]) => `${p} ${ms.toFixed(2)}`).join(', '));
-check('stress scene: no errors in the page', errors.length === 0, errors.join(' | '));
+check(`with several visual effects, a step still takes under ${BUDGET_MS} ms on average (${fxMean.toFixed(2)} ms)`, fx.effects >= 20 && fxMean < BUDGET_MS, `${fx.effects} effects on objects`);
+check('stress scene: no errors in the page', result.errors.length === 0 && fx.errors.length === 0, [...result.errors, ...fx.errors].join(' | '));
 finish();
