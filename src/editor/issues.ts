@@ -113,7 +113,9 @@ export function findIssues(project: GameProject): Issue[] {
         if (refMissing(ref)) say(`قانون «${title}» با ${describeRef(scene, ref)} کار می‌کند، ولی هیچ شیئی در آن گروه نیست.`, where);
       }
       if (w.type === 'touch' && JSON.stringify(w.a) === JSON.stringify(w.b) && w.a.by === 'id') say('قانون برخورد: «اولی» و «دومی» یک شیء هستند، پس هیچ‌وقت رخ نمی‌دهد.', where);
-      if (w.type === 'message' && !scene.rules.some((x) => ruleActions(x).some((a) => a.type === 'send' && a.name === w.name))) {
+      // A custom behavior's rules (item 3) send messages to the scene too.
+      const senders = [...scene.rules, ...(project.customBehaviors ?? []).flatMap((x) => x.rules)];
+      if (w.type === 'message' && !senders.some((x) => ruleActions(x).some((a) => a.type === 'send' && a.name === w.name))) {
         say(`قانون «${title}» منتظر پیامی است که هیچ قانونی در این صحنه آن را نمی‌فرستد. در قانونی کار «فرستادن پیام» را با همین نام بگذار.`, where);
       }
       for (const a of ruleActions(r)) {

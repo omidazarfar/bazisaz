@@ -67,6 +67,8 @@ export type Field = {
 export interface Context {
   project: GameProject;
   scene: Scene;
+  /** Set while the rules of a custom behavior are edited (item 3): its id. Its rules say "this object", never one object by name. */
+  behavior?: string;
 }
 
 export interface Block<T> {
@@ -84,8 +86,8 @@ export interface Block<T> {
 
 export const slider = (key: string, label: string, min: number, max: number, step: number, hint?: string, unit?: string): Field =>
   ({ key, label, hint, unit, kind: 'slider', min, max, step });
-export const firstRef = ({ scene }: Context): Ref =>
-  scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: '' };
+export const firstRef = ({ scene, behavior }: Context): Ref =>
+  behavior !== undefined ? { by: 'self' } : scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: '' };
 
 export const TARGET: Field = { key: 'target', label: 'کدام شیء', kind: 'target' };
 

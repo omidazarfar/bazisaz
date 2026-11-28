@@ -23,6 +23,8 @@ export interface Editor {
   viewCentre: () => { x: number; y: number };
   /** Opens the rules tab with one rule open for editing. */
   showRule: (id: string) => void;
+  /** Opens the rules tab on the rules of one of the game's custom behaviors (item 3). */
+  showBehavior: (id: string) => void;
   /** The kind of cell the paint tool lays on the selected tile map ("." rubs out), or null while not painting. */
   brush: string | null;
   /** Takes up the paint tool with a brush, or puts it down with null. */

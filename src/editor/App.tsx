@@ -67,6 +67,8 @@ export function App({ saved }: { saved: GameProject | null }) {
   const [adShown, setAdShown] = useState<string | null>(null);
   const [view, setView] = useState<EditView>({ zoom: 1, tool: 'select', grid: 0 });
   const [openRule, setOpenRule] = useState<string | null>(null);
+  /** Whose rules the rules tab shows: the scene's (null), or one custom behavior's, by its id (item 3). */
+  const [rulesOf, setRulesOf] = useState<string | null>(null);
   /** The step of the guided first game, or null when it is not running. */
   const [tutorStep, setTutorStep] = useState<number | null>(null);
   /** Try-outs since the editor opened, so the guide can tell when one has happened. */
@@ -111,7 +113,13 @@ export function App({ saved }: { saved: GameProject | null }) {
     },
     viewCentre: () => game.current?.viewCentre() ?? { x: project.meta.width / 2, y: project.meta.height / 2 },
     showRule: (id) => {
+      setRulesOf(null);
       setOpenRule(id);
+      setTab('rules');
+    },
+    showBehavior: (id) => {
+      setRulesOf(id);
+      setOpenRule(null);
       setTab('rules');
     },
     brush: view.tool === 'paint' ? (view.brush ?? '.') : null,
@@ -288,6 +296,7 @@ export function App({ saved }: { saved: GameProject | null }) {
       dispatch({ type: 'select', ids: [issue.object] });
       setTab('object');
     } else if (issue.rule) {
+      setRulesOf(null);
       setOpenRule(issue.rule);
       setTab('rules');
     }
@@ -464,6 +473,7 @@ export function App({ saved }: { saved: GameProject | null }) {
             onOpenRule={(sceneId, ruleId) => {
               setPlaying(null);
               if (sceneId !== scene.id) dispatch({ type: 'scene', id: sceneId });
+              setRulesOf(null);
               setOpenRule(ruleId);
               setTab('rules');
             }}
@@ -479,7 +489,7 @@ export function App({ saved }: { saved: GameProject | null }) {
               ))}
             </div>
             {tab === 'object' && <Inspector editor={editor} />}
-            {tab === 'rules' && <Rules editor={editor} open={openRule} setOpen={setOpenRule} />}
+            {tab === 'rules' && <Rules editor={editor} open={openRule} setOpen={setOpenRule} rulesOf={rulesOf} setRulesOf={setRulesOf} />}
             {tab === 'game' && <GamePanel editor={editor} />}
           </>
         )}

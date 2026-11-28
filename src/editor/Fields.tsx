@@ -183,15 +183,20 @@ export function Fields(props: Props) {
 function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
   const { project, scene } = ctx;
   const tags = allTags(scene);
-  const names = valueNames(scene);
+  // In a custom behavior's rules (item 3), its settings are values of "this object" too.
+  const made = ctx.behavior !== undefined ? project.customBehaviors?.find((b) => b.id === ctx.behavior) : undefined;
+  const names = made ? [...new Set([...made.settings.map((s) => s.name), ...valueNames(scene)])] : valueNames(scene);
 
   const refOptions = (current: Place, withSubjects: boolean, withTap = false) => {
+    // A custom behavior's rules are about "this object" and groups, in every scene: never one object by name.
+    const inBehavior = ctx.behavior !== undefined;
     const options = [
+      ...(inBehavior ? [{ value: 'self', label: 'همین شیء (هر شیئی که این رفتار را دارد)' }] : []),
       ...(withTap ? [{ value: 'tap', label: 'جایی که صفحه لمس شد' }] : []),
       ...(withSubjects && subjects?.first ? [{ value: 'first', label: subjects.first }] : []),
       ...(withSubjects && subjects?.second ? [{ value: 'second', label: subjects.second }] : []),
-      ...scene.objects.map((o) => ({ value: `id:${o.id}`, label: `شیء «${o.name}»` })),
-      ...scene.prefabs.map((o) => ({ value: `id:${o.id}`, label: `هر «${o.name}»` })),
+      ...(inBehavior ? [] : scene.objects.map((o) => ({ value: `id:${o.id}`, label: `شیء «${o.name}»` }))),
+      ...(inBehavior ? [] : scene.prefabs.map((o) => ({ value: `id:${o.id}`, label: `هر «${o.name}»` }))),
       ...tags.map((t) => ({ value: `tag:${t}`, label: `گروه «${t}»` })),
     ];
     // Keep whatever is stored selectable, even if it no longer matches anything.
@@ -268,7 +273,7 @@ function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
                     { value: '@', label: 'مقدار یک شیء' },
                     ...variableOptions.map((o) => ({ ...o, label: `مقدار ${o.label}` })),
                   ]}
-                  onChange={(s) => set(s === '#' ? 1 : s === '?' ? { random: [1, 6] } : s === '*' ? { count: tags[0] ?? '' } : s === '@' ? { value: names[0] ?? 'kind', of: subjects?.first ? 'first' : scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: tags[0] ?? '' } } : { variable: s })}
+                  onChange={(s) => set(s === '#' ? 1 : s === '?' ? { random: [1, 6] } : s === '*' ? { count: tags[0] ?? '' } : s === '@' ? { value: names[0] ?? 'kind', of: ctx.behavior !== undefined ? { by: 'self' } : subjects?.first ? 'first' : scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: tags[0] ?? '' } } : { variable: s })}
                 />
                 {typeof amount === 'object' && 'value' in amount && (
                   <>

@@ -450,6 +450,14 @@ export function everyRuleList(project: GameProject): Rule[][] {
   return [...project.scenes.map((s) => s.rules), ...(project.customBehaviors ?? []).map((b) => b.rules)];
 }
 
+/** A new custom behavior (item 3), with no settings or rules yet. */
+export function newBehavior(project: GameProject): CustomBehavior {
+  const taken = new Set((project.customBehaviors ?? []).map((b) => b.name));
+  let name = 'رفتار تازه';
+  for (let n = 2; taken.has(name); n++) name = `رفتار تازه ${new Intl.NumberFormat('fa-IR').format(n)}`;
+  return { id: newId('beh'), name, settings: [], rules: [] };
+}
+
 /** The game with one custom behavior changed (item 3). */
 export function updateBehavior(project: GameProject, id: string, change: (behavior: CustomBehavior) => CustomBehavior): GameProject {
   return { ...project, customBehaviors: (project.customBehaviors ?? []).map((b) => (b.id === id ? change(b) : b)) };

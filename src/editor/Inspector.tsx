@@ -14,7 +14,7 @@ import { TilesPanel } from './TilesPanel';
 import { Dialog, PickButton } from './Pick';
 import { PRESETS } from './presets';
 import { actionSentence, describeObject, subjectsOf, triggerSentence } from './sentences';
-import { allTags, duplicateObjects, findObject, newId, removeObject, removeObjects, tileObject, updateObject, updateScene, valueNames } from './state';
+import { allTags, duplicateObjects, findObject, newBehavior, newId, removeObject, removeObjects, tileObject, updateObject, updateScene, valueNames } from './state';
 
 /** Settings of the selected object: name, groups, looks, place, and behaviors. */
 /**
@@ -183,9 +183,21 @@ export function Inspector({ editor }: { editor: Editor }) {
     }
     update(`${next.type}.${key}`, (o) => ({ ...o, behaviors: o.behaviors.map((b, i) => (i === index ? next : b)) }));
   };
-  const removeBehavior = (type: Behavior['type']) =>
+  const removeBehavior = (index: number) => {
+    const type = object.behaviors[index].type;
     // A jumper cannot exist without a body, so removing the body takes the jumper with it.
-    update(`remove.${type}`, (o) => ({ ...o, behaviors: o.behaviors.filter((b) => b.type !== type && !(type === 'body' && b.type === 'jumper')) }));
+    update(`remove.${type}.${index}`, (o) => ({ ...o, behaviors: o.behaviors.filter((b, i) => i !== index && !(type === 'body' && b.type === 'jumper')) }));
+  };
+  /** The game's own behaviors (item 3), offered by their names: "custom:<id>", or "custom:" for a new one. */
+  const made = project.customBehaviors ?? [];
+  const addCustom = (id: string) => {
+    if (id) return update(`add.custom.${id}`, (o) => ({ ...o, behaviors: [...o.behaviors, { type: 'custom', behavior: id }] }));
+    // A new one: made, given to this object and opened for its rules, in one step.
+    const fresh = newBehavior(project);
+    const withIt = { ...project, customBehaviors: [...made, fresh] };
+    change(updateObject(withIt, scene.id, object.id, (o) => ({ ...o, behaviors: [...o.behaviors, { type: 'custom', behavior: fresh.id }] })), `add.custom.${fresh.id}`);
+    editor.showBehavior(fresh.id);
+  };
   const addBehavior = (type: Behavior['type']) => {
     const needsBody = type === 'jumper' && !object.behaviors.some((b) => b.type === 'body');
     const created: Behavior[] = [...(needsBody ? [BEHAVIORS.body.make(ctx)] : []), BEHAVIORS[type].make(ctx)];
@@ -203,6 +215,11 @@ export function Inspector({ editor }: { editor: Editor }) {
         why: BEHAVIORS[type].needsImage && visual.kind !== 'image' ? 'فقط برای شیئی که عکس دارد.' : whyNot(BEHAVIORS[type], ctx),
       })),
   })).filter((g) => g.items.length > 0);
+  const customChoices = [
+    ...made.filter((d) => !object.behaviors.some((b) => b.type === 'custom' && b.behavior === d.id)).map((d) => ({ value: `custom:${d.id}`, title: d.name, about: d.about ?? 'رفتاری که خودت با قانون‌ها ساخته‌ای.', why: null })),
+    { value: 'custom:', title: '+ رفتار تازه از قانون‌ها', about: 'رفتاری که خودت با قانون‌ها می‌سازی؛ بعد به هر شیئی می‌شود دادش، مثل رفتارهای آماده.', why: null },
+  ];
+  const allChoices = [{ title: 'رفتارهای خودت', items: customChoices }, ...behaviorChoices];
 
   const addTag = () => {
     const tag = newTag.trim();
@@ -547,13 +564,27 @@ export function Inspector({ editor }: { editor: Editor }) {
 
       {object.behaviors.map((behavior, index) => {
         const info = BEHAVIORS[behavior.type];
+        const own = behavior.type === 'custom' ? made.find((d) => d.id === behavior.behavior) : undefined;
         return (
           <Section
-            key={behavior.type}
-            title={info.title}
-            about={info.about}
-            action={<button type="button" className="link" onClick={() => removeBehavior(behavior.type)}>حذف رفتار</button>}
+            key={behavior.type === 'custom' ? `custom.${behavior.behavior}` : behavior.type}
+            title={behavior.type === 'custom' ? `${own?.name ?? 'رفتاری که دیگر نیست'} (رفتار خودت)` : info.title}
+            about={behavior.type === 'custom' ? own?.about : info.about}
+            action={<button type="button" className="link" onClick={() => removeBehavior(index)}>حذف رفتار</button>}
           >
+            {behavior.type === 'custom' && own && <>
+              {own.settings.length === 0 && <p className="control-hint">این رفتار تنظیمی ندارد.</p>}
+              {own.settings.map((x) => (
+                <div key={x.name} data-custom-setting={x.name}>
+                  <NumberField
+                    label={x.label ? `${x.label} (${x.name})` : x.name}
+                    value={behavior.settings?.[x.name] ?? x.initial}
+                    onChange={(n) => setBehavior(index, 'settings', { ...behavior.settings, [x.name]: n })}
+                  />
+                </div>
+              ))}
+              <button type="button" className="chip" data-edit-custom={own.id} onClick={() => editor.showBehavior(own.id)}>ویرایش قانون‌های این رفتار</button>
+            </>}
             {behavior.type === 'particles' && <>
               <button type="button" className="chip" data-edit-particles onClick={() => setParticleObject(object.id)}>ویرایش جلوه‌ی ذرات</button>
               {particleObject === object.id && <ParticleEditor initial={behavior} width={object.width} height={object.height} ctx={ctx}
@@ -573,10 +604,10 @@ export function Inspector({ editor }: { editor: Editor }) {
             <Fields fields={info.fields} value={behavior as unknown as Record<string, unknown>} ctx={ctx} onChange={(key, value) => setBehavior(index, key, value)} />
             {!['body', 'physics', 'joint'].includes(behavior.type) && (
               <div className="control">
-                <div className="control-head"><label htmlFor={`state-${behavior.type}`}>فقط وقتی حالتش (state) این باشد</label></div>
+                <div className="control-head"><label htmlFor={`state-${behavior.type}-${index}`}>فقط وقتی حالتش (state) این باشد</label></div>
                 {/* Kept as typed until the field is left, so "1," can become "1,2". */}
                 <input
-                  id={`state-${behavior.type}`}
+                  id={`state-${behavior.type}-${index}`}
                   type="text"
                   dir="ltr"
                   data-only-in={behavior.type}
@@ -664,7 +695,13 @@ export function Inspector({ editor }: { editor: Editor }) {
       )}
 
       <Section title="رفتار تازه" about="رفتار یعنی کاری که شیء خودش انجام می‌دهد، بدون اینکه قانونی بنویسی.">
-        <PickButton label="اضافه کردن رفتار" title="این شیء چه رفتاری داشته باشد؟" groups={behaviorChoices} common={COMMON_BEHAVIORS} onPick={(type) => addBehavior(type as Behavior['type'])}>
+        <PickButton
+          label="اضافه کردن رفتار"
+          title="این شیء چه رفتاری داشته باشد؟"
+          groups={allChoices}
+          common={[...customChoices.map((c) => c.value), ...COMMON_BEHAVIORS]}
+          onPick={(type) => (type.startsWith('custom:') ? addCustom(type.slice('custom:'.length)) : addBehavior(type as Behavior['type']))}
+        >
           + یک رفتار اضافه کن
         </PickButton>
       </Section>
