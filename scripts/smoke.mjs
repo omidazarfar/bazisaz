@@ -2893,6 +2893,110 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await bad.page.close();
 }
 
+// ── 13w. Lab 33: custom behaviors (roadmap item 3) ──
+{
+  const self = { by: 'self' };
+  const box = (id, x, extra = {}) => ({ id, name: id, x, y: 300, width: 60, height: 60, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra });
+  const bump = (name, by = 1) => ({ type: 'setValue', target: self, name, op: 'add', amount: by });
+  const uses = (behavior, settings) => ({ type: 'custom', behavior, ...(settings ? { settings } : {}) });
+  const project = {
+    formatVersion: 3,
+    meta: { name: 'Lab33', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirtythree', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {},
+    variables: [{ name: 'made', initial: 0, saved: false }],
+    textVariables: [], lists: [],
+    customBehaviors: [
+      // A back-and-forth mover, remade from one rule: out by its own distance and home again, for ever.
+      { id: 'pace', name: 'رفت و برگشت', settings: [{ name: 'distance', initial: 100 }], rules: [
+        { id: 'go', when: { type: 'start' }, condition: null, then: [
+          { type: 'tween', target: self, property: 'x', mode: 'by', amount: { value: 'distance', of: self }, seconds: 2, ease: 'linear', times: 0, yoyo: true, label: '' },
+        ] },
+      ] },
+      // Counts on its own clock, from when the object appeared; notes that it was born, and a moment after.
+      { id: 'clock', name: 'ساعت', settings: [{ name: 'step', initial: 1 }], rules: [
+        { id: 'born', when: { type: 'start' }, condition: null, then: [bump('born'), { type: 'wait', seconds: 0.25 }, bump('late')] },
+        { id: 'tick', when: { type: 'every', seconds: 1 }, condition: null, then: [bump('ticks', { value: 'step', of: self })] },
+      ] },
+      // Picks up the coins it touches, each collector its own; with a sub-rule about the same object.
+      { id: 'collect', name: 'جمع کردن', settings: [], rules: [
+        { id: 'grab', when: { type: 'touch', a: self, b: { by: 'tag', tag: 'coin' } }, condition: null, then: [{ type: 'destroy', target: 'second' }, bump('got')], sub: [
+          { id: 'grab.two', condition: { of: self, name: 'got', op: '>=', value: 2 }, then: [{ type: 'setValue', target: self, name: 'full', op: 'set', amount: 1 }] },
+        ] },
+      ] },
+    ],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0,
+      prefabs: [box('late', 600, { y: 900, behaviors: [uses('clock', { step: 10 })] })],
+      objects: [
+        box('far', 100, { behaviors: [uses('pace', { distance: 200 })] }),
+        box('near', 100, { y: 450, behaviors: [uses('pace')] }),
+        box('plain', 100, { y: 600 }),
+        box('first', 400, { y: 700, behaviors: [uses('clock')] }),
+        box('picker', 100, { y: 1000, behaviors: [uses('collect')] }),
+        box('other', 400, { y: 1000, behaviors: [uses('collect')] }),
+        box('c1', 120, { y: 1000, tags: ['coin'] }), box('c2', 140, { y: 1000, tags: ['coin'] }), box('c3', 420, { y: 1000, tags: ['coin'] }),
+      ],
+      rules: [
+        { id: 'spawnLate', when: { type: 'after', seconds: 0.5 }, condition: null, then: [{ type: 'spawn', prefab: 'late', at: { by: 'id', id: 'first' } }, { type: 'setVariable', name: 'made', op: 'add', amount: 1 }] },
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    g.restart?.();
+  });
+  const at = (seconds) => page.evaluate((n) => {
+    const g = window.__game;
+    for (let i = 0; i < n; i++) g.advance(1 / 60);
+    const one = (id) => g.entities.find((e) => e.alive && e.def.id === id);
+    const v = (id, name) => one(id)?.values.get(name);
+    return {
+      time: g.time, far: one('far').x, near: one('near').x, plain: one('plain').x,
+      farDistance: v('far', 'distance'), nearDistance: v('near', 'distance'),
+      firstTicks: v('first', 'ticks') ?? 0, firstBorn: v('first', 'born') ?? 0, firstLate: v('first', 'late') ?? 0,
+      lateTicks: v('late', 'ticks') ?? 0, lateBorn: v('late', 'born') ?? 0, lateLate: v('late', 'late') ?? 0,
+      picker: v('picker', 'got') ?? 0, pickerFull: v('picker', 'full') ?? 0, other: v('other', 'got') ?? 0, otherFull: v('other', 'full') ?? 0,
+      coins: g.entities.filter((e) => e.alive && e.def.tags.includes('coin')).length,
+    };
+  }, Math.round(seconds * 60));
+  const t0 = (await at(0)).time;
+  const one = await at(1 - t0);
+  const s1 = JSON.stringify(one);
+  check('custom behavior: a setting is the object\'s own value (its own number, or the behavior\'s)', one.farDistance === 200 && one.nearDistance === 100, s1);
+  check('custom behavior: the remade back-and-forth mover goes out by each object\'s own distance (half way at 1 s)', Math.abs(one.far - 300) < 4 && Math.abs(one.near - 200) < 4 && one.plain === 100, s1);
+  check('custom behavior: "this object" in a touch rule: each collector picks up its own coins', one.picker === 2 && one.other === 1 && one.coins === 0, s1);
+  check('custom behavior: a sub-rule about the same object (full after two coins)', one.pickerFull === 1 && one.otherFull === 0, s1);
+  const two = await at(1.1);
+  const s2 = JSON.stringify(two);
+  // Out and home in 2 s, then out again: at 2.1 s, a tenth of the way out (20 and 10 px).
+  check('custom behavior: the mover came home after its round of 2 s and is going out again', Math.abs(two.far - 120) < 2 && Math.abs(two.near - 110) < 2, s2);
+  check('custom behavior: "every 1 s" counts for each object on its own clock, from when it appeared', two.firstTicks === 2 && two.lateTicks === 10, s2);
+  check('custom behavior: "the scene starts" is, for an object made later, when it is made', two.firstBorn === 1 && two.lateBorn === 1, s2);
+  check('custom behavior: after a wait, "this object" is still the same object', two.firstLate === 1 && two.lateLate === 1, s2);
+  check('lab 33: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+  // "This object" outside a behavior, and one object by name inside one, are refused with a readable message.
+  const refused = async (change, words, what) => {
+    const bad = structuredClone(project);
+    change(bad);
+    const opened = await openPage(browser, url, { project: bad });
+    await opened.page.waitForSelector('.load-error', { timeout: 15000 });
+    const message = await opened.page.$eval('.load-error', (el) => el.textContent);
+    check(`custom behavior: ${what} is refused`, message.includes(words), message.replace(/\n/g, ' '));
+    await opened.page.close();
+  };
+  await refused((p) => { p.scenes[0].rules[0].then[0].at = self; }, 'which only a custom behavior', '"this object" in a scene\'s rule');
+  await refused((p) => { p.customBehaviors[2].rules[0].when.b = { by: 'id', id: 'c1' }; }, 'names one object ("c1")', 'one object by name in a behavior\'s rule');
+  await refused((p) => { p.scenes[0].objects[0].behaviors[0].behavior = 'nothing'; }, 'which the game does not have', 'a behavior the game does not have');
+  await refused((p) => { p.scenes[0].objects[0].values = { distance: 5 }; }, 'a value "distance" of its own', 'a setting named like one of the object\'s own values');
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

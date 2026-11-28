@@ -66,6 +66,8 @@ export const actionBlock = <T extends Action['type']>(block: ActionBlock<T>): Ac
 /** What a trigger's sentence may need: the scene it is in. */
 export interface TriggerSentenceKit {
   scene: Scene;
+  /** The game, where the sentence needs it (a custom behavior's name). */
+  project?: GameProject;
 }
 
 /** What happened this step that some triggers look at. */

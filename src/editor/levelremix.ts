@@ -30,7 +30,7 @@ export interface Elements {
 
 const MOVING = ['patrol', 'chase', 'mover', 'route', 'wave', 'homing'];
 const moves = (o: GameObject) => o.behaviors.some((b) => MOVING.includes(b.type));
-const refKey = (r: Ref) => (r.by === 'tag' ? r.tag : `#${r.id}`);
+const refKey = (r: Ref) => (r.by === 'tag' ? r.tag : r.by === 'id' ? `#${r.id}` : '@self');
 const keysOf = (o: GameObject) => [...o.tags, `#${o.id}`];
 const has = (set: Set<string>, o: GameObject) => keysOf(o).some((k) => set.has(k));
 

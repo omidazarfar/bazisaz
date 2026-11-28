@@ -128,6 +128,7 @@ import { asked } from './triggers/asked';
 import { called } from './triggers/called';
 import { layout } from './behaviors/layout';
 import { slider } from './behaviors/slider';
+import { custom } from './behaviors/custom';
 import type { ActionBlock, BehaviorBlock, TriggerBlock } from './types';
 
 /**
@@ -228,6 +229,8 @@ const behaviors = [
   animate, particles, light, rotate, pulse, blink, trail, scrollImage,
   // Menus (flagship Phase D).
   slider, layout,
+  // Made by the user from rules (item 3): offered by each one's own name, not in the list of built-in behaviors.
+  custom,
 ] as const;
 export const BEHAVIOR_BLOCKS = behaviors as unknown as readonly BehaviorBlock[];
 

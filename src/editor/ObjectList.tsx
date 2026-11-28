@@ -75,7 +75,7 @@ export function ObjectList({ editor, onNote }: { editor: Editor; onNote: (text: 
     </>
   );
   const row = (object: GameObject) => (
-    <Row key={object.id} object={object} project={project} about={describeObject(scene, object).join('\n')} selected={selected.includes(object.id)} onSelect={(add) => select(object.id, add)} />
+    <Row key={object.id} object={object} project={project} about={describeObject(scene, object, project).join('\n')} selected={selected.includes(object.id)} onSelect={(add) => select(object.id, add)} />
   );
 
   return (

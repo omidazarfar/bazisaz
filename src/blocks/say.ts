@@ -15,6 +15,7 @@ export function describeRef(scene: Scene, ref: Ref): string {
     const spots = { home: ' که سر جای اولش است', away: ' که از جای اولش رفته', on: ` که روی گروه «${ref.spot?.tag ?? ''}» است`, off: ` که روی گروه «${ref.spot?.tag ?? ''}» نیست` };
     return `${ref.pick === 'random' ? 'یکی تصادفی' : 'چیزی'} از گروه «${ref.tag}»${narrowed}${ref.spot ? spots[ref.spot.is] : ''}`;
   }
+  if (ref.by === 'self') return 'همین شیء';
   const object = [...scene.objects, ...scene.prefabs].find((o) => o.id === ref.id);
   return `«${object?.name ?? '؟'}»`;
 }

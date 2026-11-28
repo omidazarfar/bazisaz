@@ -1,7 +1,7 @@
 import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
 import type { BehaviorCheckKit, CheckKit } from '../blocks/types';
 import { OLDEST_FORMAT } from './migrate';
-import { FORMAT_VERSION, isBuiltinMusic, nameGroups, ruleActions, ruleConditions, ruleTree, VALUE_NAME, type GameObject, type GameProject, type Place, type Ref, type SubRule } from './types';
+import { FORMAT_VERSION, isBuiltinMusic, nameGroups, ruleActions, ruleConditions, ruleTree, VALUE_NAME, type GameObject, type GameProject, type Place, type Ref, type Rule, type Scene, type SubRule } from './types';
 
 const VARIABLE_NAME = VALUE_NAME;
 export const APP_ID = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
@@ -148,14 +148,58 @@ export function validateProject(project: GameProject): string[] {
     scene.objects.forEach(checkObject);
     scene.prefabs.forEach(checkObject);
 
-    const checkRef = (ref: Ref | Place, rule: string) => {
-      if (typeof ref === 'object' && ref.by === 'id' && !ids.has(ref.id)) {
-        say(`${where}: ${rule} refers to missing object "${ref.id}".`);
+    checkRules(scene.rules, scene, where, ids, prefabIds, null);
+  }
+
+  // Custom behaviors (item 3): a name, settings with names like values', and rules about "this object" and groups.
+  const made = project.customBehaviors;
+  if (made !== undefined && !Array.isArray(made)) say('customBehaviors must be a list.');
+  const madeIds = new Set<string>();
+  for (const behavior of Array.isArray(made) ? made : []) {
+    if (!behavior || typeof behavior.id !== 'string' || typeof behavior.name !== 'string' || !Array.isArray(behavior.settings) || !Array.isArray(behavior.rules)) {
+      say('A custom behavior needs an id, a name, a list of settings and a list of rules.');
+      continue;
+    }
+    const where = `custom behavior "${behavior.id}"`;
+    if (madeIds.has(behavior.id)) say(`Custom behavior id "${behavior.id}" is used more than once.`);
+    madeIds.add(behavior.id);
+    if (!behavior.name.trim()) say(`${where} has no name.`);
+    const settingNames = new Set<string>();
+    for (const setting of behavior.settings) {
+      if (!setting || typeof setting.name !== 'string' || !VALUE_NAME.test(setting.name) || typeof setting.initial !== 'number' || !Number.isFinite(setting.initial)) {
+        say(`${where}: a setting needs a name of Latin letters, digits or _ and a starting number.`);
+        continue;
       }
+      if (settingNames.has(setting.name)) say(`${where}: the setting "${setting.name}" is there twice.`);
+      settingNames.add(setting.name);
+    }
+    // Its rules are checked against every scene that has an object with it (or the start scene, if none yet).
+    const using = project.scenes.filter((sc) => [...sc.objects, ...sc.prefabs].some((o) => o.behaviors.some((b) => b.type === 'custom' && b.behavior === behavior.id)));
+    const scenes = using.length ? using : project.scenes.filter((sc) => sc.id === project.startScene).slice(0, 1);
+    for (const scene of scenes) {
+      const ids = new Set([...scene.objects, ...scene.prefabs].map((o) => o.id));
+      checkRules(behavior.rules, scene, `${where} (in scene "${scene.id}")`, ids, new Set(scene.prefabs.map((p) => p.id)), behavior.id);
+    }
+  }
+  return problems;
+
+  /**
+   * The rules of a scene, or of a custom behavior (`behavior`, its id), seen from that scene: dangling references,
+   * duplicate ids, and what every block checks itself.
+   */
+  function checkRules(rules: Rule[], scene: Scene, where: string, ids: Set<string>, prefabIds: Set<string>, behavior: string | null): void {
+    const checkRef = (ref: Ref | Place, rule: string) => {
+      if (typeof ref !== 'object') return;
+      if (ref.by === 'id' && behavior !== null) say(`${where}: ${rule} names one object ("${ref.id}"); a behavior's rules name "this object" or groups.`);
+      else if (ref.by === 'id' && !ids.has(ref.id)) say(`${where}: ${rule} refers to missing object "${ref.id}".`);
+      if (ref.by === 'self' && behavior === null) say(`${where}: ${rule} says "this object", which only a custom behavior's rules can.`);
     };
-    const ruleIds = new Set(scene.rules.map((r) => r.id));
-    for (const rule of scene.rules) {
+    const ruleIds = new Set(rules.map((r) => r.id));
+    for (const rule of rules) {
       const name = `rule "${rule.id}"`;
+      if (behavior !== null && (rule.when.type === 'called' || rule.when.type === 'asked')) {
+        say(`${where}: ${name} is a function or a question; those belong to a scene's rules, not a behavior's.`);
+      }
       const w = rule.when;
       // What every block checks with; a problem is said after where the rule is.
       const kit: CheckKit = {
@@ -206,5 +250,4 @@ export function validateProject(project: GameProject): string[] {
       }
     }
   }
-  return problems;
 }

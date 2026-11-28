@@ -31,6 +31,8 @@ export interface GameProject {
   textVariables?: { name: string; initial: string; saved: boolean }[];
   /** Lists of numbers or of text, such as the cards still in the deck or the names of the levels won (format 3). */
   lists: ListVariable[];
+  /** Behaviors the user made from rules (item 3 of the 2026-11-27 roadmap), usable on objects of any scene. */
+  customBehaviors?: CustomBehavior[];
   scenes: Scene[];
   /** Id of the scene the game opens with. */
   startScene: string;
@@ -98,7 +100,32 @@ export interface SoundAsset {
 /** Fonts a game's texts can be drawn in. All are bundled with the player. */
 export const FONTS = ['Fredoka', 'Bangers', 'Press Start 2P', 'Kenney Future'] as const;
 
-/** A number the game keeps track of. Texts show it by writing {name}. */
+/**
+ * A behavior the user made from rules (item 3 of the 2026-11-27 roadmap). An object gets it like a built-in one
+ * (behavior `custom`); its rules then run for each object that has it, on their own, with "this object"
+ * (ref `{ by: 'self' }`) meaning that object. Its settings are numbers each object sets for itself: they become
+ * that object's own values of the same names, so the rules read and change them like any object value.
+ */
+export interface CustomBehavior {
+  id: string;
+  /** Its name in the editor, in Persian, such as «رفت و برگشت». */
+  name: string;
+  /** What it does, in a sentence, shown under its name. */
+  about?: string;
+  settings: CustomSetting[];
+  /** Its rules; "this object" in them is each object that has the behavior. Groups, never single objects, by name. */
+  rules: Rule[];
+}
+
+/** A number a custom behavior is set up with on each object, like a speed: an object value of this name (VALUE_NAME). */
+export interface CustomSetting {
+  name: string;
+  /** Its name in the editor, in Persian; the name itself if absent. */
+  label?: string;
+  /** What an object that does not set it starts with. */
+  initial: number;
+}
+
 /** A list the game keeps: numbers or text, in order. Its items are numbered from 1. */
 export interface ListVariable {
   name: string;
@@ -1045,7 +1072,11 @@ export interface ValueCheck {
  * One object by id, or the objects of a group. A group can be narrowed to the
  * members that pass a test on their own values, and to one member picked at random.
  */
-export type Ref = { by: 'id'; id: string } | { by: 'tag'; tag: string; where?: ValueCheck; spot?: Spot; pick?: 'random' };
+export type Ref =
+  | { by: 'id'; id: string }
+  | { by: 'tag'; tag: string; where?: ValueCheck; spot?: Spot; pick?: 'random' }
+  /** In the rules of a custom behavior only: the object that has the behavior, whose turn it is ("this object"). */
+  | { by: 'self' };
 
 /**
  * A test on where an object is: still (or no longer) where the scene placed

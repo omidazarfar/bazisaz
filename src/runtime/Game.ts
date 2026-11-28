@@ -361,6 +361,8 @@ interface Pointer extends Point {
 export interface Context {
   first?: Entity;
   second?: Entity;
+  /** In a custom behavior's rules (item 3): the object whose turn it is, "this object". */
+  self?: Entity;
 }
 
 type EditDrag =
@@ -616,6 +618,13 @@ export class Game {
   private profile: Profile | null = null;
   /** How deep functions and questions are calling each other now; a call past 32 deep is not made. */
   private callDepth = 0;
+  /**
+   * The object whose custom behavior's rules are being looked at or run (item 3), which "this object" means; set
+   * while its triggers are asked and while its actions run, and none otherwise.
+   */
+  self: Entity | undefined;
+  /** Each rule of a custom behavior as it is for one object, by that object's number: its own id, so its own clocks. */
+  private ownRules = new WeakMap<Rule, Map<number, Rule>>();
   readonly variables = new Map<string, number>();
   readonly camera: Point = { x: 0, y: 0 };
   time = 0;
@@ -1654,7 +1663,7 @@ export class Game {
       heading: null,
       routeAt: 0,
       routeWay: 1,
-      values: new Map(Object.entries(def.values ?? {})),
+      values: new Map([...this.settingsOf(def), ...Object.entries(def.values ?? {})]),
       slide: null,
       color: null,
       image: null,
@@ -2469,6 +2478,7 @@ export class Game {
         this.runRule(rule, context);
       }
     }
+    this.runBehaviorRules({ dt: 0, screenTapped: tapped, left: [] }, (rule) => rule.when.type === 'tap' || rule.when.type === 'tapObject');
     for (const e of this.entities) {
       e.tappable = e.visible;
       this.syncView(e);
@@ -2973,6 +2983,7 @@ export class Game {
         this.runRule(rule, context);
       }
     }
+    this.runBehaviorRules(step);
   }
 
   /**
@@ -2980,12 +2991,74 @@ export class Game {
    * order, each the same way and about the same objects; its "otherwise" if not (and no sub-rule).
    */
   private runRule(rule: Rule | SubRule, context: Context): void {
-    const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
-    this.logRule(rule.id, ran);
-    if (ran) {
-      this.runActions(rule.then, context);
-      for (const sub of rule.sub ?? []) this.runRule(sub, context);
-    } else if (rule.otherwise?.length) this.runActions(rule.otherwise, context);
+    const before = this.self;
+    if (context.self) this.self = context.self;
+    try {
+      const ran = [rule.condition, ...(rule.also ?? [])].every((c) => !c || this.holds(c, context));
+      this.logRule(rule.id, ran);
+      if (ran) {
+        this.runActions(rule.then, context);
+        for (const sub of rule.sub ?? []) this.runRule(sub, context);
+      } else if (rule.otherwise?.length) this.runActions(rule.otherwise, context);
+    } finally {
+      this.self = before;
+    }
+  }
+
+  // ── Custom behaviors (item 3 of the 2026-11-27 roadmap) ─────────────────
+
+  /** The settings of an object's custom behaviors, as its own values: what it sets, or the behavior's own. */
+  private settingsOf(def: GameObject): [string, number][] {
+    const out: [string, number][] = [];
+    for (const b of def.behaviors) {
+      if (b.type !== 'custom') continue;
+      const made = this.project.customBehaviors?.find((d) => d.id === b.behavior);
+      for (const s of made?.settings ?? []) out.push([s.name, b.settings?.[s.name] ?? s.initial]);
+    }
+    return out;
+  }
+
+  /**
+   * The rules of every custom behavior, for each object that has it, one object at a time: "this object" is that
+   * object, and each rule keeps its own clocks and memories for each object (a rule "every 2 seconds" counts for each
+   * one from when it appeared). "When the scene starts" is, for an object, when it first takes part: at the start for
+   * the objects placed in the scene, when made for the ones made during play. `only` limits the rules looked at.
+   */
+  private runBehaviorRules(step: TriggerStep, only?: (rule: Rule) => boolean): void {
+    const made = this.project.customBehaviors;
+    if (!made?.length) return;
+    for (const behavior of made) {
+      if (behavior.rules.length === 0) continue;
+      const owners = this.entities.filter((e) => e.alive && e.def.behaviors.some((b) => b.type === 'custom' && b.behavior === behavior.id));
+      for (const owner of owners) {
+        const number = this.uids.get(owner) ?? 0;
+        for (const rule of behavior.rules) {
+          if (only && !only(rule)) continue;
+          if (!owner.alive) break;
+          const own = this.ownRule(rule, number);
+          let contexts: Context[];
+          this.self = owner;
+          try {
+            if (rule.when.type === 'start') {
+              contexts = this.ruleDone.has(own.id) ? [] : [{}];
+              this.ruleDone.add(own.id);
+            } else contexts = this.fired(own, step);
+          } finally {
+            this.self = undefined;
+          }
+          for (const context of contexts) this.runRule(own, { ...context, self: owner });
+        }
+      }
+    }
+  }
+
+  /** A custom behavior's rule as it is for one object: the same rule under an id of its own (id#object number). */
+  private ownRule(rule: Rule, number: number): Rule {
+    let forRule = this.ownRules.get(rule);
+    if (!forRule) this.ownRules.set(rule, (forRule = new Map()));
+    let own = forRule.get(number);
+    if (!own) forRule.set(number, (own = { ...rule, id: `${rule.id}#${number}` }));
+    return own;
   }
 
   /** Notes for the try-out tools that a rule's trigger happened; the same rule again straight after is counted, not listed twice. */
@@ -3003,6 +3076,16 @@ export class Game {
 
   /** Performs actions in order. A "wait" sets the rest aside until its time has passed. */
   private runActions(actions: Action[], context: Context): void {
+    // An action of a custom behavior, even one that waited: "this object" is the one it was about.
+    if (context.self && this.self !== context.self) {
+      const before = this.self;
+      this.self = context.self;
+      try {
+        return this.runActions(actions, context);
+      } finally {
+        this.self = before;
+      }
+    }
     // An action may move, make, remove or reorder objects: the groups and the next contact question look again.
     // Not after actions that never touch an object ("still": a value, a sound, a message), the most common ones.
     for (const action of actions) {
@@ -3614,6 +3697,8 @@ export class Game {
 
   matching(ref: Ref): Entity[] {
     if (ref.by === 'id') return this.entities.filter((e) => e.alive && e.def.id === ref.id);
+    // "This object", in a custom behavior's rules: the object whose turn it is (item 3).
+    if (ref.by === 'self') return this.self?.alive ? [this.self] : [];
     const where = ref.where;
     const spot = ref.spot;
     const inSpot = (e: Entity) => {
@@ -3864,6 +3949,10 @@ export class Game {
   targets(target: Target, context: Context): Entity[] {
     if (target === 'first') return context.first?.alive ? [context.first] : [];
     if (target === 'second') return context.second?.alive ? [context.second] : [];
+    if (target.by === 'self') {
+      const self = context.self ?? this.self;
+      return self?.alive ? [self] : [];
+    }
     return this.matching(target);
   }
 

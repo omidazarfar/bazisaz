@@ -33,14 +33,14 @@ export function actionSentence(project: GameProject, scene: Scene, a: Action, su
 }
 
 /** What one behavior makes an object do, as a short sentence. */
-export function behaviorSentence(scene: Scene, b: Behavior): string {
+export function behaviorSentence(scene: Scene, b: Behavior, project?: GameProject): string {
   // Every behavior is a block in its own file (src/blocks/behaviors/), which says itself.
-  return behaviorBlocks.get(b.type)?.sentence(b as never, { scene }) ?? '';
+  return behaviorBlocks.get(b.type)?.sentence(b as never, { scene, project }) ?? '';
 }
 
 /** Everything an object does or is, in plain sentences: for the top of its settings and its row in the list. */
-export function describeObject(scene: Scene, object: GameObject): string[] {
-  const lines = object.behaviors.map((b) => behaviorSentence(scene, b));
+export function describeObject(scene: Scene, object: GameObject, project?: GameProject): string[] {
+  const lines = object.behaviors.map((b) => behaviorSentence(scene, b, project));
   if (object.visual.kind === 'tiles') lines.unshift('نقشه‌ای که با قلم رویش می‌کشی؛ هر خانه حین بازی یک تکه است');
   if (object.tags.length > 0) lines.push(`در گروه ${object.tags.map((t) => `«${t}»`).join(' و ')} است؛ قانون‌ها با این نام پیدایش می‌کنند`);
   if (object.health !== undefined) lines.push(`${fa(object.health)} جان دارد`);

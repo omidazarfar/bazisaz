@@ -1,4 +1,4 @@
-import { EMPTY_TILE, mapRuleActions, ruleActions, ruleConditions, type Action, type Behavior, type GameObject, type GameProject, type Place, type Ref, type Rule, type Scene, type SubRule, type TilesVisual, type Visual } from '../format/types';
+import { EMPTY_TILE, mapRuleActions, ruleActions, ruleConditions, type Action, type Behavior, type CustomBehavior, type GameObject, type GameProject, type Place, type Ref, type Rule, type Scene, type SubRule, type TilesVisual, type Visual } from '../format/types';
 import { validateProject } from '../format/validate';
 import { migrate } from '../format/migrate';
 import { blank } from '../templates';
@@ -442,7 +442,31 @@ export function syncTemplates(before: GameProject, after: GameProject): GameProj
 
 /** Whether any rule uses a list (Phase 4), so it is not removed from under them. */
 export function isListUsed(project: GameProject, name: string): boolean {
-  return project.scenes.some((s) => s.rules.some((r) => ruleActions(r).some((a) => 'list' in a && a.list === name)));
+  return everyRuleList(project).some((rules) => rules.some((r) => ruleActions(r).some((a) => 'list' in a && a.list === name)));
+}
+
+/** The rules of every scene and of every custom behavior (item 3), list by list. */
+export function everyRuleList(project: GameProject): Rule[][] {
+  return [...project.scenes.map((s) => s.rules), ...(project.customBehaviors ?? []).map((b) => b.rules)];
+}
+
+/** The game with one custom behavior changed (item 3). */
+export function updateBehavior(project: GameProject, id: string, change: (behavior: CustomBehavior) => CustomBehavior): GameProject {
+  return { ...project, customBehaviors: (project.customBehaviors ?? []).map((b) => (b.id === id ? change(b) : b)) };
+}
+
+/**
+ * Takes a custom behavior away from the game and from every object that has it, with the values its settings gave
+ * them (item 3).
+ */
+export function removeBehavior(project: GameProject, id: string): GameProject {
+  const without = (o: GameObject): GameObject =>
+    o.behaviors.some((b) => b.type === 'custom' && b.behavior === id) ? { ...o, behaviors: o.behaviors.filter((b) => !(b.type === 'custom' && b.behavior === id)) } : o;
+  return {
+    ...project,
+    customBehaviors: (project.customBehaviors ?? []).filter((b) => b.id !== id),
+    scenes: project.scenes.map((s) => ({ ...s, objects: s.objects.map(without), prefabs: s.prefabs.map(without) })),
+  };
 }
 
 /**
@@ -476,12 +500,17 @@ export function isVariableUsed(project: GameProject, name: string): boolean {
         (o.visual.kind === 'text' && o.visual.text.includes(`{${name}}`)) ||
         (o.visual.kind === 'bar' && o.visual.variable === name) ||
         o.behaviors.some((b) => blockNames(behaviorBlocks.get(b.type)?.editor.fields, b, name))) ||
-      s.rules.some(
-        (r) =>
-          blockNames(triggerBlocks.get(r.when.type)?.editor.fields, r.when, name) ||
-          ruleConditions(r).some((c) => c.of === undefined && c.name === name) ||
-          ruleActions(r).some((a) => blockNames(actionBlocks.get(a.type)?.editor.fields, a, name)),
-      ),
+      rulesUse(s.rules, name),
+  ) || (project.customBehaviors ?? []).some((b) => rulesUse(b.rules, name));
+}
+
+/** Whether any of these rules names a game value. */
+function rulesUse(rules: Rule[], name: string): boolean {
+  return rules.some(
+    (r) =>
+      blockNames(triggerBlocks.get(r.when.type)?.editor.fields, r.when, name) ||
+      ruleConditions(r).some((c) => c.of === undefined && c.name === name) ||
+      ruleActions(r).some((a) => blockNames(actionBlocks.get(a.type)?.editor.fields, a, name)),
   );
 }
 

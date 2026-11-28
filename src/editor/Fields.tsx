@@ -144,8 +144,10 @@ interface Props {
 }
 
 // A reference is edited as one pick list, so it travels through the <select> as a string.
-const encode = (ref: Place): string => (typeof ref === 'string' ? ref : ref.by === 'id' ? `id:${ref.id}` : `tag:${ref.tag}`);function decode(value: string): Place {
+const encode = (ref: Place): string => (typeof ref === 'string' ? ref : ref.by === 'id' ? `id:${ref.id}` : ref.by === 'self' ? 'self' : `tag:${ref.tag}`);
+function decode(value: string): Place {
   if (value === 'first' || value === 'second' || value === 'tap') return value;
+  if (value === 'self') return { by: 'self' };
   return value.startsWith('id:') ? { by: 'id', id: value.slice(3) } : { by: 'tag', tag: value.slice(4) };
 }
 

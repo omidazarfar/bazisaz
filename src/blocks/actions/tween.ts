@@ -1,5 +1,6 @@
 import { startTween, readProperty, type TweenProperty } from '../../runtime/tweens';
 import { fa, firstRef, slider, TARGET } from '../fields';
+import { amountText } from '../say';
 import { actionBlock } from '../types';
 import { EASE_OPTIONS } from './glide';
 
@@ -14,9 +15,9 @@ declare module '../../format/types' {
       value?: string;
       /** For "variable": which game value. */
       variable?: string;
-      /** "to": to `amount`; "by": `amount` added to what it is. */
+      /** "to": to `amount`; "by": `amount` added to what it is. A number, or (item 3) a value, such as a custom behavior's setting. */
       mode: 'to' | 'by';
-      amount: number;
+      amount: Amount;
       seconds: number;
       ease?: Ease;
       /** Rounds in all; 0 for ever. */
@@ -59,7 +60,7 @@ export const tween = actionBlock({
         { value: 'to', label: 'برسد به این عدد' },
         { value: 'by', label: 'این‌قدر به آن اضافه شود' },
       ] },
-      { key: 'amount', label: 'عدد', hint: 'برای «اضافه شود» می‌تواند منفی باشد؛ منفی یعنی کم شود.', kind: 'number' },
+      { key: 'amount', label: 'عدد', hint: 'برای «اضافه شود» می‌تواند منفی باشد؛ منفی یعنی کم شود. می‌تواند یک مقدار هم باشد؛ مثلاً یکی از تنظیم‌های رفتار خودت.', kind: 'amount' },
       slider('seconds', 'چقدر طول بکشد', 0.1, 10, 0.1, undefined, 'ثانیه'),
       { key: 'ease', label: 'چطور تغییر کند', kind: 'choice', fallback: 'smooth', options: EASE_OPTIONS },
       { key: 'times', label: 'چند بار', hint: '۰ یعنی همیشه، تا وقتی صحنه هست.', kind: 'number', fallback: 1 },
@@ -69,7 +70,10 @@ export const tween = actionBlock({
   },
   sentence: (a, { who }) => {
     const what = a.property === 'value' ? `مقدار ${a.value || '؟'} از ${who(a.target)}` : a.property === 'variable' ? `مقدار ${a.variable || '؟'}` : `${shortName(a.property)} ${who(a.target)}`;
-    const how = a.mode === 'to' ? `را نرم به ${fa(a.amount)} برسان` : `را نرم ${fa(Math.abs(a.amount))} ${a.amount < 0 ? 'کم کن' : 'زیاد کن'}`;
+    const how =
+      typeof a.amount !== 'number'
+        ? a.mode === 'to' ? `را نرم به ${amountText(a.amount, who)} برسان` : `را نرم به اندازه‌ی ${amountText(a.amount, who)} زیاد کن`
+        : a.mode === 'to' ? `را نرم به ${fa(a.amount)} برسان` : `را نرم ${fa(Math.abs(a.amount))} ${a.amount < 0 ? 'کم کن' : 'زیاد کن'}`;
     const n = a.times ?? 1;
     const times = n === 0 ? '، همیشه' : n > 1 ? `، ${fa(n)} بار` : '';
     return `${what} ${how} (در ${fa(a.seconds)} ثانیه${a.yoyo ? '، رفت و برگشت' : ''}${times})`;
@@ -78,20 +82,22 @@ export const tween = actionBlock({
     if (!(a.seconds > 0)) say('has a tween that takes no time.');
     if (a.property === 'variable') needVariable(a.variable ?? '');
     if (a.property === 'value' && !a.value) say('has a tween of an object value with no value named.');
+    if (typeof a.amount === 'object' && 'variable' in a.amount) needVariable(a.amount.variable);
   },
   run: (game, a, context) => {
     const name = a.property === 'value' ? (a.value ?? '') : a.property === 'variable' ? (a.variable ?? '') : '';
     const common = { property: a.property, name, seconds: Math.max(0.01, a.seconds), ease: a.ease, times: Math.max(0, Math.round(a.times ?? 1)), yoyo: Boolean(a.yoyo), by: a.mode === 'by', label: a.label ?? '' };
     const targets = game.targets(a.target, context);
+    const amount = game.amount(a.amount, context);
     // A game value is one number: changed once, the tween belonging to the first object named (for its trigger).
     if (a.property === 'variable') {
       const from = readProperty(game, null, 'variable', name);
-      startTween(game, { ...common, entity: targets[0] ?? null, from, to: a.mode === 'to' ? a.amount : from + a.amount });
+      startTween(game, { ...common, entity: targets[0] ?? null, from, to: a.mode === 'to' ? amount : from + amount });
       return;
     }
     for (const e of targets) {
       const from = readProperty(game, e, a.property, name);
-      startTween(game, { ...common, entity: e, from, to: a.mode === 'to' ? a.amount : from + a.amount });
+      startTween(game, { ...common, entity: e, from, to: a.mode === 'to' ? amount : from + amount });
     }
   },
 });

@@ -127,7 +127,7 @@ export const BEHAVIOR_GROUPS = withRest<Behavior['type']>([
   { title: 'ساختن و از بین رفتن', types: ['spawner', 'lifetime'] },
   { title: 'جلوه‌ی ظاهری', types: ['animate', 'particles', 'light', 'rotate', 'pulse', 'blink', 'trail', 'scrollImage'] },
   { title: 'منو و دکمه', types: ['slider', 'layout'] },
-], BEHAVIOR_BLOCKS);
+], BEHAVIOR_BLOCKS.filter((b) => b.type !== 'custom'));
 
 export const TRIGGER_GROUPS = withRest<Trigger['type']>([
   { title: 'لمس صفحه', types: ['tap', 'tapObject', 'swipe', 'holding'] },

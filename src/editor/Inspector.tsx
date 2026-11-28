@@ -159,7 +159,7 @@ export function Inspector({ editor }: { editor: Editor }) {
     change(updateScene(project, scene.id, (s) => ({ ...s, rules: [...s.rules, rule] })), `add.${rule.id}`);
     editor.showRule(rule.id);
   };
-  const summary = describeObject(scene, object);
+  const summary = describeObject(scene, object, project);
   const me = { by: 'id' as const, id: object.id };
   const other = scene.objects.find((o) => o.id !== object.id);
 
