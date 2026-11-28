@@ -37,6 +37,8 @@ import { builtinMusic } from './music';
 import { advanceParticle, spawnParticle, type Particle } from './particleView';
 import { shadeOf } from './color';
 import { SkyView } from './sky';
+import { animateEffect, isHeavy, makeEffect, remadeFor, setEffectValue, type LiveEffect } from './effects';
+import { EFFECT_PLACES, type EffectKind, type EffectPlace, type VisualEffect } from '../format/effects';
 import { tileTexture, type OpenSides } from './tiles';
 import { validateProject } from '../format/validate';
 import { FALLBACK_FONT } from './fonts';
@@ -278,6 +280,8 @@ export interface Entity extends Box {
   emitIn: number;
   /** Its own lasting effects: a soft shadow, a glow. A flash goes on top of these while it lasts. */
   fx: Filter[];
+  /** The visual effects the user put on it (item 4), drawn after `fx`; rules change their settings. */
+  effects: LiveEffect[];
   /** A character's squash or stretch, from a jump or a landing, springing back to normal over `span` seconds. */
   squash: { x: number; y: number; left: number; span: number } | null;
 }
@@ -940,6 +944,8 @@ export class Game {
     }
     if (this.retroFilter) filters.push(this.retroFilter);
     filters.push(...this.waves.map((w) => w.filter));
+    // The user's effects on everything the player sees (item 4), after the look.
+    filters.push(...this.placeEffects.all.map((x) => x.filter));
     this.scenery.filters = filters;
     const { width, height } = this.view;
     this.vignette.visible = Boolean(this.scene.vignette);
@@ -1431,7 +1437,12 @@ export class Game {
     for (const f of this.floats.splice(0)) f.view.destroy();
     this.darknessGlide = null;
     this.look = this.scene.look ?? 'none';
+    for (const place of EFFECT_PLACES) for (const x of this.placeEffects[place]) x.filter.destroy();
+    this.placeEffects = { all: [], sky: [], world: [], screen: [] };
+    for (const place of EFFECT_PLACES) this.placeEffects[place] = (this.scene.effects?.[place] ?? []).map((v) => this.liveEffect(v));
+    this.effectGlides = [];
     this.applyLook();
+    this.applyPlaceEffects();
     this.emitters = [...this.scene.objects, ...this.scene.prefabs].some((o) => o.behaviors.some((b) => b.type === 'particles'));
     this.stick.clear();
     this.hasStick = [...this.scene.objects, ...this.scene.prefabs].some((o) => o.behaviors.some((b) => b.type === 'steer' && b.control === 'stick'));
@@ -1674,6 +1685,7 @@ export class Game {
       pathIn: 0,
       emitIn: 0,
       fx: this.effectsOf(def),
+      effects: (def.effects ?? []).map((v) => this.liveEffect(v)),
       squash: null,
     };
     this.applyFilters(entity);
@@ -1697,8 +1709,11 @@ export class Game {
     for (const e of this.entities) {
       for (const f of e.fx) f.destroy();
       e.fx = [];
+      // The user's costly effects (blurs, bloom, rays, old screens) are turned off too.
+      for (const x of e.effects) if (isHeavy(x.kind)) x.filter.enabled = false;
       this.applyFilters(e);
     }
+    for (const place of EFFECT_PLACES) for (const x of this.placeEffects[place]) if (isHeavy(x.kind)) x.filter.enabled = false;
   }
 
   private effectsOf(def: GameObject): Filter[] {
@@ -1711,8 +1726,79 @@ export class Game {
 
   /** Puts an object's effects on its picture: its own lasting ones, and a flash while it lasts. */
   applyFilters(e: Entity): void {
-    const list = e.flash ? [e.flash.filter, ...e.fx] : e.fx;
+    const own = [...e.fx, ...e.effects.map((x) => x.filter)];
+    const list = e.flash ? [e.flash.filter, ...own] : own;
     e.view.filters = list.length > 0 ? list : [];
+  }
+
+  // ── Visual effects on anything (item 4 of the 2026-11-27 roadmap) ───────
+
+  /** A visual effect, made; one that costs a lot starts off on a game lightened for a slow phone. */
+  private liveEffect(effect: VisualEffect): LiveEffect {
+    const live = makeEffect(effect);
+    if (this.light && isHeavy(effect.kind)) live.filter.enabled = false;
+    return live;
+  }
+
+  /** The scene's effects on everything ("all") and on each of its layers, made when the scene loads. */
+  private placeEffects: Record<EffectPlace, LiveEffect[]> = { all: [], sky: [], world: [], screen: [] };
+
+  /** Puts the scene's effects on its layers: the painted sky, the world, and the screen. ("all" goes with the look.) */
+  private applyPlaceEffects(): void {
+    const filters = (place: EffectPlace) => this.placeEffects[place].map((x) => x.filter);
+    this.world.filters = filters('world');
+    this.hud.filters = filters('screen');
+    if (this.skyView) this.skyView.container.filters = filters('sky');
+  }
+
+  /**
+   * Changes a setting of an effect of an object or of a place in the scene, now or over `seconds` (numbers only),
+   * putting the effect there first if it is not (with its kind's settings). For a rule's "change an effect".
+   */
+  setEffect(on: Entity | EffectPlace, kind: EffectKind, key: string, value: number | string, seconds = 0): void {
+    const list = typeof on === 'string' ? this.placeEffects[on] : on.effects;
+    let live = list.find((x) => x.kind === kind);
+    if (!live) {
+      live = this.liveEffect({ kind });
+      list.push(live);
+    }
+    this.effectGlides = this.effectGlides.filter((g) => !(g.live === live && g.key === key));
+    const from = live.values[key];
+    if (seconds > 0 && typeof value === 'number' && typeof from === 'number' && key !== 'on') {
+      this.effectGlides.push({ live, owner: on, key, from, to: value, elapsed: 0, seconds });
+    } else this.putEffectValue(live, on, key, value);
+    if (typeof on === 'string') {
+      if (on === 'all') this.applyLook();
+      else this.applyPlaceEffects();
+    } else this.applyFilters(on);
+  }
+
+  /** Smooth changes of effects' settings under way. */
+  private effectGlides: { live: LiveEffect; owner: Entity | EffectPlace; key: string; from: number; to: number; elapsed: number; seconds: number }[] = [];
+
+  /** One setting put on an effect; a glow's width makes the glow again, in its place among the filters. */
+  private putEffectValue(live: LiveEffect, owner: Entity | EffectPlace, key: string, value: number | string): void {
+    if (!remadeFor(live.kind, key)) return setEffectValue(live, key, value);
+    const remade = makeEffect({ kind: live.kind, settings: { ...live.values, [key]: value } });
+    remade.filter.enabled = live.filter.enabled;
+    live.filter.destroy();
+    Object.assign(live, { filter: remade.filter, values: remade.values });
+    if (typeof owner === 'string') {
+      if (owner === 'all') this.applyLook();
+      else this.applyPlaceEffects();
+    } else this.applyFilters(owner);
+  }
+
+  /** Effects that move by themselves move on, and smooth changes of their settings go on. */
+  private stepVisualEffects(dt: number): void {
+    for (const e of this.entities) for (const x of e.effects) animateEffect(x, dt);
+    for (const place of EFFECT_PLACES) for (const x of this.placeEffects[place]) animateEffect(x, dt);
+    if (this.effectGlides.length === 0) return;
+    for (const g of this.effectGlides) {
+      g.elapsed = Math.min(g.seconds, g.elapsed + dt);
+      this.putEffectValue(g.live, g.owner, g.key, g.from + (g.to - g.from) * (g.elapsed / g.seconds));
+    }
+    this.effectGlides = this.effectGlides.filter((g) => g.elapsed < g.seconds);
   }
 
   /** Draws an object anew after a rule changed its colour or picture, in the same place among the others. */
@@ -3147,6 +3233,7 @@ export class Game {
   /** Moves effects, glides, burst pieces and the screen shake along by one frame. */
   private stepEffects(dt: number): void {
     stepTweens(this, dt);
+    this.stepVisualEffects(dt);
     for (const t of this.tweens) {
       const e = t.entity;
       t.elapsed = Math.min(t.seconds, t.elapsed + dt);
@@ -4728,6 +4815,7 @@ export class Game {
     }
     this.weather.set(this.scene.weather ?? 'none', this.view.width, this.view.height);
     this.applyLook();
+    this.applyPlaceEffects();
     this.placeOnScreen(this.entities);
     this.setCamera(this.camera.x, this.camera.y);
     this.followCameraTarget(true);

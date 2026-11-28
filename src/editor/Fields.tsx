@@ -1,3 +1,4 @@
+import { effectSettings, type EffectKind } from '../format/effects';
 import { useState } from 'react';
 import type { Amount, Comparison, Place, Ref, Spot } from '../format/types';
 import { playEffect } from '../runtime/sound';
@@ -335,6 +336,13 @@ function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
           case 'list': {
             const lists = (project.lists ?? []).map((l) => ({ value: l.name, label: `${l.name} (${l.kind === 'text' ? 'متنی' : 'عددی'})` }));
             return <Select {...common} value={v as string} options={lists.length ? lists : [{ value: v as string, label: 'هنوز فهرستی نیست' }]} onChange={set} />;
+          }
+          case 'effectSetting': {
+            // The settings of the effect the block names (item 4): another kind of effect, another list.
+            const kind = value.kind as EffectKind;
+            const options = effectSettings(kind).map((s) => ({ value: s.key, label: s.label }));
+            if (!options.some((o) => o.value === v)) options.unshift({ value: String(v ?? ''), label: 'انتخاب کن…' });
+            return <Select {...common} value={String(v ?? '')} options={options} onChange={set} />;
           }
           case 'anyValue':
             return (

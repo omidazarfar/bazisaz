@@ -33,6 +33,7 @@ import { respawn } from './actions/respawn';
 import { moveTo } from './actions/moveTo';
 import { glide } from './actions/glide';
 import { tween } from './actions/tween';
+import { setEffect } from './actions/setEffect';
 import { moveBy } from './actions/moveBy';
 import { moveRandom } from './actions/moveRandom';
 import { push } from './actions/push';
@@ -149,6 +150,8 @@ const blocks = [
   checkpoint, respawn, moveTo, glide, moveBy, moveRandom, push, jump, turn,
   // Tween any number (item 1).
   tween,
+  // Visual effects on anything (item 4).
+  setEffect,
   // Real physics.
   kick, spin, cut, setPhysics,
   // Values and score.

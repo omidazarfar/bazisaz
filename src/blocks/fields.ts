@@ -61,6 +61,8 @@ export type Field = {
   | { kind: 'list' }
   /** One of the game's values, of numbers or of text. */
   | { kind: 'anyValue' }
+  /** One of the settings of the visual effect named by the block's `kind` (item 4). */
+  | { kind: 'effectSetting' }
 );
 
 /** What a new block can look at to start with values that already work. */

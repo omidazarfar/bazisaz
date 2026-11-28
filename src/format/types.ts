@@ -14,6 +14,9 @@
  * The origin is the top-left corner and y grows downward.
  */
 
+import type { EffectPlace, VisualEffect } from './effects';
+export type { EffectKind, EffectPlace, VisualEffect } from './effects';
+
 /** 3: `lists` (Phase 4). See src/format/migrate.ts for how older projects are brought up to date. */
 export const FORMAT_VERSION = 3;
 
@@ -197,6 +200,11 @@ export interface Scene {
   retro?: Retro;
   /** Seconds for a whole day and night; the scene darkens to night and lightens to day again, over and over. 0 or absent for none. */
   dayLength?: number;
+  /**
+   * Visual effects (item 4 of the 2026-11-27 roadmap) on everything the player sees ("all") or on one layer of it:
+   * the painted sky, the world that moves with the camera, or the screen (what is fixed to it).
+   */
+  effects?: Partial<Record<EffectPlace, VisualEffect[]>>;
   /** Objects placed in the scene. Later objects draw on top of earlier ones. */
   objects: GameObject[];
   /** Objects that are not placed but can be created during play, by a spawner or a rule. */
@@ -307,6 +315,8 @@ export interface GameObject {
   shadow?: boolean;
   /** A glow of this colour around the object, for magic things, power-ups and lights; null or absent for none. */
   glow?: string | null;
+  /** Visual effects on the object's picture (item 4), one of each kind: blur, outline, pixels, colours, … */
+  effects?: VisualEffect[];
   behaviors: Behavior[];
 }
 

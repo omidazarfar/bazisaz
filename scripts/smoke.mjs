@@ -2997,6 +2997,98 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await refused((p) => { p.scenes[0].objects[0].values = { distance: 5 }; }, 'a value "distance" of its own', 'a setting named like one of the object\'s own values');
 }
 
+// ── 13x. Lab 34: visual effects on anything (roadmap item 4) ──
+{
+  const box = (id, x, y, color, extra = {}) => ({ id, name: id, x, y, width: 120, height: 120, visual: { kind: 'rect', color }, tags: [], visible: true, behaviors: [], ...extra });
+  const fx = (place, kind, setting, amount, extra = {}) => ({ type: 'setEffect', place, target: { by: 'id', id: 'hero' }, kind, setting, amount, seconds: 0, ...extra });
+  const project = {
+    formatVersion: 3,
+    meta: { name: 'Lab34', orientation: 'portrait', width: 720, height: 1280, background: '#ffffff', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirtyfour', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [], textVariables: [], lists: [],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], sky: 'day',
+      effects: { all: [{ kind: 'grayscale' }], world: [{ kind: 'adjust', settings: { brightness: 1 } }], screen: [{ kind: 'tint', settings: { color: '#00ff00', alpha: 0.2 } }], sky: [{ kind: 'hue', settings: { hue: 120 } }] },
+      objects: [
+        box('hero', 300, 500, '#ff0000', { effects: [{ kind: 'blur', settings: { strength: 4 } }, { kind: 'outline' }, { kind: 'glow', settings: { distance: 10 } }] }),
+        box('plain', 300, 800, '#0000ff'),
+        box('badge', 40, 40, '#ffffff', { fixed: true }),
+      ],
+      rules: [
+        { id: 'go', when: { type: 'start' }, condition: null, then: [
+          fx('object', 'blur', 'strength', 20, { seconds: 1 }),
+          fx('world', 'noise', 'noise', 0.5),
+          fx('object', 'outline', 'on', 0),
+          fx('object', 'outline', 'color', 0, { color: '#123456' }),
+          fx('object', 'glow', 'distance', 30),
+          fx('all', 'pixelate', 'size', 12),
+        ] },
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await page.evaluate(() => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    g.restart?.();
+  });
+  const read = (frames) => page.evaluate((n) => {
+    const g = window.__game;
+    for (let i = 0; i < n; i++) g.advance(1 / 60);
+    const hero = g.entities.find((e) => e.def.id === 'hero');
+    const kinds = (list) => list.map((x) => x.kind);
+    const uses = (container, list) => list.every((x) => (container.filters ?? []).includes(x.filter));
+    const p = g.placeEffects;
+    const of = (k) => hero.effects.find((x) => x.kind === k);
+    return {
+      time: g.time,
+      hero: kinds(hero.effects), heroOn: hero.effects.every((x) => hero.view.filters.includes(x.filter)),
+      blur: of('blur').filter.strength, outlineOn: of('outline').filter.enabled, outlineColour: of('outline').values.color,
+      glowDistance: of('glow').filter.distance,
+      all: kinds(p.all), world: kinds(p.world), screen: kinds(p.screen), sky: kinds(p.sky),
+      placed: uses(g.scenery, p.all) && uses(g.world, p.world) && uses(g.hud, p.screen) && uses(g.skyView.container, p.sky),
+      plain: g.entities.find((e) => e.def.id === 'plain').effects.length,
+    };
+  }, frames);
+  const start = await read(1);
+  const s0 = JSON.stringify(start);
+  check('effects: an object\'s effects are on its picture, with its own settings', start.hero.join() === 'blur,outline,glow' && start.heroOn && start.plain === 0, s0);
+  check('effects: the whole scene, the world, the screen and the sky each have their own', start.all.join() === 'grayscale,pixelate' && start.world.join() === 'adjust,noise' && start.screen.join() === 'tint' && start.sky.join() === 'hue' && start.placed, s0);
+  check('change an effect: put on where it was not (noise on the world, pixels on everything)', start.world.includes('noise') && start.all.includes('pixelate'), s0);
+  check('change an effect: turned off, and a colour changed', start.outlineOn === false && start.outlineColour === '#123456', s0);
+  check('change an effect: a glow\'s width (made again, still on its picture)', start.glowDistance === 30 && start.heroOn, s0);
+  const half = await read(30);
+  const later = await read(45);
+  // (Linear: at time t of the second it takes, 4 + 16 t.)
+  check('change an effect: a number changes smoothly over its seconds (blur 4 → 20 in 1 s)', half.time < 0.95 && Math.abs(half.blur - (4 + 16 * half.time)) < 0.5 && later.blur === 20, `t ${half.time}: ${half.blur}, later ${later.blur}`);
+  // What is on the screen: everything grey (the whole scene's effect), the red box too.
+  const pixel = await page.evaluate(() => {
+    const g = window.__game;
+    g.app.render();
+    const { pixels: data, width } = g.app.renderer.extract.pixels({ target: g.app.stage, frame: g.app.screen.clone() });
+    const at = (x, y) => [...data.slice((y * width + x) * 4, (y * width + x) * 4 + 3)];
+    return at(360, 860);
+  });
+  check('effects: the whole scene\'s black and white turns the blue box grey on the screen', Math.max(...pixel) - Math.min(...pixel) < 12, JSON.stringify(pixel));
+  check('lab 34: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+  const refused = async (change, words, what) => {
+    const bad = structuredClone(project);
+    change(bad);
+    const opened = await openPage(browser, url, { project: bad });
+    await opened.page.waitForSelector('.load-error', { timeout: 15000 });
+    const message = await opened.page.$eval('.load-error', (el) => el.textContent);
+    check(`effects: ${what} is refused`, message.includes(words), message.replace(/\n/g, ' '));
+    await opened.page.close();
+  };
+  await refused((p) => { p.scenes[0].objects[0].effects.push({ kind: 'sparkly' }); }, 'kind Bazisaz does not have ("sparkly")', 'an effect of an unknown kind');
+  await refused((p) => { p.scenes[0].objects[0].effects.push({ kind: 'blur' }); }, 'the effect "blur" is there twice', 'the same effect twice');
+  await refused((p) => { p.scenes[0].rules[0].then[0].setting = 'loudness'; }, 'changes the setting "loudness"', 'a rule changing a setting an effect does not have');
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

@@ -148,7 +148,7 @@ export const ACTION_GROUPS = withRest<Action['type']>([
   { title: 'اشیا', types: ['destroy', 'spawn', 'shoot', 'show', 'hide', 'damage'] },
   { title: 'حرکت دادن', types: ['checkpoint', 'respawn', 'moveTo', 'glide', 'tween', 'moveBy', 'moveRandom', 'push', 'jump', 'turn'] },
   { title: 'فیزیک واقعی', types: ['kick', 'spin', 'blast', 'cut', 'setPhysics'] },
-  { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness'] },
+  { title: 'ظاهر', types: ['setColor', 'setImage', 'setText', 'resize', 'setOpacity', 'flash', 'layer', 'setLook', 'setDarkness', 'setEffect'] },
   { title: 'صدا و جلوه', types: ['playSound', 'playMusic', 'effect', 'burst', 'floatText', 'shake', 'focus', 'zoomPunch', 'shockwave', 'slowMotion', 'vibrate', 'setSound'] },
   { title: 'صحنه و جریان بازی', types: ['goToScene', 'nextScene', 'restartScene', 'saveGame', 'loadGame', 'send', 'wait', 'pause', 'resume', 'setGravity', 'zoom'] },
   { title: 'جورچین و منطق', types: ['setValue', 'shuffle', 'swap', 'settle', 'slideAll', 'step'] },

@@ -1,6 +1,7 @@
 import { actionBlocks, behaviorBlocks, triggerBlocks } from '../blocks/registry';
 import type { BehaviorCheckKit, CheckKit } from '../blocks/types';
 import { OLDEST_FORMAT } from './migrate';
+import { EFFECT_PLACES, effectProblems } from './effects';
 import { FORMAT_VERSION, isBuiltinMusic, nameGroups, ruleActions, ruleConditions, ruleTree, VALUE_NAME, type GameObject, type GameProject, type Place, type Ref, type Rule, type Scene, type SubRule } from './types';
 
 const VARIABLE_NAME = VALUE_NAME;
@@ -96,6 +97,13 @@ export function validateProject(project: GameProject): string[] {
     if (scene.width < project.meta.width || scene.height < project.meta.height) {
       say(`${where}: the world cannot be smaller than the screen.`);
     }
+    if (scene.effects !== undefined) {
+      if (typeof scene.effects !== 'object' || scene.effects === null) say(`${where}: effects must be places with lists of effects.`);
+      else for (const [place, list] of Object.entries(scene.effects)) {
+        if (!(EFFECT_PLACES as readonly string[]).includes(place)) say(`${where}: effects on "${place}", which is not a place in a scene (all, sky, world, screen).`);
+        else effectProblems(list, `${where}: ${place}`).forEach(say);
+      }
+    }
     const ids = new Set<string>();
     const prefabIds = new Set(scene.prefabs.map((p) => p.id));
 
@@ -132,6 +140,8 @@ export function validateProject(project: GameProject): string[] {
       if (obj.behaviors.some((b) => b.type === 'scrollImage') && obj.visual.kind !== 'image') {
         say(`${where}: "${obj.id}" scrolls its image but has no image.`);
       }
+      // Visual effects (item 4): kinds Bazisaz has, one of each, settings they have.
+      effectProblems(obj.effects, `${where}: "${obj.id}"`).forEach(say);
       const types = new Set(obj.behaviors.map((b) => b.type));
       if (types.has('jumper') && !types.has('body') && !types.has('physics')) say(`${where}: "${obj.id}" jumps but has no body.`);
       if (types.has('body') && types.has('physics')) say(`${where}: "${obj.id}" has both a body and real physics; it can have only one.`);
