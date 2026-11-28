@@ -24,6 +24,7 @@ export function amountText(amount: Amount, who: (target: Place) => string = () =
   if (typeof amount === 'number') return fa(amount);
   if ('value' in amount) return `${amount.value}ِ ${who(amount.of)}`;
   if ('count' in amount) return `تعداد اشیای گروه «${amount.count}»`;
+  if ('sensor' in amount) return amount.sensor === 'tiltX' ? 'کج شدن گوشی به چپ و راست' : 'کج شدن گوشی به جلو و عقب';
   return 'random' in amount ? `عددی تصادفی از ${fa(amount.random[0])} تا ${fa(amount.random[1])}` : `مقدار ${amount.variable}`;
 }
 

@@ -29,6 +29,7 @@ import type {
   Target,
   TileKind,
   TilesVisual,
+  InputVisual,
   TileStyle,
 } from '../format/types';
 import { ANIMATED_TILE_STYLES, EMPTY_TILE, isBuiltinMusic, MATERIALS } from '../format/types';
@@ -481,6 +482,12 @@ export interface GameState {
  * than this, so fast things cannot pass through thin ones between two frames
  * and the game behaves the same on a slow phone as on a fast one.
  */
+/** A gamepad's buttons in the browser's standard layout, by their place in its list (item 6), and the cross and stick. */
+export const PAD_BUTTONS = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'back', 'start', 'lstick', 'rstick', 'up', 'down', 'left', 'right'] as const;
+export type PadButton = (typeof PAD_BUTTONS)[number];
+/** The key each gamepad button stands for, so it works like the keyboard without any setup. */
+const PAD_KEYS: Partial<Record<PadButton, string>> = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', a: 'Space', b: 'KeyX', x: 'ShiftLeft' };
+
 const MAX_STEP = 1 / 120;
 /** Longest stretch of time one frame may cover; below 30 frames a second the game slows down rather than skipping ahead. */
 const MAX_FRAME = 1 / 30;
@@ -712,6 +719,25 @@ export class Game {
   /** Keys pressed down since the last step (not held from before). */
   private readonly pressed = new Set<string>();
   readonly keys = new Set<string>();
+  /** The keys held on the keyboard, and the ones a gamepad holds for it (item 6); `keys` is both together. */
+  private readonly keyboard = new Set<string>();
+  private padKeys = new Set<string>();
+  /** The gamepad buttons held at the last look, by name, and the ones newly pressed since the rules last ran. */
+  private padHeld = new Set<string>();
+  padPressed: PadButton[] = [];
+  /**
+   * How far the phone is tilted (item 6), each from -1 to 1 (a tilt of 30 degrees or more is 1): x to the left and
+   * right, y toward the player and away, from how it was held at the first reading. Turned with the screen.
+   */
+  readonly tilt = { x: 0, y: 0 };
+  private tiltBase: number | null = null;
+  /** For tests, and a computer without a tilt sensor: sets the tilt as the phone would. */
+  setTilt(x: number, y: number): void {
+    this.tilt.x = clamp(x, -1, 1);
+    this.tilt.y = clamp(y, -1, 1);
+  }
+  /** For tests: gamepads to use instead of the browser's. */
+  fakePads: { buttons: boolean[]; axes: number[] }[] | null = null;
   /** Groups used as on-screen buttons; a touch on one of them is not a tap on the screen. */
   private controlTags = new Set<string>();
 
@@ -768,7 +794,10 @@ export class Game {
     this.fitToMount(false);
     this.loadScene(this.scene.id);
     this.listen();
-    this.app.ticker.add((ticker) => this.advance(ticker.deltaMS / 1000));
+    this.app.ticker.add((ticker) => {
+      this.advance(ticker.deltaMS / 1000);
+      this.placeInputs();
+    });
   }
 
   /** Moves the game on by the time one frame took, in as many short steps as that needs. */
@@ -783,6 +812,7 @@ export class Game {
       return;
     }
     if (elapsed > 0) this.fps += (Math.min(240, 1 / elapsed) - this.fps) * 0.1;
+    this.pollPads();
     if (this.options.lighten && !this.light && !this.debug.paused) {
       this.slowFor = this.fps < 28 ? this.slowFor + elapsed : 0;
       if (this.slowFor > 3) this.lighten();
@@ -1126,6 +1156,8 @@ export class Game {
   /** Stops the game and removes it from the page. */
   destroy(): void {
     setMusic(null);
+    for (const field of this.inputs.values()) field.remove();
+    this.inputs.clear();
     this.cleanup.forEach((fn) => fn());
     this.app.destroy({ removeView: true }, { children: true });
   }
@@ -1499,6 +1531,7 @@ export class Game {
     this.swipes = [];
     this.keyTap = false;
     this.pressed.clear();
+    this.padPressed = [];
     this.heldOver.clear();
     for (const [id, p] of this.pointers) this.heldOver.set(id, { x: p.x, y: p.y });
     this.pointers.clear();
@@ -1745,6 +1778,113 @@ export class Game {
     e.view.filters = list.length > 0 ? list : [];
   }
 
+  // ── Text input (item 6 of the 2026-11-27 roadmap) ────────────────────────
+
+  /** The page's text fields laid over the game's text-input boxes while playing, by their objects. */
+  private readonly inputs = new Map<Entity, HTMLInputElement>();
+  /** The text-input boxes whose text the player confirmed (Enter) since the rules last ran. */
+  inputDone: Entity[] = [];
+
+  /**
+   * Keeps a real text field of the page over each text-input box while playing: the phone's own keyboard then opens,
+   * with Persian and right-to-left writing. What is typed goes into the box's text value at once. Once a frame.
+   */
+  private placeInputs(): void {
+    const play = this.mode.kind === 'play';
+    for (const [e, field] of this.inputs) {
+      if (play && e.alive && this.entities.includes(e)) continue;
+      field.remove();
+      this.inputs.delete(e);
+    }
+    if (!play) return;
+    const canvas = this.app.canvas.getBoundingClientRect();
+    const scale = canvas.width / (this.app.screen.width || 1);
+    for (const e of this.entities) {
+      const v = e.def.visual;
+      if (v.kind !== 'input' || !e.alive) continue;
+      let field = this.inputs.get(e);
+      if (!field) {
+        field = this.makeInput(e, v);
+        this.inputs.set(e, field);
+      }
+      const box = e.view.getBounds();
+      const style = field.style;
+      style.left = `${canvas.left + box.x * scale}px`;
+      style.top = `${canvas.top + box.y * scale}px`;
+      style.width = `${box.width * scale}px`;
+      style.height = `${box.height * scale}px`;
+      style.fontSize = `${v.size * (box.height / (e.def.height || 1)) * scale}px`;
+      style.display = e.visible && !this.fade ? 'block' : 'none';
+      // A rule may have changed the value: shown, unless the player is typing in it.
+      if (document.activeElement !== field) field.value = this.textVariables.get(v.variable) ?? '';
+    }
+  }
+
+  private makeInput(e: Entity, v: InputVisual): HTMLInputElement {
+    const field = document.createElement('input');
+    field.type = 'text';
+    field.dir = 'auto';
+    field.placeholder = v.placeholder;
+    field.className = 'game-input';
+    if (v.maxLength) field.maxLength = v.maxLength;
+    field.dataset.input = e.def.id;
+    Object.assign(field.style, {
+      position: 'fixed', zIndex: '5', margin: '0', padding: '0 0.4em', border: 'none', outline: 'none', background: 'transparent',
+      color: v.color, textAlign: 'center', boxSizing: 'border-box', fontFamily: `${this.project.meta.fontFamily}, ${FALLBACK_FONT}, sans-serif`,
+    });
+    field.value = this.textVariables.get(v.variable) ?? '';
+    field.addEventListener('input', () => this.setTextVariable(v.variable, field.value));
+    field.addEventListener('keydown', (ev) => {
+      ev.stopPropagation();
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      this.setTextVariable(v.variable, field.value);
+      field.blur();
+      this.inputDone.push(e);
+    });
+    // A press on the field is typing, not a tap on the game.
+    field.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    document.body.appendChild(field);
+    return field;
+  }
+
+  // ── Gamepad (item 6 of the 2026-11-27 roadmap) ──────────────────────────
+
+  /**
+   * Looks at the gamepads once a frame. A gamepad works like the keyboard without any setup: its stick and cross
+   * are the arrow keys, A is Space (jump, and a tap), B and X are the dash or roll keys; and every button newly pressed
+   * is there for the trigger "a gamepad button is pressed". The standard layout of the browser's Gamepad API.
+   */
+  private pollPads(): void {
+    const pads = this.fakePads ?? (typeof navigator !== 'undefined' && navigator.getGamepads ? [...navigator.getGamepads()].filter((p): p is Gamepad => Boolean(p)).map((p) => ({ buttons: p.buttons.map((b) => b.pressed), axes: [...p.axes] })) : []);
+    if (pads.length === 0 && this.padHeld.size === 0) return;
+    const held = new Set<PadButton>();
+    for (const pad of pads) {
+      PAD_BUTTONS.forEach((name, i) => {
+        if (pad.buttons[i]) held.add(name);
+      });
+      const [x = 0, y = 0] = pad.axes;
+      if (x < -0.4) held.add('left');
+      if (x > 0.4) held.add('right');
+      if (y < -0.5) held.add('up');
+      if (y > 0.5) held.add('down');
+    }
+    const keys = new Set<string>();
+    for (const name of held) {
+      const key = PAD_KEYS[name];
+      if (key) keys.add(key);
+      if (this.padHeld.has(name)) continue;
+      // Newly pressed: for the trigger, and as a key press (a jump, a dash).
+      this.padPressed.push(name);
+      if (key) this.pressed.add(key);
+      if (key === 'Space') this.keyTap = true;
+    }
+    for (const key of this.padKeys) if (!keys.has(key) && !this.keyboard.has(key)) this.keys.delete(key);
+    for (const key of keys) this.keys.add(key);
+    this.padKeys = keys;
+    this.padHeld = held;
+  }
+
   // ── Visual effects on anything (item 4 of the 2026-11-27 roadmap) ───────
 
   /** A visual effect, made; one that costs a lot starts off on a game lightened for a slow phone. */
@@ -1890,6 +2030,19 @@ export class Game {
       case 'bag':
         // Drawn by refreshTexts too, whenever what the player carries changes.
         return centred(new Container(), def);
+      case 'input': {
+        // The box; while playing, a real text field of the page lies over it (placeInputs), for the phone's keyboard.
+        const box = new Container();
+        box.addChild(new Graphics().roundRect(0, 0, def.width, def.height, Math.min(18, def.height / 3)).fill(v.background).stroke({ color: v.color, width: 3, alpha: 0.6 }));
+        if (this.mode.kind !== 'play') {
+          const text = new Text({ text: v.placeholder || 'متن…', style: { fontFamily: [this.project.meta.fontFamily, FALLBACK_FONT, 'sans-serif'], fontSize: v.size, fill: v.color, padding: Math.ceil(v.size * 0.4) } });
+          text.alpha = 0.55;
+          text.anchor.set(0.5);
+          text.position.set(def.width / 2, def.height / 2);
+          box.addChild(text);
+        }
+        return centred(box, def);
+      }
       case 'rect':
       case 'ellipse': {
         const g = new Graphics();
@@ -2556,6 +2709,8 @@ export class Game {
     this.swipes = [];
     this.keyTap = false;
     this.pressed.clear();
+    this.padPressed = [];
+    this.inputDone = [];
     this.started = true;
     this.changeScene();
   }
@@ -2570,6 +2725,7 @@ export class Game {
       this.swipes = [];
       this.keyTap = false;
       this.pressed.clear();
+      this.padPressed = [];
       return;
     }
     for (const rule of this.scene.rules) {
@@ -2588,6 +2744,7 @@ export class Game {
     this.swipes = [];
     this.keyTap = false;
     this.pressed.clear();
+    this.padPressed = [];
     this.changeScene();
   }
 
@@ -3710,6 +3867,7 @@ export class Game {
     if ('variable' in amount) return this.variables.get(amount.variable) ?? 0;
     if ('count' in amount) return this.matching({ by: 'tag', tag: amount.count, where: amount.where }).length;
     if ('value' in amount) return this.targets(amount.of, context)[0]?.values.get(amount.value) ?? 0;
+    if ('sensor' in amount) return Math.round((amount.sensor === 'tiltX' ? this.tilt.x : this.tilt.y) * 100) / 100;
     const [low, high] = [Math.min(...amount.random), Math.max(...amount.random)];
     return Math.floor(low + Math.random() * (high - low + 1));
   }
@@ -4337,7 +4495,10 @@ export class Game {
       if (!jumpKey && !moveKey) return;
       if (!down) {
         if (ev.code === 'Space') this.spaceHeld = false;
-        return void this.keys.delete(ev.code);
+        this.keyboard.delete(ev.code);
+        // A key the gamepad also holds stays held.
+        if (!this.padKeys.has(ev.code)) this.keys.delete(ev.code);
+        return;
       }
       // Inside an editor the same keys are needed for typing and for sliders.
       const target = ev.target as HTMLElement | null;
@@ -4352,6 +4513,7 @@ export class Game {
       }
       ev.preventDefault();
       this.keys.add(ev.code);
+      this.keyboard.add(ev.code);
       if (jumpKey && !ev.repeat) this.keyTap = true;
       if (!ev.repeat) this.pressed.add(ev.code);
     };
@@ -4384,6 +4546,27 @@ export class Game {
     window.addEventListener('pointercancel', onUp);
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
+    // Tilting the phone (item 6). Its readings are turned with the screen, so "right" is always to the player's right.
+    const onTilt = (ev: DeviceOrientationEvent) => {
+      if (ev.gamma === null || ev.beta === null) return;
+      const turn = ((screen.orientation?.angle ?? 0) + 360) % 360;
+      const [side, toward] = turn === 90 ? [ev.beta, -ev.gamma] : turn === 270 ? [-ev.beta, ev.gamma] : turn === 180 ? [-ev.gamma, -ev.beta] : [ev.gamma, ev.beta];
+      this.tiltBase ??= toward;
+      this.setTilt(side / 30, (toward - this.tiltBase) / 30);
+    };
+    window.addEventListener('deviceorientation', onTilt);
+    // On an iPhone the tilt is read only after the player allows it, which can be asked only on a tap: asked on the first.
+    const askTilt = () => {
+      const ask = (globalThis.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined)?.requestPermission;
+      if (this.mode.kind !== 'play') return;
+      if (ask && /"(tiltX|tiltY|tilt)"/.test(JSON.stringify(this.project))) void ask().catch(() => undefined);
+      window.removeEventListener('pointerdown', askTilt);
+    };
+    window.addEventListener('pointerdown', askTilt);
+    this.cleanup.push(
+      () => window.removeEventListener('deviceorientation', onTilt),
+      () => window.removeEventListener('pointerdown', askTilt),
+    );
     this.cleanup.push(
       () => this.mount.removeEventListener('pointerdown', onDown),
       () => document.removeEventListener('visibilitychange', onVisibility),

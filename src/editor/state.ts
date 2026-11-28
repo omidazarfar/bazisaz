@@ -507,6 +507,7 @@ export function isVariableUsed(project: GameProject, name: string): boolean {
       [...s.objects, ...s.prefabs].some((o) =>
         (o.visual.kind === 'text' && o.visual.text.includes(`{${name}}`)) ||
         (o.visual.kind === 'bar' && o.visual.variable === name) ||
+        (o.visual.kind === 'input' && o.visual.variable === name) ||
         o.behaviors.some((b) => blockNames(behaviorBlocks.get(b.type)?.editor.fields, b, name))) ||
       rulesUse(s.rules, name),
   ) || (project.customBehaviors ?? []).some((b) => rulesUse(b.rules, name));

@@ -326,7 +326,25 @@ export interface TerrainVisual {
   /** Surface heights measured down from the top, at equally spaced x positions, in fractions of the box. */
   heights: number[];
 }
-export type Visual = TerrainVisual | RectVisual | EllipseVisual | ImageVisual | TextVisual | BarVisual | TilesVisual | BagVisual;
+export type Visual = TerrainVisual | RectVisual | EllipseVisual | ImageVisual | TextVisual | BarVisual | TilesVisual | BagVisual | InputVisual;
+
+/**
+ * A box the player types into (item 6 of the 2026-11-27 roadmap): a name, an answer, a code. What is typed goes into
+ * a text value as it is typed; Persian runs right to left on its own. The trigger "the player confirms what they
+ * typed" fires on Enter (or the phone keyboard's go button).
+ */
+export interface InputVisual {
+  kind: 'input';
+  /** The text value it shows and fills. */
+  variable: string;
+  /** Shown faintly while it is empty, such as «اسمت را بنویس». */
+  placeholder: string;
+  size: number;
+  color: string;
+  background: string;
+  /** The most letters it takes; 0 or absent for no limit. */
+  maxLength?: number;
+}
 
 /**
  * The player's bag: a row of places, each showing one thing they carry (a
@@ -809,8 +827,9 @@ export interface SteerBehavior {
   /**
    * stick: a finger dragged anywhere steers, like a joystick that appears where it lands.
    * buttons: holding objects of the four groups. swipe: a swipe sets the way, and it keeps going that way.
+   * tilt: tilting the phone (item 6), more for a steeper tilt.
    */
-  control: 'stick' | 'buttons' | 'swipe';
+  control: 'stick' | 'buttons' | 'swipe' | 'tilt';
   upTag: string;
   downTag: string;
   leftTag: string;
@@ -1210,7 +1229,9 @@ export type Amount =
   | { random: [number, number] }
   | { count: string; where?: ValueCheck }
   /** One of an object's own values. */
-  | { value: string; of: Target };
+  | { value: string; of: Target }
+  /** How far the phone is tilted (item 6), from -1 to 1: to the left and right (x), or toward and away (y). */
+  | { sensor: 'tiltX' | 'tiltY' };
 
 /** Where something is created: on an object, or where the screen was last touched. */
 export type Place = Target | 'tap';

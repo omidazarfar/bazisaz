@@ -15,6 +15,7 @@ export const steer = behaviorBlock({
         { value: 'stick', label: 'دسته‌ی لمسی: انگشت را بکش' },
         { value: 'buttons', label: 'با چهار دکمه' },
         { value: 'swipe', label: 'با کشیدن؛ خودش ادامه می‌دهد' },
+        { value: 'tilt', label: 'با کج کردن گوشی' },
       ] },
       { key: 'upTag', label: 'گروه دکمه‌ی بالا', kind: 'tag', showIf: (v) => v.control === 'buttons' },
       { key: 'downTag', label: 'گروه دکمه‌ی پایین', kind: 'tag', showIf: (v) => v.control === 'buttons' },
@@ -25,7 +26,7 @@ export const steer = behaviorBlock({
       { key: 'rollTag', label: 'گروه دکمه‌ی غلت', kind: 'tag', fallback: '', showIf: (v) => Boolean(v.roll) },
     ],
   },
-  sentence: (b) => b.control === 'buttons' ? 'با چهار دکمه به هر طرف می‌رود' : b.control === 'swipe' ? 'با کشیدن انگشت به آن طرف راه می‌افتد' : 'با کشیدن انگشت روی صفحه به هر طرف می‌رود',
+  sentence: (b) => b.control === 'tilt' ? 'با کج کردن گوشی به هر طرف می‌رود' : b.control === 'buttons' ? 'با چهار دکمه به هر طرف می‌رود' : b.control === 'swipe' ? 'با کشیدن انگشت به آن طرف راه می‌افتد' : 'با کشیدن انگشت روی صفحه به هر طرف می‌رود',
   step: (game, e, b, frame) => {
     const { dt } = frame;
     let dx = 0;
@@ -43,7 +44,11 @@ export const steer = behaviorBlock({
         dx += x;
         dy += y;
       }
-      if (b.control === 'buttons') {
+      if (b.control === 'tilt') {
+        // Tilting the phone (item 6): the more it is tilted, the faster, up to full speed.
+        dx += game.tilt.x;
+        dy += game.tilt.y;
+      } else if (b.control === 'buttons') {
         dx += (game.held(b.rightTag) ? 1 : 0) - (game.held(b.leftTag) ? 1 : 0);
         dy += (game.held(b.downTag) ? 1 : 0) - (game.held(b.upTag) ? 1 : 0);
       } else {

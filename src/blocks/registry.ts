@@ -72,6 +72,8 @@ import { start } from './triggers/start';
 import { tap } from './triggers/tap';
 import { tapObject } from './triggers/tapObject';
 import { swipe } from './triggers/swipe';
+import { padButton } from './triggers/padButton';
+import { inputDone } from './triggers/inputDone';
 import { holding } from './triggers/holding';
 import { touch } from './triggers/touch';
 import { near } from './triggers/near';
@@ -188,7 +190,7 @@ export const everyActionIsABlock: [ActionWithoutBlock] extends [never] ? true : 
 /** Every trigger, in its own file in src/blocks/triggers/. A new trigger: one file there, and one line below. */
 const triggers = [
   // The screen.
-  tap, tapObject, swipe, holding,
+  tap, tapObject, swipe, holding, padButton, inputDone,
   // Objects.
   touch, near, land, offscreen, noneLeft, dead,
   // Real physics.

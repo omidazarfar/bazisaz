@@ -261,7 +261,7 @@ function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
             );
           case 'amount': {
             const amount = v as Amount;
-            const kind = typeof amount === 'number' ? '#' : 'random' in amount ? '?' : 'count' in amount ? '*' : 'value' in amount ? '@' : amount.variable;
+            const kind = typeof amount === 'number' ? '#' : 'random' in amount ? '?' : 'count' in amount ? '*' : 'value' in amount ? '@' : 'sensor' in amount ? amount.sensor : amount.variable;
             return (
               <div key={field.key} className="control">
                 <Select
@@ -272,9 +272,11 @@ function FieldList({ fields, value, ctx, subjects, onChange }: Props) {
                     { value: '?', label: 'یک عدد تصادفی' },
                     { value: '*', label: 'تعداد اشیای یک گروه' },
                     { value: '@', label: 'مقدار یک شیء' },
+                    { value: 'tiltX', label: 'کج شدن گوشی به چپ و راست (۱- تا ۱)' },
+                    { value: 'tiltY', label: 'کج شدن گوشی به جلو و عقب (۱- تا ۱)' },
                     ...variableOptions.map((o) => ({ ...o, label: `مقدار ${o.label}` })),
                   ]}
-                  onChange={(s) => set(s === '#' ? 1 : s === '?' ? { random: [1, 6] } : s === '*' ? { count: tags[0] ?? '' } : s === '@' ? { value: names[0] ?? 'kind', of: ctx.behavior !== undefined ? { by: 'self' } : subjects?.first ? 'first' : scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: tags[0] ?? '' } } : { variable: s })}
+                  onChange={(s) => set(s === 'tiltX' || s === 'tiltY' ? { sensor: s } : s === '#' ? 1 : s === '?' ? { random: [1, 6] } : s === '*' ? { count: tags[0] ?? '' } : s === '@' ? { value: names[0] ?? 'kind', of: ctx.behavior !== undefined ? { by: 'self' } : subjects?.first ? 'first' : scene.objects[0] ? { by: 'id', id: scene.objects[0].id } : { by: 'tag', tag: tags[0] ?? '' } } : { variable: s })}
                 />
                 {typeof amount === 'object' && 'value' in amount && (
                   <>

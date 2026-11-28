@@ -2121,6 +2121,38 @@ check('puzzle: the board is shuffled', board(lv[1]) !== board(lv[0]));
   check('soft shadows: a game with them has nothing that stops it', problems.length === 0, problems.join(' | '));
 }
 
+// ── Gamepad, typing, phone tilt (roadmap item 6) ──────────────────────────
+{
+  await freshGame();
+  await click('+ جای نوشتن', '.object-list');
+  await sleep(200);
+  let project = (await editor()).project;
+  const field = (await scene()).objects.find((o) => o.visual.kind === 'input');
+  check('typing: "+ a place to type" adds a box, with a text value to fill', field && field.visual.variable === 'answer' && project.textVariables.some((v) => v.name === 'answer'), JSON.stringify(field?.visual));
+  await setControl('نوشته‌ی کم‌رنگ وقتی خالی است', 'اسمت؟');
+  check('typing: its faint text is set in its settings', (await object(field.id)).visual.placeholder === 'اسمت؟');
+  await click('قانون‌ها', '.tabs');
+  const done = await newRule('inputDone');
+  await addAction(done, 'shake');
+  await click('بستن', `article.rule[data-rule="${done}"]`);
+  const pad = await newRule('padButton');
+  await click('بستن', `article.rule[data-rule="${pad}"]`);
+  const said = await page.evaluate(([a, b]) => [a, b].map((id) => document.querySelector(`.rule-closed[data-rule="${id}"]`).textContent), [done, pad]);
+  check('typing and gamepad: their triggers read as sentences', said[0].includes('نوشته‌اش') && said[0].includes(field.name) && said[1].includes('Start') && said[1].includes('دسته‌ی بازی'), said.join(' | '));
+  // Tilt: a way to steer, and a number for rules.
+  await click('شیء', '.tabs');
+  await clickRow(field.name);
+  await pick('اضافه کردن رفتار', 'steer', '.panel-inspector');
+  const steerOptions = await page.evaluate(() => [...document.querySelectorAll('.panel-inspector .segmented button, .panel-inspector select option')].map((b) => b.textContent));
+  await click('قانون‌ها', '.tabs');
+  const rule = await newRule('tap');
+  await addAction(rule, 'setVariable');
+  const amounts = await page.evaluate((id) => [...document.querySelectorAll(`article.rule[data-rule="${id}"] select option`)].map((o) => o.value), rule);
+  check('tilt: offered as a way to steer and as a number', steerOptions.some((t) => t.includes('کج کردن گوشی')) && amounts.includes('tiltX') && amounts.includes('tiltY'), `${steerOptions.filter((t) => t.includes('گوشی')).join()} | ${amounts.filter((a) => a.startsWith('tilt')).join()}`);
+  const problems = await page.evaluate(() => window.__editor.agent.check(window.__editor.getState().project).problems);
+  check('item 6: a game with a place to type, a gamepad button and tilt has nothing that stops it', problems.length === 0, problems.join(' | '));
+}
+
 // ── Narrow screen ──────────────────────────────────────────────────────────
 await page.setViewport({ width: 390, height: 844 });
 await sleep(300);

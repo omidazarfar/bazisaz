@@ -126,6 +126,11 @@ export function validateProject(project: GameProject): string[] {
           say(`${where}: terrain "${obj.id}" needs 2–129 heights from 0 to 0.95.`);
       }
       if (obj.visual.kind === 'bar') needVariable(obj.visual.variable, `${where}: bar "${obj.id}"`);
+      // A text-input box (item 6) fills a text value.
+      if (obj.visual.kind === 'input') {
+        if (!texts.has(obj.visual.variable)) say(`${where}: text input "${obj.id}" fills text value "${obj.visual.variable}", which the game does not have.`);
+        if (!(obj.visual.size > 0)) say(`${where}: text input "${obj.id}" needs a letter size above zero.`);
+      }
       if (obj.visual.kind === 'bag' && !(obj.visual.slots >= 1)) say(`${where}: bag "${obj.id}" needs at least one place.`);
       if (obj.visual.kind === 'tiles') {
         const tiles = obj.visual;

@@ -130,12 +130,12 @@ export const BEHAVIOR_GROUPS = withRest<Behavior['type']>([
 ], BEHAVIOR_BLOCKS.filter((b) => b.type !== 'custom'));
 
 export const TRIGGER_GROUPS = withRest<Trigger['type']>([
-  { title: 'لمس صفحه', types: ['tap', 'tapObject', 'swipe', 'holding'] },
+  { title: 'لمس صفحه و دسته‌ی بازی', types: ['tap', 'tapObject', 'swipe', 'holding', 'padButton'] },
   { title: 'اشیا', types: ['touch', 'near', 'land', 'offscreen', 'noneLeft', 'dead'] },
   { title: 'فیزیک واقعی', types: ['hit', 'thrown', 'rest', 'snap'] },
   { title: 'زمان', types: ['start', 'every', 'eachEvery', 'after'] },
   { title: 'جورچین و منطق', types: ['message', 'value', 'line'] },
-  { title: 'مقدارها و تبلیغ', types: ['variable', 'textEquals', 'reward'] },
+  { title: 'مقدارها و تبلیغ', types: ['variable', 'textEquals', 'inputDone', 'reward'] },
   { title: 'کوله‌پشتی', types: ['useItem', 'useItemOn'] },
   { title: 'تابع و پرسش خودت', types: ['called', 'asked'] },
   { title: 'تغییر نرم', types: ['tweenDone'] },

@@ -80,9 +80,9 @@ owner's request, a36f448: no visible changes outside the item.)
 - [x] **4. Visual effects on anything** (DONE 2026-11-28; CI green, the owner asked for item 5; notes below the list): any pixi-filters effect on an object, a layer or the whole scene, with
   settings and a live preview; an action that changes a setting during play; existing looks keep working; the
   stress scene stays in budget with several effects.
-- [~] **5. Lights that cast shadows** (built 2026-11-28 by Claude in a cloud session, waiting for the owner's OK; notes below the list; lights already cast sharp shadows as far as their reach since 2026-11-19, so this adds length and soft edges): the existing lights cast soft shadows from a chosen group, with a shadow
+- [x] **5. Lights that cast shadows** (DONE 2026-11-28; CI green, the owner asked for item 6; notes below the list; lights already cast sharp shadows as far as their reach since 2026-11-19, so this adds length and soft edges): the existing lights cast soft shadows from a chosen group, with a shadow
   length setting; stress budget with several lights and casters.
-- [ ] **6. Gamepad, text input, phone tilt:** a gamepad works like the controls without setup, plus a trigger
+- [~] **6. Gamepad, text input, phone tilt** (built 2026-11-28 by Claude in a cloud session, waiting for the owner's OK; notes below the list): a gamepad works like the controls without setup, plus a trigger
   for its buttons; a text input object (Persian and English, RTL) into a text variable, with a confirm trigger;
   tilt as a steer option and a number in rules.
 - [ ] **7. Export for the web:** a .zip with index.html and everything, next to Android in the export dialog;
@@ -138,6 +138,28 @@ owner's request, a36f448: no visible changes outside the item.)
   another part, keep all, refusals, offered in rules). GUIDE-fa «زیرقانون و مقدار چند بخشی». Pictures:
   `node scripts/look/subrules.mjs` → scripts/look/out/subrules-editor.png, subrules-open-editor.png,
   parts-editor.png, subrules-game.png.
+
+### Item 6 progress (gamepad, text input, phone tilt, 2026-11-28)
+
+- Gamepad (Game «Gamepad»): `pollPads` once a frame in play (advance): the browser's standard layout (`PAD_BUTTONS`),
+  stick/cross → arrow keys, A → Space (and keyTap), B → KeyX, X → ShiftLeft (`PAD_KEYS`), kept apart from the keyboard
+  (`keyboard`, `padKeys`; `keys` is both). Newly pressed buttons go to `padPressed` (cleared with the key presses) for
+  the trigger `padButton` (blocks/triggers/padButton.ts). `fakePads` lets tests give pads.
+- Text input: visual `InputVisual` (`kind: 'input'`, variable = a text value, placeholder, size, color, background,
+  maxLength). Drawn as a box (with the faint text while editing); while playing `placeInputs` (each frame, from the
+  ticker) keeps a page `<input dir="auto">` over it (position: fixed from `view.getBounds()` and the canvas's size),
+  writes to the text value as typed, Enter → `inputDone` (trigger blocks/triggers/inputDone.ts, "first" is the box);
+  its pointerdown and keys do not reach the game. Removed on leaving play, on the scene's change, on destroy. Editor:
+  «+ جای نوشتن» in the object list (makes `answer` if the game has no text value), its settings in the object tab;
+  validate checks the text value; isVariableUsed sees it.
+- Tilt: `Game.tilt` (x, y from -1 to 1, 30° = 1, y from the first reading; turned with the screen), from
+  `deviceorientation`; iPhone's permission asked on the first tap in play if the game uses tilt; `setTilt` for tests.
+  Steer `control: 'tilt'`; Amount `{ sensor: 'tiltX' | 'tiltY' }` (say.ts, Fields amount list).
+- Tests: smoke Lab 36 (stick steers, A once and a tap, Start and any; tilt steers and is read by rules; a real field over
+  the box, Persian typed right to left into the value and not a tap, Enter fires once and closes the keyboard);
+  editor.smoke "Gamepad, typing, phone tilt". GUIDE-fa «دسته‌ی بازی، جای نوشتن و کج کردن گوشی»; AGENTS-GAMES.
+  Pictures: `node scripts/look/input.mjs` → input-editor.png, input-game.png.
+- Not tried on a real phone or with a real gamepad (only the browser's APIs, faked in tests).
 
 ### Item 5 progress (soft shadows of a set length, 2026-11-28)
 
@@ -963,6 +985,10 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-28 — Claude (cloud session), roadmap item 6: gamepad, text input, phone tilt (owner: "مرحله بعدی")
+
+- Item 5's CI run was green; the owner asked for the next, taken as item 5's OK. Built item 6 (notes under THE PLAN NOW).
 
 ### 2026-11-28 — Claude (cloud session), roadmap item 5: soft shadows of a set length (owner: "مرحله ۵ شروع")
 

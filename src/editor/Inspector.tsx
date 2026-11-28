@@ -420,7 +420,22 @@ export function Inspector({ editor }: { editor: Editor }) {
             <ColorField label="رنگ بخش خالی" value={visual.back} onChange={(back) => setVisual('back', { back })} />
           </>
         )}
-        {visual.kind !== 'text' && visual.kind !== 'bar' && visual.kind !== 'bag' && (
+        {visual.kind === 'input' && (
+          <>
+            <Select
+              label="نوشته در کدام مقدار متنی برود"
+              hint="هر چه بازیکن بنویسد، همان لحظه در این مقدار است؛ با {نام} در متن‌ها دیده می‌شود و قانون‌ها با «یک مقدار متنی برابر می‌شود با…» آن را می‌خوانند."
+              value={visual.variable}
+              options={(project.textVariables ?? []).map((v) => ({ value: v.name, label: v.name }))}
+              onChange={(variable) => setVisual('variable', { variable })}
+            />
+            <TextField label="نوشته‌ی کم‌رنگ وقتی خالی است" value={visual.placeholder} onChange={(placeholder) => setVisual('placeholder', { placeholder })} />
+            <Slider label="اندازه‌ی حروف" min={14} max={80} step={1} value={visual.size} onChange={(size) => setVisual('size', { size })} />
+            <ColorField label="رنگ پس‌زمینه" value={visual.background} onChange={(background) => setVisual('background', { background })} />
+            <NumberField label="حداکثر چند حرف" hint="صفر یعنی بدون محدودیت." value={visual.maxLength ?? 0} onChange={(n) => setVisual('maxLength', { maxLength: Math.max(0, Math.round(n)) || undefined })} />
+          </>
+        )}
+        {visual.kind !== 'text' && visual.kind !== 'bar' && visual.kind !== 'bag' && visual.kind !== 'input' && (
           <div className="adders">
             <button type="button" className="chip" onClick={() => setChoosingPicture(true)}>
               انتخاب از عکس‌های آماده

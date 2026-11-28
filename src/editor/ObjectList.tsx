@@ -61,6 +61,23 @@ export function ObjectList({ editor, onNote }: { editor: Editor; onNote: (text: 
         <button type="button" className="chip" onClick={() => void addImage(list)}>
           + عکس
         </button>
+        {list === 'objects' && (
+          <button
+            type="button"
+            className="chip"
+            data-add-input
+            title="جایی که بازیکن در آن تایپ می‌کند؛ مثل اسمش یا جواب یک معما. نوشته‌اش در یک مقدار متنی می‌رود."
+            onClick={() => {
+              // A text value to type into: the game's first, or a new "answer".
+              const texts = project.textVariables ?? [];
+              const variable = texts[0]?.name ?? 'answer';
+              const next = texts.length ? project : { ...project, textVariables: [...texts, { name: 'answer', initial: '', saved: false }] };
+              add(list, `جای نوشتن ${fa(count + 1)}`, { kind: 'input', variable, placeholder: 'اینجا بنویس…', size: 36, color: '#ffffff', background: '#1b2a4a' }, 440, 80, next);
+            }}
+          >
+            + جای نوشتن
+          </button>
+        )}
         {list === 'objects' && project.variables.length > 0 && (
           <button
             type="button"
@@ -152,6 +169,7 @@ function Thumb({ object, project }: { object: GameObject; project: Editor['proje
     return <span className="thumb thumb-image" style={asset ? { backgroundImage: `url("${asset.src}")` } : undefined} />;
   }
   if (v.kind === 'bar') return <span className="thumb thumb-bar" style={{ background: `linear-gradient(90deg, ${v.color} 65%, ${v.back} 65%)` }} />;
+  if (v.kind === 'input') return <span className="thumb thumb-text" style={{ color: v.color, background: v.background, borderRadius: '4px' }}>…</span>;
   if (v.kind === 'bag') return <span className="thumb thumb-bag" style={{ background: 'repeating-linear-gradient(90deg, #232d55 0 7px, #ffd23f 7px 8px)', borderRadius: '4px' }} />;
   if (v.kind === 'terrain') return <svg className="thumb" viewBox="0 0 100 100" preserveAspectRatio="none">
     <polygon fill={v.color} points={v.heights.map((y, i) => `${100 * i / (v.heights.length - 1)},${100 * y}`).join(' ') + ' 100,100 0,100'} />

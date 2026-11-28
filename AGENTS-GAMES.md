@@ -75,6 +75,12 @@ seconds" counts per object. Use one for an ability many objects share with diffe
 outline, pixelate, hue, film, glitch, rays, …). The action `setEffect` (`place`: object with `target`, or all, sky,
 world, screen; `kind`; `setting` or "on"; `amount`, or `color`; `seconds`) changes one during play.
 
+**Input:** a gamepad works like the keyboard with no setup (stick/cross = arrows, A = Space, B/X = dash); trigger
+`padButton` (`button`: any, a, b, x, y, lb, rb, lt, rt, back, start, up, down, left, right). A text-input box is the
+visual `{ kind: 'input', variable: <text value>, placeholder, size, color, background, maxLength? }`; trigger
+`inputDone` (`target`) fires on Enter. Phone tilt: steer `control: 'tilt'`, and the amount `{ sensor: 'tiltX' | 'tiltY' }`
+(-1 to 1).
+
 **An object** has an `id` (unique in the whole project), a `name` (only the editor shows it), `x`, `y`,
 `width`, `height`, a `visual`, `tags` (the groups it belongs to — rules and behaviors refer to groups
 by name), `visible`, and `behaviors`. Optional: `fixed` (stays on the screen like a score or a button),

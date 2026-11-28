@@ -3142,6 +3142,83 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   check('lab 35: no errors in the page', [short, long, hard, soft].every((r) => r.errors.length === 0), [short, long, hard, soft].flatMap((r) => r.errors).join(' | '));
 }
 
+// ── 13z. Lab 36: gamepad, typing, phone tilt (roadmap item 6) ──
+{
+  const box = (id, x, y, extra = {}) => ({ id, name: id, x, y, width: 60, height: 60, visual: { kind: 'rect', color: '#4fc3f7' }, tags: [], visible: true, behaviors: [], ...extra });
+  const add = (name) => [{ type: 'setVariable', name, op: 'add', amount: 1 }];
+  const project = {
+    formatVersion: 3,
+    meta: { name: 'Lab36', orientation: 'portrait', width: 720, height: 1280, background: '#263238', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirtysix', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, lists: [],
+    variables: ['pressedA', 'pressedAny', 'started', 'taps', 'confirmed', 'tx', 'ty'].map((name) => ({ name, initial: 0, saved: false })),
+    textVariables: [{ name: 'answer', initial: '', saved: false }],
+    startScene: 's',
+    scenes: [{
+      id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [],
+      objects: [
+        box('padHero', 300, 300, { behaviors: [{ type: 'steer', speed: 200, control: 'stick', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false }] }),
+        box('tiltHero', 300, 700, { behaviors: [{ type: 'steer', speed: 200, control: 'tilt', upTag: '', downTag: '', leftTag: '', rightTag: '', face: false }] }),
+        { id: 'field', name: 'field', x: 140, y: 1000, width: 440, height: 80, visual: { kind: 'input', variable: 'answer', placeholder: 'Your name', size: 36, color: '#ffffff', background: '#1b2a4a' }, tags: [], visible: true, behaviors: [], fixed: true },
+      ],
+      rules: [
+        { id: 'a', when: { type: 'padButton', button: 'a' }, condition: null, then: add('pressedA') },
+        { id: 'any', when: { type: 'padButton', button: 'any' }, condition: null, then: add('pressedAny') },
+        { id: 'start', when: { type: 'padButton', button: 'start' }, condition: null, then: add('started') },
+        { id: 'tap', when: { type: 'tap' }, condition: null, then: add('taps') },
+        { id: 'tilt', when: { type: 'every', seconds: 0.1 }, condition: null, then: [{ type: 'setVariable', name: 'tx', op: 'set', amount: { sensor: 'tiltX' } }, { type: 'setVariable', name: 'ty', op: 'set', amount: { sensor: 'tiltY' } }] },
+        { id: 'done', when: { type: 'inputDone', target: { by: 'id', id: 'field' } }, condition: null, then: add('confirmed') },
+      ],
+    }],
+  };
+  const { page, errors } = await openPage(browser, url, { project });
+  await loaded(page);
+  await untilTime(page, 0.5);
+  // A gamepad, as the browser would give it: the stick to the left and A held, then Start as well.
+  const step = (pads, frames) => page.evaluate(([pads, n]) => {
+    const g = window.__game;
+    g.app.ticker.stop();
+    g.fakePads = pads;
+    for (let i = 0; i < n; i++) g.advance(1 / 60);
+    const one = (id) => g.entities.find((e) => e.def.id === id);
+    return { pad: { x: one('padHero').x, y: one('padHero').y }, tilt: { x: one('tiltHero').x, y: one('tiltHero').y }, ...g.getState().variables };
+  }, [pads, frames]);
+  const buttons = (...held) => Array.from({ length: 17 }, (_, i) => held.includes(i));
+  const before = await step(null, 1);
+  const pressed = await step([{ buttons: buttons(0), axes: [-1, 0] }], 30);
+  const s1 = JSON.stringify(pressed);
+  check('gamepad: the stick steers like the arrow keys, with no setup', pressed.pad.x < before.pad.x - 60 && Math.abs(pressed.pad.y - before.pad.y) < 1, s1);
+  check('gamepad: A, held, is pressed once; it is a tap too, like Space', pressed.pressedA === 1 && pressed.taps === 1, s1);
+  const more = await step([{ buttons: buttons(0, 9), axes: [0, 0] }], 5);
+  check('gamepad: "a button is pressed" for one button by name, and for any', more.started === 1 && more.pressedA === 1 && more.pressedAny === 2, JSON.stringify(more));
+  // Phone tilt: steering, and the numbers in rules.
+  await page.evaluate(() => window.__game.setTilt(0.5, -1));
+  const tilted = await step(null, 60);
+  check('tilt: tilting the phone steers (half right, all the way up: up faster than right)', tilted.tilt.x > more.tilt.x + 30 && tilted.tilt.y < more.tilt.y - 100, JSON.stringify(tilted.tilt));
+  check('tilt: the tilt is a number rules can read (0.5 and -1)', tilted.tx === 0.5 && tilted.ty === -1, JSON.stringify({ tx: tilted.tx, ty: tilted.ty }));
+  // Typing: a real text field over the box, with the phone's keyboard; Persian runs right to left.
+  await page.evaluate(() => { window.__game.fakePads = null; window.__game.app.ticker.start(); });
+  await page.waitForSelector('input[data-input="field"]', { timeout: 10000 });
+  const placed = await page.evaluate(() => {
+    const field = document.querySelector('input[data-input="field"]').getBoundingClientRect();
+    const canvas = document.querySelector('canvas').getBoundingClientRect();
+    const scale = canvas.width / 720;
+    return { left: field.left - canvas.left - 140 * scale, top: field.top - canvas.top - 1000 * scale, width: field.width - 440 * scale };
+  });
+  check('typing: a text field lies over the box on the screen', Math.abs(placed.left) < 3 && Math.abs(placed.top) < 3 && Math.abs(placed.width) < 3, JSON.stringify(placed));
+  await page.click('input[data-input="field"]');
+  await page.keyboard.type('سلام دنیا');
+  const typed = await page.evaluate(() => ({ answer: window.__game.getState().variables.answer, rtl: document.querySelector('input[data-input="field"]').matches(':dir(rtl)'), taps: window.__game.getState().variables.taps }));
+  check('typing: what is typed goes into the text value as it is typed, Persian right to left, and is not a tap', typed.answer === 'سلام دنیا' && typed.rtl && typed.taps === tilted.taps, JSON.stringify(typed));
+  await page.keyboard.press('Enter');
+  await until(page, () => window.__game.getState().variables.confirmed >= 1, null, 5000);
+  const done = await page.evaluate(() => ({ confirmed: window.__game.getState().variables.confirmed, focused: document.activeElement?.dataset?.input ?? null }));
+  check('typing: Enter confirms it (the trigger fires once) and closes the keyboard', done.confirmed === 1 && done.focused === null, JSON.stringify(done));
+  check('lab 36: no errors in the page', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },
