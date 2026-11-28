@@ -71,10 +71,10 @@ owner's request, a36f448: no visible changes outside the item.)
 - [x] **1. Tween any property** (DONE 2026-11-27, the owner said OK; notes below the list): an action that changes any number of an object over time to a target with an
   easing curve (x, y, width, height, angle, opacity, scale, one of its values, or a game variable); by or to,
   repeat, back and forth; a trigger "a tween finished" on that object.
-- [~] **2. Sub-rules and structured variables** (built 2026-11-27, waiting for the owner's OK; notes below the list): sub-rules checked only when the parent's trigger happened and
+- [x] **2. Sub-rules and structured variables** (DONE 2026-11-27; the owner asked for item 3 on 2026-11-28; notes below the list): sub-rules checked only when the parent's trigger happened and
   its conditions passed, on the same objects; shown indented, movable in and out. Variables with named parts
   (player.stats.hp) for game variables and object values; rules, texts and saving understand them.
-- [ ] **3. Custom behaviors:** made from rules, with a Persian name and number settings; "this object" means
+- [~] **3. Custom behaviors** (built 2026-11-28 by Claude in a cloud session, waiting for the owner's OK; notes below the list): made from rules, with a Persian name and number settings; "this object" means
   each object that has it; in the behavior list next to the built-in ones, each object its own settings. Built
   on functions; a test remakes a back-and-forth mover as one.
 - [ ] **4. Visual effects on anything:** any pixi-filters effect on an object, a layer or the whole scene, with
@@ -138,6 +138,36 @@ owner's request, a36f448: no visible changes outside the item.)
   another part, keep all, refusals, offered in rules). GUIDE-fa «زیرقانون و مقدار چند بخشی». Pictures:
   `node scripts/look/subrules.mjs` → scripts/look/out/subrules-editor.png, subrules-open-editor.png,
   parts-editor.png, subrules-game.png.
+
+### Item 3 progress (custom behaviors, 2026-11-28)
+
+- Format: `project.customBehaviors?: CustomBehavior[]` (`{ id, name, about?, settings: { name, label?, initial }[], rules }`),
+  behavior block `custom` (src/blocks/behaviors/custom.ts: `{ type: 'custom', behavior, settings? }`), and a new ref
+  `{ by: 'self' }` ("this object", «همین شیء»). All additive: no format version change, old files unchanged and valid.
+- Runtime (Game.ts «Custom behaviors»): `runBehaviorRules` after the scene's rules (and for taps while paused): for each
+  behavior, for each live object with it, each rule as `ownRule` (same rule, id `rule#<object number>`, so clocks and
+  touch memories are per object); `Game.self` while its triggers are asked, `Context.self` for its actions (kept
+  through a wait); `matching`/`targets` read them. "start" fires once per object, when it first takes part (spawned
+  later: when made). Settings become the object's own values at creation (`settingsOf`). Not built on "called" rules
+  as the plan suggested: a behavior's rules run through the same `runRule` as everything (functions included).
+- Tween's `amount` is now an Amount (a number still works), so a setting can drive it; its sentence and check follow.
+- Validation (validate.ts `checkRules`, now shared by scenes and behaviors): "this object" only in a behavior's rules;
+  no single object by id in them; no called/asked there; behaviors checked against each scene that uses them. The
+  block checks a missing behavior, unknown or non-number settings, a setting named like the object's own value or
+  another behavior's setting, the same behavior twice.
+- Editor: Rules.tsx takes `rulesOf` (App state; `editor.showBehavior(id)`): chips «صحنه‌ی …» / «رفتار …» / «+ رفتار تازه
+  از قانون‌ها»; `BehaviorHead` (name, about, settings with Persian label and starting number, who has it, remove); the
+  same rule editor through `putRules`. Fields: `ctx.behavior` offers «همین شیء» and no single objects; firstRef is self.
+  Inspector: «رفتارهای خودت» first in the behavior pick list (`custom:<id>`, `custom:` makes a new one, gives it and opens
+  it); a custom card with the object's own settings and «ویرایش قانون‌های این رفتار»; behaviors removed by index.
+  state.ts: `newBehavior`, `updateBehavior`, `removeBehavior`, `everyRuleList`; isVariableUsed/isListUsed see them.
+- Tests: smoke Lab 33 (a back-and-forth mover remade from one rule, each object its own distance; per-object touch with
+  a sub-rule; "every 1 s" per object from when it appeared; start for a spawned object; "this object" after a wait;
+  four refusals); editor.smoke "Custom behaviors". GUIDE-fa «رفتار خودت: رفتار تازه از قانون‌ها»; AGENTS-GAMES.
+  Pictures: `node scripts/look/custom.mjs` → custom-rules-editor, custom-open-editor, custom-object-editor,
+  custom-pick-editor, custom-game (.png in scripts/look/out).
+- Later: the try-out log does not list a behavior's rules (their ids are rule#n, not the scene's); the editor's problem
+  list does not look inside a behavior's rules for empty groups.
 
 ## DONE: foundations, not features (owner's roadmap, 2026-11-25)
 
@@ -885,6 +915,19 @@ say so in the log.
 ---
 
 ## Session log (newest first)
+
+### 2026-11-28 — Claude (cloud session from the owner's phone), roadmap item 3: custom behaviors (owner: "start item 3")
+
+- The owner had no laptop; GitHub was connected to this session so it could push. Item 2 counted as OK.
+- Built item 3 (notes under THE PLAN NOW): format, runtime, validation, editor, Lab 33, editor smoke, guide, pictures.
+- Tested on this (slow) cloud machine in headless Chrome: build; contact, fixtures, stress and agent suites all pass;
+  smoke 388/390, art 56/57, editor 328/329. The four that fail (tapped button gives, floating words rise, a pop waits
+  its delay, particles survive reopening) are timing checks that fail the same way on the commit before item 3 here
+  (checked side by side), not something item 3 changed. Server suite not run (needs Android files). Bots: platform,
+  shooter, puzzle, physics, rescue, tower, bricks, runner, hopper, runner-levels win; adventure and hopper-levels lose
+  here, and lose the same way on the commit before item 3; the rest were not reached (very slow here). CI on the push
+  is the real check.
+- On the laptop: `git pull` before the next session.
 
 ### 2026-11-25 night → 11-26 — Claude, foundations 2–5 and the flagship roadmap A–G (owner: "do all … until morning … don't ask")
 
