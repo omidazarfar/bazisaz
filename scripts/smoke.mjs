@@ -3089,6 +3089,59 @@ const loaded = (page) => until(page, () => window.__game, null, 20000);
   await refused((p) => { p.scenes[0].rules[0].then[0].setting = 'loudness'; }, 'changes the setting "loudness"', 'a rule changing a setting an effect does not have');
 }
 
+// ── 13y. Lab 35: soft shadows of a set length (roadmap item 5) ──
+{
+  const box = (id, x, y, w, h, extra = {}) => ({ id, name: id, x, y, width: w, height: h, visual: { kind: 'rect', color: '#9e9e9e' }, tags: [], visible: true, behaviors: [], ...extra });
+  const lamp = (extra) => box('lamp', 100, 580, 40, 40, { visual: { kind: 'ellipse', color: '#ffe082' }, behaviors: [{ type: 'light', radius: 600, color: '#ffffff', flicker: false, shadowTag: 'wall', ...extra }] });
+  const project = (light) => ({
+    formatVersion: 3,
+    meta: { name: 'Lab35', orientation: 'portrait', width: 720, height: 1280, background: '#ffffff', fontFamily: 'Fredoka', transition: 'none' },
+    app: { appId: 'com.example.labthirtyfive', versionCode: 1, versionName: '1.0', icon: null },
+    ads: { enabled: false, testMode: true, banner: false, appId: '', bannerId: '', interstitialId: '', rewardedId: '' },
+    sound: false, assets: {}, variables: [], textVariables: [], lists: [],
+    startScene: 's',
+    scenes: [{ id: 's', name: 's', width: 720, height: 1280, background: null, music: null, gravity: 0, prefabs: [], darkness: 0.95, rules: [],
+      objects: [lamp(light), box('pillar', 250, 500, 40, 200, { tags: ['wall'] })] }],
+  });
+  const inside = (x, y, p) => {
+    let ins = false;
+    for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) {
+      const [xi, yi, xj, yj] = [p[i], p[i + 1], p[j], p[j + 1]];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) ins = !ins;
+    }
+    return ins;
+  };
+  const look = async (light) => {
+    const { page, errors } = await openPage(browser, url, { project: project(light) });
+    await loaded(page);
+    await untilTime(page, 0.3);
+    const s = await gameState(page);
+    const shot = await page.evaluate(() => {
+      const g = window.__game;
+      g.app.render();
+      const { pixels: data, width } = g.app.renderer.extract.pixels({ target: g.app.stage, frame: g.app.screen.clone() });
+      const at = (x, y) => data[(y * width + x) * 4];
+      const column = [];
+      for (let y = 300; y <= 900; y += 2) column.push(at(400, y));
+      return { behind: at(340, 600), past: at(560, 600), open: at(200, 900), column };
+    });
+    await page.close();
+    return { lit: s.lit.find((l) => l.id === 'lamp'), shot, errors };
+  };
+  const short = await look({ shadowLength: 150 });
+  const lit = (x, y) => inside(x, y, short.lit.points) || short.lit.beyond.some((p) => inside(x, y, p));
+  check('shadow length: just behind the pillar is in shadow, past its end the light reaches again', !lit(340, 600) && lit(560, 600) && lit(200, 900), `${short.lit.beyond.length} pieces lit again`);
+  check('shadow length: and so on the screen (dark behind, bright past the end)', short.shot.behind < 40 && short.shot.past > short.shot.behind + 50, JSON.stringify({ behind: short.shot.behind, past: short.shot.past }));
+  const long = await look({});
+  check('shadow length: none set, the shadow reaches as far as the light (as before)', long.lit.beyond.length === 0 && long.shot.past < 60, `past ${long.shot.past}`);
+  // Soft edges: across the edges of the shadow, more of the column is between dark and bright.
+  const between = (column) => column.filter((v) => v > 40 && v < 200).length;
+  const hard = await look({ shadowLength: 150 });
+  const soft = await look({ shadowLength: 150, shadowSoftness: 20 });
+  check('soft shadows: the edges of a shadow darken gradually', between(soft.shot.column) > between(hard.shot.column) + 6, `between: hard ${between(hard.shot.column)}, soft ${between(soft.shot.column)}`);
+  check('lab 35: no errors in the page', [short, long, hard, soft].every((r) => r.errors.length === 0), [short, long, hard, soft].flatMap((r) => r.errors).join(' | '));
+}
+
 // ── 14. A broken project is refused with a readable message ───────────────
 {
   const broken = { formatVersion: 2, meta: { name: 'x', orientation: 'portrait', width: 720, height: 1280, background: '#222222', fontFamily: 'Fredoka' },

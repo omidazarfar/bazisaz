@@ -560,6 +560,10 @@ export interface LightBehavior {
   flicker: boolean;
   /** Objects of this group (walls, pillars) block the light and cast shadows behind them; their own faces toward it are lit. Empty for none. */
   shadowTag?: string;
+  /** How far behind a wall its shadow reaches, in pixels; past it the light goes on (item 5). 0 or absent: as far as the light. */
+  shadowLength?: number;
+  /** How soft the edges of the shadows are, in pixels of blur (item 5). 0 or absent: sharp. */
+  shadowSoftness?: number;
 }
 
 /**

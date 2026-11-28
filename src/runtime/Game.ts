@@ -1,4 +1,4 @@
-import { Application, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Matrix, NineSliceSprite, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
+import { Application, BlurFilter, ColorMatrixFilter, Container, CullerPlugin, extensions, FillGradient, Graphics, Matrix, NineSliceSprite, Rectangle, RenderTexture, Sprite, Text, Texture, TilingSprite, type Filter } from 'pixi.js';
 import { AdvancedBloomFilter, CRTFilter, DropShadowFilter, GlowFilter, OldFilmFilter, PixelateFilter, ShockwaveFilter } from 'pixi-filters';
 import type {
   Action,
@@ -44,7 +44,7 @@ import { validateProject } from '../format/validate';
 import { FALLBACK_FONT } from './fonts';
 import { feel, Physics } from './physics';
 import { traceOutline } from './outline';
-import { lightPolygon } from './shadows';
+import { lightBeyond, lightPolygon } from './shadows';
 import { localTime, poseAt, type Pose } from './animate';
 import { WeatherView } from './weather';
 import { pauseMusic, playEffect, preloadClip, resumeMusic, setMusic } from './sound';
@@ -454,7 +454,7 @@ export interface GameState {
   /** The scene's weather: what is falling, and lightning. */
   weather: ReturnType<WeatherView['state']>;
   /** Lights that walls are in the way of: the outline of where each reaches, in world points (x, y, x, y, …). */
-  lit: { id: string; points: number[] }[];
+  lit: { id: string; points: number[]; beyond: number[][] }[];
   /** Words floating up from objects ("+30"). */
   floats: { text: string; x: number; y: number; alpha: number }[];
   entities: ({
@@ -555,6 +555,8 @@ export class Game {
   /** The dark sheet with the lights cut out of it, drawn once a frame into a texture of its own. */
   private readonly shade = new Sprite();
   private readonly shadeLayer = new Container();
+  /** The blur that softens the edges of shadows, when a light asks for it (item 5). */
+  private shadeBlur: BlurFilter | null = null;
   private shadeTexture: RenderTexture | null = null;
   /** The coloured glow of lights that have a colour, over the dark sheet. */
   private readonly glow = new Container();
@@ -653,7 +655,7 @@ export class Game {
   private toasts: string[] = [];
   private toast: { view: Container; left: number } | null = null;
   /** The outline of each light that walls block, as last drawn. */
-  private lit: { id: string; points: number[] }[] = [];
+  private lit: { id: string; points: number[]; beyond: number[][] }[] = [];
   tweens: Tween[] = [];
   /** Tweens of any number (item 1, tweens.ts), and those that ended last step, for "a tween finished". */
   propTweens: PropTween[] = [];
@@ -975,10 +977,13 @@ export class Game {
     // The dark sheet stays; the lights cut into it are made afresh each frame.
     if (layer.children.length > 1) layer.removeChildren(1).forEach((c) => c.destroy());
     if (layer.children.length === 0) layer.addChild(new Graphics());
-    (layer.children[0] as Graphics).clear().rect(0, 0, W, H).fill({ color: '#05081a', alpha: dark });
+    // Past the screen's edges by a margin, so blurring soft shadows never lightens the edges.
+    (layer.children[0] as Graphics).clear().rect(-48, -48, W + 96, H + 96).fill({ color: '#05081a', alpha: dark });
     const z = this.z;
     const origin = this.hudOrigin();
     this.lit = [];
+    /** The softest edge asked for by a light whose shadows are drawn this frame (item 5). */
+    let soft = 0;
     for (const e of this.entities) {
       if (!e.alive || (!e.visible && this.mode.kind === 'play')) continue;
       for (const b of e.def.behaviors) {
@@ -993,7 +998,11 @@ export class Game {
           ? this.entities.filter((o) => o !== e && o.alive && o.visible && !o.def.fixed && o.def.tags.includes(b.shadowTag!))
           : [];
         const points = walls.length ? lightPolygon(centre.x, centre.y, b.radius * flicker, walls) : null;
-        if (points) this.lit.push({ id: e.def.id, points });
+        // Shadows only so long (item 5): the light reaches on past their ends.
+        const beyond = points && b.shadowLength ? lightBeyond(centre.x, centre.y, b.radius * flicker, walls, b.shadowLength) : [];
+        if (points) this.lit.push({ id: e.def.id, points, beyond });
+        // (Pieces lit again meet the rest along hairlines: a touch of blur, at least, hides them.)
+        if (points) soft = Math.max(soft, b.shadowSoftness ?? 0, beyond.length ? 1.5 : 0);
         const spot = (scale: number) => {
           if (!points) {
             const s = new Sprite(this.lightTexture!);
@@ -1005,12 +1014,11 @@ export class Game {
           // The light's soft circle, painted only inside what it can see.
           const side = size * scale;
           const texture = this.lightTexture!;
-          const onScreen = points.map((v, i) => (i % 2 === 0 ? (v - this.camera.x) * z : (v - this.camera.y) * z));
-          return new Graphics().poly(onScreen).fill({
-            texture,
-            textureSpace: 'global',
-            matrix: new Matrix().scale(side / texture.width, side / texture.height).translate(at.x - side / 2, at.y - side / 2),
-          });
+          const onScreen = (list: number[]) => list.map((v, i) => (i % 2 === 0 ? (v - this.camera.x) * z : (v - this.camera.y) * z));
+          const fill = { texture, textureSpace: 'global' as const, matrix: new Matrix().scale(side / texture.width, side / texture.height).translate(at.x - side / 2, at.y - side / 2) };
+          const g = new Graphics().poly(onScreen(points)).fill(fill);
+          for (const piece of beyond) g.poly(onScreen(piece)).fill(fill);
+          return g;
         };
         const hole = spot(1);
         hole.blendMode = 'erase';
@@ -1024,6 +1032,12 @@ export class Game {
         }
       }
     }
+    // Soft shadows (item 5): the dark sheet with its lit holes, blurred, so a shadow darkens gradually.
+    if (soft > 0) {
+      this.shadeBlur ??= new BlurFilter({ strength: 8, quality: 3 });
+      this.shadeBlur.strength = soft * z;
+      layer.filters = [this.shadeBlur];
+    } else layer.filters = [];
     this.app.renderer.render({ container: layer, target: this.shadeTexture, clear: true });
     this.shade.texture = this.shadeTexture;
     this.shade.position.set(0, 0);
@@ -1283,7 +1297,7 @@ export class Game {
       top: this.topScores(),
       punch: this.scenery.scale.x,
       shakeAt: { x: this.app.stage.position.x, y: this.app.stage.position.y },
-      lit: this.lit.map((l) => ({ id: l.id, points: [...l.points] })),
+      lit: this.lit.map((l) => ({ id: l.id, points: [...l.points], beyond: l.beyond.map((p) => [...p]) })),
       floats: this.floats.map((f) => ({ text: f.view.text, x: f.view.x, y: f.view.y, alpha: f.view.alpha })),
       entities: this.entities.map((e) => ({
         id: e.def.id,
