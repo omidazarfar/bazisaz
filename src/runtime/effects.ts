@@ -42,7 +42,7 @@ function make(kind: EffectKind, effect: VisualEffect): Filter {
     case 'dots': return new DotFilter({ scale: 1, angle: 5 });
     case 'hatch': return new CrossHatchFilter();
     case 'crt': return new CRTFilter({ vignetting: 0 });
-    case 'film': return new OldFilmFilter({ vignetting: 0.2 });
+    case 'film': return new OldFilmFilter({ vignetting: 0 }); // (The scene has its own dark corners setting.)
     case 'glitch': return new GlitchFilter({ fillMode: 2 });
     case 'split': return new RGBSplitFilter();
     case 'bulge': return new BulgePinchFilter({ center: { x: 0.5, y: 0.5 } });

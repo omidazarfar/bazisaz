@@ -12,6 +12,8 @@ import { isListUsed, isVariableUsed, keepVersion, listVersions, makeObject, newI
 import { animatedVisual, importAtlas } from './atlas';
 import { placeTiled } from './tiled';
 import { FeelPanel } from './FeelPanel';
+import { EffectList } from './EffectList';
+import { EFFECT_PLACE_LABEL, EFFECT_PLACES, type EffectPlace } from '../format/effects';
 import { PlaytestPanel } from './PlaytestPanel';
 import { SfxMaker } from './SfxMaker';
 import { MusicMaker } from './MusicMaker';
@@ -189,6 +191,8 @@ export function GamePanel({ editor }: { editor: Editor }) {
   const setMeta = (patch: Partial<typeof meta>, key: string) => change({ ...project, meta: { ...meta, ...patch } }, `meta.${key}`);
   const setApp = (patch: Partial<typeof app>, key: string) => change({ ...project, app: { ...app, ...patch } }, `app.${key}`);
   const setAds = (patch: Partial<typeof ads>, key: string) => change({ ...project, ads: { ...ads, ...patch } }, `ads.${key}`);
+  /** Which place of the scene's visual effects is shown (item 4). */
+  const [effectPlace, setEffectPlace] = useState<EffectPlace>('all');
   const setScene = (patch: Partial<typeof scene>, key: string) => change(updateScene(project, scene.id, (s) => ({ ...s, ...patch })), `scene.${key}`);
 
   const setOrientation = (orientation: typeof meta.orientation) => {
@@ -449,6 +453,21 @@ export function GamePanel({ editor }: { editor: Editor }) {
         />
         <Select label="حال و هوای تصویر" hint="مثل فیلتر عکس، رنگ کل تصویر را عوض می‌کند." value={scene.look ?? 'none'} options={LOOK_OPTIONS} onChange={(look) => setScene({ look: look as Look }, 'look')} />
         <Check label="گوشه‌های صفحه تیره باشد" hint="چشم به وسط صفحه می‌رود؛ حس سینمایی می‌دهد." value={scene.vignette ?? false} onChange={(vignette) => setScene({ vignette }, 'vignette')} />
+        {/* Visual effects on the whole scene or one of its layers (item 4). */}
+        <div className="control-group" data-scene-effects>
+          <strong>جلوه‌های تصویری صحنه</strong>
+          <Select label="روی کجا" value={effectPlace} options={EFFECT_PLACES.map((p) => ({ value: p, label: EFFECT_PLACE_LABEL[p] }))} onChange={(p) => setEffectPlace(p as EffectPlace)} />
+          {effectPlace === 'sky' && (!scene.sky || scene.sky === 'none') && <p className="control-hint">این صحنه آسمان نقاشی‌شده ندارد؛ اول یک آسمان انتخاب کن.</p>}
+          <EffectList
+            name={EFFECT_PLACE_LABEL[effectPlace]}
+            effects={scene.effects?.[effectPlace] ?? []}
+            onChange={(effects, key) => {
+              const { [effectPlace]: _old, ...rest } = scene.effects ?? {};
+              const next = effects.length ? { ...rest, [effectPlace]: effects } : rest;
+              setScene({ effects: Object.keys(next).length ? next : undefined }, `${effectPlace}.${key}`);
+            }}
+          />
+        </div>
         <Check label="بازی با این صحنه شروع شود" value={project.startScene === scene.id} disabled={project.startScene === scene.id} onChange={() => change({ ...project, startScene: scene.id }, 'startScene')} />
         {project.scenes.length > 1 && (
           <button type="button" className="link link-danger" onClick={() => change(removeScene(project, scene.id), `scene.remove.${scene.id}`)}>

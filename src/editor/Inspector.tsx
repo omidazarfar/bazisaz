@@ -4,6 +4,7 @@ import { FONTS, ruleActions, VALUE_NAME, type Behavior, type GameObject, type Ru
 import { Check, Choice, ColorField, NumberField, Section, Select, Slider, TextField } from './controls';
 import type { Editor } from './editor';
 import { Fields } from './Fields';
+import { EffectList } from './EffectList';
 import { pickFile, pickFiles, readImage } from './images';
 import { BEHAVIOR_GROUPS, BEHAVIORS, COMMON_BEHAVIORS, fa, whyNot, type Context } from './labels';
 import { SpriteGrid, spriteVisual } from './Library';
@@ -460,6 +461,17 @@ export function Inspector({ editor }: { editor: Editor }) {
         )}
         <Check label="از اول دیده شود" hint="اگر خاموش باشد، پنهان می‌ماند تا یک قانون نشانش بدهد." value={object.visible} onChange={(visible) => update('visible', (o) => ({ ...o, visible }))} />
       </Section>}
+
+      {/* Visual effects (item 4). A tile map turns into many blocks while playing: its effects go on the world layer instead (the game tab). */}
+      {visual.kind !== 'tiles' && (
+        <Section title="جلوه‌های تصویری" about="جلوه‌هایی مثل محو، دورخط، پیکسلی، رنگ‌چرخانی یا خرابی تصویر روی همین شیء. هر کدام را با تنظیم‌هایش عوض کن؛ با کار «عوض کردن یک جلوه» قانون‌ها هم حین بازی عوضشان می‌کنند.">
+          <EffectList
+            name="این شیء"
+            effects={object.effects ?? []}
+            onChange={(effects, key) => update(key, ({ effects: _old, ...o }) => (effects.length ? { ...o, effects } : o))}
+          />
+        </Section>
+      )}
 
       <Section title="جا و اندازه" about={list === 'objects' && visual.kind !== 'text' ? 'در بازی هم می‌توانی شیء را بکشی و با مربع‌های سفید گوشه‌هایش اندازه‌اش را عوض کنی.' : undefined}>
         <Check
